@@ -15,12 +15,12 @@ import scipy.io as sio
 import re
 from SiameseNetworkWithTripletLoss import SiamesNetworkTriplet_2
 dataDir = 'D:/OneShotGestureRecognition/20181115/'
-embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir)
+embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir,lr = 0.001)
 network = embedding.build_embedding_network()
 input = Input(embedding.input_shape,name='data input')
 encoded_model = network(input)
 optimizer = SGD(
-        lr=0.001,
+        lr=0.0001,
         # lr_multipliers=learning_rate_multipliers,
         momentum=0.5 )
 output = Dense(units = 6, activation= 'softmax')(encoded_model)

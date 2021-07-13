@@ -216,28 +216,29 @@ class SiamesNetworkTriplet_2:
     def identity_loss(self, y_true, y_pred ):
         return K.mean( y_pred )
     def build_embedding_network(self):
-        CONV_model_t = Sequential( )
-        CONV_model_t.add(
+        network = Sequential( )
+        network.add(
             Conv1D( filters=512, input_shape=(self.input_shape), activation='relu', kernel_size=3, strides=1,
                     padding='same' ) )
-        CONV_model_t.add( BatchNormalization( ) )
-        CONV_model_t.add( MaxPooling1D( pool_size=3, strides=1 ) )
+        network.add( BatchNormalization( ) )
+        network.add( MaxPooling1D( pool_size=3, strides=1 ) )
 
-        CONV_model_t.add( Conv1D( filters=1024, activation='relu', kernel_size=2, padding='same' ) )
-        CONV_model_t.add( BatchNormalization( ) )
-        CONV_model_t.add( MaxPooling1D( pool_size=3, strides=1 ) )
+        network.add( Conv1D( filters=1024, activation='relu', kernel_size=2, padding='same' ) )
+        network.add( BatchNormalization( ) )
+        network.add( MaxPooling1D( pool_size=3, strides=1 ) )
 
-        CONV_model_t.add( Conv1D( filters=1024, activation='relu', kernel_size=2, padding='same' ) )
-        CONV_model_t.add( Conv1D( filters=512, activation='relu', kernel_size=2, padding='same' ) )
-        # CONV_model_t.add( MaxPooling1D( pool_size=4, strides=2 ) )
-        CONV_model_t.add( BatchNormalization( ) )
-        CONV_model_t.add( Flatten( ) )
-        CONV_model_t.add( Dense( 128, activation='relu' ) )
-        CONV_model_t.add( Dropout( 0.4 ) )
-        CONV_model_t.add( Dense( 256, activation='relu' ) )
-        CONV_model_t.add( Dropout( 0.4 ) )
-        CONV_model_t.add( Dense( 64, activation='relu' ) )
-        return CONV_model_t
+        network.add( Conv1D( filters=1024, activation='relu', kernel_size=10, padding='same' ) )
+        network.add( Conv1D( filters=512, activation='relu', kernel_size=10, padding='same' ) )
+        # network.add( MaxPooling1D( pool_size=4, strides=2 ) )
+        network.add( BatchNormalization( ) )
+        network.add( Flatten( ) )
+        network.add( Dense( 128, activation='relu' ) )
+        network.add( Dropout( 0.4 ) )
+        network.add( Dense( 256, activation='relu' ) )
+        network.add( Dropout( 0.6 ) )
+        network.add( Dense( 128, activation='relu' ) )
+        self.embedding_network = network
+        return network
     def build_TripletModel( self, network ):
         '''
         Define the Keras Model for training
@@ -253,7 +254,7 @@ class SiamesNetworkTriplet_2:
         anchor_input = Input( self.input_shape, name="anchor_input" )
         positive_input = Input( self.input_shape, name="positive_input" )
         negative_input = Input( self.input_shape, name="negative_input" )
-
+        network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
         # Generate the encodings (feature vectors) for the three images
         encoded_a = network( anchor_input )
         encoded_p = network( positive_input )
