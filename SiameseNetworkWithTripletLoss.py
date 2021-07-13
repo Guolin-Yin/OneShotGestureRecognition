@@ -161,7 +161,7 @@ class SiamesNetworkTriplet:
 
         network = self._buildModel( )
         # Force the encoding to live on the d-dimentional hypershpere
-        # ten_ges_embedding_network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
+        network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
         # Define the tensors for the three input images
         anchor_input = Input( self.input_shape, name="anchor_input" )
         positive_input = Input( self.input_shape, name="positive_input" )
@@ -218,7 +218,7 @@ class SiamesNetworkTriplet_2:
     def build_embedding_network(self):
         network = Sequential( )
         network.add(
-            Conv1D( filters=512, input_shape=(self.input_shape), activation='relu', kernel_size=3, strides=1,
+            Conv1D( filters=512, input_shape=([1600,7]), activation='relu', kernel_size=3, strides=1,
                     padding='same' ) )
         network.add( BatchNormalization( ) )
         network.add( MaxPooling1D( pool_size=3, strides=1 ) )
@@ -236,7 +236,8 @@ class SiamesNetworkTriplet_2:
         network.add( Dropout( 0.4 ) )
         network.add( Dense( 256, activation='relu' ) )
         network.add( Dropout( 0.6 ) )
-        network.add( Dense( 128, activation='relu' ) )
+        network.add( Dense( 128, activation='relu', name='last_layer' ) )
+        network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 )) )
         self.embedding_network = network
         return network
     def build_TripletModel( self, network ):
@@ -254,7 +255,7 @@ class SiamesNetworkTriplet_2:
         anchor_input = Input( self.input_shape, name="anchor_input" )
         positive_input = Input( self.input_shape, name="positive_input" )
         negative_input = Input( self.input_shape, name="negative_input" )
-        network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
+
         # Generate the encodings (feature vectors) for the three images
         encoded_a = network( anchor_input )
         encoded_p = network( positive_input )
