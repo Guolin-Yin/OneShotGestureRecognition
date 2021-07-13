@@ -145,6 +145,8 @@ class SiamesNetworkTriplet:
 
 
         return network
+
+
     def TripletNetwork( self, margin=0.2 ):
         '''
         Define the Keras Model for training
@@ -192,7 +194,12 @@ class SiamesNetworkTriplet_2:
         self.input_shape = self.gestureDataLoader.InputShape
         self.learning_rate = lr
         self.alpha = margin
-
+    def lr_scheduler(self, epoch, lr ):
+        decay_rate = 0.1
+        decay_step = 12
+        if epoch % decay_step == 0 and epoch > 10:
+            return lr * decay_rate
+        return lr
     def triplet_loss( self,x ):
         # Triplet Loss function.
         anchor, positive, negative = x
@@ -204,6 +211,7 @@ class SiamesNetworkTriplet_2:
 
         basic_loss = pos_dist - neg_dist + self.alpha
         loss = K.maximum( basic_loss, 0.0 )
+        # print(f'Dp = {pos_dist} Dn = {neg_dist}')
         return K.mean(loss)
     def identity_loss(self, y_true, y_pred ):
         return K.mean( y_pred )
@@ -282,7 +290,7 @@ def OneShotTesting( test_dir:str,embedding_model ):
             sample_index = random.randint( 0, nway - 1 )
             sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
             # print(sample_index, nway_anchor_embedding.shape, sample_embedding.shape)
-            distance = tf.sqrt( tf.reduce_sum( tf.pow( nway_anchor_embedding - sample_embedding, 2 ), 1, keepdims=True ) ).numpy( )
+            distance = K.sum( K.square( nway_anchor_embedding - sample_embedding ), axis = 1 )
             if np.argmin( distance ) == sample_index:
                 correct_count += 1
         nway_list.append( nway )
@@ -297,7 +305,7 @@ class OneShotCallback(tf.keras.callbacks.Callback):
             OneShotTesting( test_dir='./20181115/', embedding_model=self.network )
 if __name__ == '__main__':
     '''Prepare for training'''
-    network_train = SiamesNetworkTriplet_2(batch_size=1000,lr=0.00001,margin = 2.7,data_dir = './20181116/')
+    network_train = SiamesNetworkTriplet_2(batch_size=1000,lr=0.001,margin = 2.7,data_dir = './20181116/')
     ten_ges_embedding_network = network_train.build_embedding_network( )
     model = network_train.build_TripletModel( network = ten_ges_embedding_network )
 
@@ -306,10 +314,10 @@ if __name__ == '__main__':
     dataGenerator = network_train.gestureDataLoader.tripletsDataGenerator()
 
     history = model.fit( dataGenerator,
-                         epochs = 100,
+                         epochs = 1,
                          steps_per_epoch=10,
                          verbose=True,
-                         callbacks=[ callbacks ]
+                         callbacks=[ callbacks,tf.keras.callbacks.LearningRateScheduler(network_train.lr_scheduler, verbose=1) ]
                          )
     OneShotTesting( test_dir = './20181115/',
                     embedding_model=ten_ges_embedding_network,
