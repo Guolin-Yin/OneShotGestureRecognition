@@ -208,30 +208,7 @@ class SiamesNetworkTriplet_2:
     def identity_loss(self, y_true, y_pred ):
         return K.mean( y_pred )
     def build_embedding_network(self):
-        # emb_size = 128
-        # emb_size = 28
-        # network = Sequential( )
-        # network.add( Conv2D( 32, (7, 7), activation='relu',
-        #                      input_shape=self.input_shape,
-        #                      kernel_initializer='he_uniform',
-        #                      kernel_regularizer=l2( 2e-4 ) ) )
-        # network.add( MaxPooling2D( ) )
-        # network.add( Conv2D( 32, (3, 3), activation='relu', kernel_initializer='he_uniform',
-        #                      kernel_regularizer=l2( 2e-4 ) ) )
-        # network.add( MaxPooling2D( ) )
-        # network.add( Conv2D( 32, (3, 3), activation='relu', kernel_initializer='he_uniform',
-        #                      kernel_regularizer=l2( 2e-4 ) ) )
-        # network.add( Flatten( ) )
-        # network.add( Dense( 32, activation='relu',
-        #                     kernel_regularizer=l2( 1e-3 ),
-        #                     kernel_initializer='he_uniform' ) )
-        #
-        # network.add( Dense( emb_size, activation='sigmoid',
-        #                     kernel_regularizer=l2( 1e-3 ),
-        #                     kernel_initializer='he_uniform' ) )
-        # network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
-
-        CONV_model_t = Sequential( )  #
+        CONV_model_t = Sequential( )
         CONV_model_t.add(
             Conv1D( filters=512, input_shape=(self.input_shape), activation='relu', kernel_size=3, strides=1,
                     padding='same' ) )
@@ -320,7 +297,7 @@ class OneShotCallback(tf.keras.callbacks.Callback):
             OneShotTesting( test_dir='./20181115/', embedding_model=self.network )
 if __name__ == '__main__':
     '''Prepare for training'''
-    network_train = SiamesNetworkTriplet_2(batch_size=1000,lr=0.000001,margin = 2.7,data_dir = './20181116/')
+    network_train = SiamesNetworkTriplet_2(batch_size=1000,lr=0.00001,margin = 2.7,data_dir = './20181116/')
     ten_ges_embedding_network = network_train.build_embedding_network( )
     model = network_train.build_TripletModel( network = ten_ges_embedding_network )
 
