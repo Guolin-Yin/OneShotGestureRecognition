@@ -23,6 +23,10 @@ def defineModel(dataDir = dataDir):
     # input = Input(embedding.input_shape,name='data input')
     input = Input([1600,7],name='data input')
     encoded_model = network(input)
+    dense_1 = Dense(units = 128,activation='relu')(encoded_model)
+    dense_2 = Dense( units=64, activation='relu' )( dense_1 )
+    output = Dense(units = 6, activation= 'softmax')(dense_2)
+    model = Model(inputs = input,outputs = output )
     optimizer = tf.keras.optimizers.Adam(
             lr=0.0001,
             beta_1=0.9,
@@ -31,8 +35,6 @@ def defineModel(dataDir = dataDir):
             amsgrad=False,
             # lr_multipliers=learning_rate_multipliers,
              )
-    output = Dense(units = 6, activation= 'softmax')(encoded_model)
-    model = Model(inputs = input,outputs = output )
     model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
     network.summary()
     return model,network
@@ -81,12 +83,12 @@ def loadData(dataDir = dataDir):
 def reshapeData(x):
     x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
     return x
-data,labels = loadData()
-X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
-X_train = reshapeData(X_train)
+# data,labels = loadData()
+# X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
+# X_train = reshapeData(X_train)
 model,network = defineModel()
-history = model.fit(X_train, y_train,validation_split=0.1, epochs=50)
-Testing(test_dir = 'D:/OneShotGestureRecognition/20181115/',embedding_model = network)
+# history = model.fit(X_train, y_train,validation_split=0.1, epochs=50)
+# Testing(test_dir = 'D:/OneShotGestureRecognition/20181115/',embedding_model = network)
 
 # Output for sipecific layer
 # desiredLayers = [15]
