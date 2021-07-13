@@ -15,45 +15,27 @@ import scipy.io as sio
 import re
 from SiameseNetworkWithTripletLoss import SiamesNetworkTriplet_2
 from sklearn.metrics.pairwise import cosine_similarity
-dataDir = 'D:/OneShotGestureRecognition/20181115/'
-embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir,lr = 0.001)
-network = embedding.build_embedding_network()
-# network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
-# input = Input(embedding.input_shape,name='data input')
-input = Input([1600,7],name='data input')
-encoded_model = network(input)
-optimizer = tf.keras.optimizers.Adam(
-        lr=0.0001,
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-07,
-        amsgrad=False,
-        # lr_multipliers=learning_rate_multipliers,
-         )
-output = Dense(units = 6, activation= 'softmax')(encoded_model)
-model = Model(inputs = input,outputs = output )
-model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
-network.summary()
-
-# load data
-def loadData(dataDir = dataDir):
-    fileName = os.listdir(dataDir)
-    data = []
-    labels = []
-    for name in fileName:
-        path = os.path.join(dataDir,name)
-        data.append(sio.loadmat(path)['csiAmplitude'])
-        gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
-        labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=6))
-    return np.asarray(data),np.asarray(labels)
-data,labels = loadData()
-
-X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1, random_state=27 )
-X_train = X_train.reshape( np.shape( X_train )[ 0 ], X_train.shape[ 2 ], X_train.shape[ 1 ] )
-history = model.fit(X_train, y_train,validation_split=0.1, epochs=1)
-def reshapeData(x):
-    x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
-    return x
+dataDir = 'D:/OneShotGestureRecognition/20181116/'
+def defineModel(dataDir = dataDir):
+    embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir,lr = 0.001)
+    network = embedding.build_embedding_network()
+    # network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
+    # input = Input(embedding.input_shape,name='data input')
+    input = Input([1600,7],name='data input')
+    encoded_model = network(input)
+    optimizer = tf.keras.optimizers.Adam(
+            lr=0.0001,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07,
+            amsgrad=False,
+            # lr_multipliers=learning_rate_multipliers,
+             )
+    output = Dense(units = 6, activation= 'softmax')(encoded_model)
+    model = Model(inputs = input,outputs = output )
+    model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
+    network.summary()
+    return model,network
 def Testing( test_dir:str,embedding_model ):
     test_sample = 100
     nway_min = 2
@@ -85,6 +67,25 @@ def Testing( test_dir:str,embedding_model ):
         acc = (correct_count / test_sample) * 100.
         test_acc.append( acc )
         print( "Accuracy %.2f" % acc )
+# load data
+def loadData(dataDir = dataDir):
+    fileName = os.listdir(dataDir)
+    data = []
+    labels = []
+    for name in fileName:
+        path = os.path.join(dataDir,name)
+        data.append(sio.loadmat(path)['csiAmplitude'])
+        gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
+        labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=6))
+    return np.asarray(data),np.asarray(labels)
+def reshapeData(x):
+    x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
+    return x
+data,labels = loadData()
+X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
+X_train = reshapeData(X_train)
+model,network = defineModel()
+history = model.fit(X_train, y_train,validation_split=0.1, epochs=50)
 Testing(test_dir = 'D:/OneShotGestureRecognition/20181115/',embedding_model = network)
 
 # Output for sipecific layer
