@@ -55,32 +55,48 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int ):
     nway_min = 2
     nway_max = 6
     test_acc = [ ]
-    nway_list = [ ]
+    # nway_list = [ ]
     for nway in range( nway_min, nway_max + 1 ):
         print( "Checking %d way accuracy...." % nway )
         correct_count = 0
-        for _ in range( test_sample ):
-            # Retrieving nway number of triplets and calculating embedding vector
-            nway_anchor, nway_positive, _ = gestureDataLoader(  data_path =test_dir,
-                                                                batch_size = nway ).getTripletTrainBatcher( )
-            nway_anchor = reshapeData(nway_anchor)
-            nway_positive = reshapeData(nway_positive)
-            # support set, it has N different classes depending on the batch_size
-            # nway_anchor has the same class with nway_positive at the same row
-            nway_anchor_embedding = embedding_model.predict( nway_anchor )
+        if nway == 1:
+            for _ in range( test_sample ):
+                threshold =0
+                nway_anchor, nway_positive, _ = gestureDataLoader( data_path=test_dir,
+                                                                   batch_size=nway ).getTripletTrainBatcher( )
+                nway_anchor = reshapeData(nway_anchor)
+                nway_positive = reshapeData(nway_positive)
+                nway_anchor_embedding = embedding_model.predict( nway_anchor )
+                sample_index = random.randint( 0, nway - 1 )
+                sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
+                sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
+                if sim >= threshold:
+                    correct_count += 1
+            acc = (correct_count / test_sample) * 100.
+            print( "Accuracy %.2f" % acc )
+        if nway > 1:
+            for _ in range( test_sample ):
+                # Retrieving nway number of triplets and calculating embedding vector
+                nway_anchor, nway_positive, _ = gestureDataLoader(  data_path =test_dir,
+                                                                    batch_size = nway ).getTripletTrainBatcher( )
+                nway_anchor = reshapeData(nway_anchor)
+                nway_positive = reshapeData(nway_positive)
+                # support set, it has N different classes depending on the batch_size
+                # nway_anchor has the same class with nway_positive at the same row
+                nway_anchor_embedding = embedding_model.predict( nway_anchor )
 
-            sample_index = random.randint( 0, nway - 1 )
-            sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
-            # print(sample_index, nway_anchor_embedding.shape, sample_embedding.shape)
-            # sim = K.sum( K.square( nway_anchor_embedding - sample_embedding ), axis = 1 )
-            # using cosine_similarity
-            sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-            if np.argmax( sim ) == sample_index:
-                correct_count += 1
-        nway_list.append( nway )
-        acc = (correct_count / test_sample) * 100.
-        test_acc.append( acc )
-        print( "Accuracy %.2f" % acc )
+                sample_index = random.randint( 0, nway - 1 )
+                sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
+                # print(sample_index, nway_anchor_embedding.shape, sample_embedding.shape)
+                sim = K.sum( K.square( nway_anchor_embedding - sample_embedding ), axis = 1 )
+                # using cosine_similarity
+                # sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
+                if np.argmin( sim ) == sample_index:
+                    correct_count += 1
+        #   nway_list.append( nway )
+            acc = (correct_count / test_sample) * 100.
+            test_acc.append( acc )
+            print( "Accuracy %.2f" % acc )
 # load data
 def loadData(dataDir):
     fileName = os.listdir(dataDir)

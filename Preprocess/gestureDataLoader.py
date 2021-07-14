@@ -175,7 +175,7 @@ class gestureDataLoader:
             batch_gesture_path.append(All_available_current_Gesture_path[different_gesture_sample_index[0]])
         data, labels = self._mapPathToDataAndLabels(batch_gesture_path,is_one_shot_task = False,is_triplet_loss=False)
         return data,labels
-    def getTripletTrainBatcher(self):
+    def getTripletTrainBatcher(self,isTest:bool = False,nShots:int = None):
         '''
         prepare the triplet batches for training.
         Every sample of our batch will contain 3 pictures :
@@ -190,23 +190,26 @@ class gestureDataLoader:
             rand_gesture_idx = random.randint( 0, self.num_gesture_types - 1 )
             anchor_gesture_Type = list( self.gesture_class.keys( ) )[rand_gesture_idx ]
             All_available_current_Gesture_path = self.gesture_class[ anchor_gesture_Type ]
+            if isTest:
+                idx = np.random.choice( len( All_available_current_Gesture_path ), size=nShots, replace=False )
+                for s in idx:
+                    triplets_path.append( All_available_current_Gesture_path[ s ] )
+            if not isTest:
+                # Pick two different random samples for this class => Anchor and Positive
+                [ idx_Anchor, idx_Positive ] = np.random.choice( len(All_available_current_Gesture_path), size=2, replace=False )
+                triplets_path.append( All_available_current_Gesture_path[ idx_Anchor ] )
+                triplets_path.append( All_available_current_Gesture_path[ idx_Positive ] )
 
-            
-            # Pick two different random samples for this class => Anchor and Positive
-            [ idx_Anchor, idx_Positive ] = np.random.choice( len(All_available_current_Gesture_path), size=2, replace=False )
-            triplets_path.append( All_available_current_Gesture_path[ idx_Anchor ] )
-            triplets_path.append( All_available_current_Gesture_path[ idx_Positive ] )
+                # Pick another class for Negative, different from anchor_gesture
+                different_gesture_type = copy.deepcopy( self.gesture_class )
+                different_gesture_type.pop( anchor_gesture_Type )
+                # rand_negative_gesture_type_idx = random.randint( 0, self.num_gesture_types - 1 )
+                rand_negative_gesture_type_idx = random.randint( 0, len(different_gesture_type) - 1 )
+                negative_gesture_type= list( different_gesture_type.keys( ) )[rand_negative_gesture_type_idx ]
 
-            # Pick another class for Negative, different from anchor_gesture
-            different_gesture_type = copy.deepcopy( self.gesture_class )
-            different_gesture_type.pop( anchor_gesture_Type )
-            # rand_negative_gesture_type_idx = random.randint( 0, self.num_gesture_types - 1 )
-            rand_negative_gesture_type_idx = random.randint( 0, len(different_gesture_type) - 1 )
-            negative_gesture_type= list( different_gesture_type.keys( ) )[rand_negative_gesture_type_idx ]
-
-            All_available_current_Gesture_path = different_gesture_type[negative_gesture_type]
-            idx_Negative = np.random.choice(len(All_available_current_Gesture_path),size=1,replace=False)
-            triplets_path.append( All_available_current_Gesture_path[ idx_Negative[0] ] )
+                All_available_current_Gesture_path = different_gesture_type[negative_gesture_type]
+                idx_Negative = np.random.choice(len(All_available_current_Gesture_path),size=1,replace=False)
+                triplets_path.append( All_available_current_Gesture_path[ idx_Negative[0] ] )
         data = self._mapPathToDataAndLabels( triplets_path, is_one_shot_task=False, is_triplet_loss=True )
         return data
     def tripletsDataGenerator(self):
