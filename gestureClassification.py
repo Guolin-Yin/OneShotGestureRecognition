@@ -32,12 +32,12 @@ def defineModel(dataDir):
     # input = Input(embedding.input_shape,name='data input')
     input = Input([1600,7],name='data input')
     encoded_model = network(input)
-    dense_1 = Dense(units = 128,activation='relu')(encoded_model)
-    dropOut_1 = Dropout( 0.4 )(dense_1)
-    dense_2 = Dense( units=256, activation='relu' )( dropOut_1 )
-    dropOut_2 = Dropout( 0.6 )(dense_2)
-    dense_3 = Dense( units=128, activation='relu' )( dropOut_2 )
-    output = Dense(units = 10, activation= 'softmax')(dense_3)
+    # dense_1 = Dense(units = 128,activation='relu')(encoded_model)
+    # dropOut_1 = Dropout( 0.4 )(dense_1)
+    # dense_2 = Dense( units=256, activation='relu' )( dropOut_1 )
+    # dropOut_2 = Dropout( 0.6 )(dense_2)
+    # dense_3 = Dense( units=128, activation='relu' )( dropOut_2 )
+    output = Dense(units = 10, activation= 'softmax')(encoded_model)
     model = Model(inputs = input,outputs = output )
     optimizer = tf.keras.optimizers.Adam(
             lr=0.001,
@@ -99,18 +99,19 @@ def scheduler(epoch, lr):
     if epoch < 5:
         return lr
     else:
-        return lr * tf.math.exp(-0.1)
+        return lr * tf.math.exp(-0.2)
 if __name__ == '__main__':
 
     data,labels = loadData(dataDir = config.train_dir)
     X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
     X_train = reshapeData(X_train)
-    model,network = defineModel()
+    model,network = defineModel(config.train_dir)
 
     lrScheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
     earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5,restore_best_weights=True)
     history = model.fit(X_train, y_train,validation_split=0.1, epochs=50,callbacks = [lrScheduler,earlyStop])
-    Testing(test_dir = config.eval_dir,embedding_model = network)
+    Testing(test_dir = config.eval_dir,embedding_model = network,N_test_sample=500)
+    model.evaluate(reshapeData(X_test), y_test)
     # saving the weights for trained
     network.save_weights( './models/similarity_featureExtractor_weights.h5' )
     model.save_weights('./models/similarity_whole_model_weights.h5')

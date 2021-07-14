@@ -17,8 +17,6 @@ if gpus:
     print(e)
 config = getConfig()
 
-
-
 #Define and load the trained model
 model,trained_featureExtractor = defineModel( dataDir=config.train_dir )
 trained_featureExtractor.load_weights( './models/similarity_model_weights.h5' )
