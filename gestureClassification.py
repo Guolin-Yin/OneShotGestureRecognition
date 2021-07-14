@@ -15,8 +15,17 @@ import scipy.io as sio
 import re
 from SiameseNetworkWithTripletLoss import SiamesNetworkTriplet_2
 from sklearn.metrics.pairwise import cosine_similarity
-
-def defineModel(dataDir = 'D:/OneShotGestureRecognition/20181116/'):
+from Config import getConfig
+'''Initialization parameters'''
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+  try:
+    for gpu in gpus:
+      tf.config.experimental.set_memory_growth(gpu, True)
+  except RuntimeError as e:
+    print(e)
+config = getConfig()
+def defineModel(dataDir):
     embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir,lr = 0.001)
     network = embedding.build_embedding_network()
     # network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
@@ -41,8 +50,8 @@ def defineModel(dataDir = 'D:/OneShotGestureRecognition/20181116/'):
     model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
     model.summary()
     return model,network
-def Testing( test_dir:str,embedding_model ):
-    test_sample = 1000
+def Testing( test_dir:str,embedding_model,N_test_sample:int ):
+    test_sample = N_test_sample
     nway_min = 2
     nway_max = 6
     test_acc = [ ]
@@ -92,8 +101,8 @@ def scheduler(epoch, lr):
     else:
         return lr * tf.math.exp(-0.1)
 if __name__ == '__main__':
-    dataDir = 'D:/OneShotGestureRecognition/20181116/'
-    data,labels = loadData(dataDir = dataDir)
+
+    data,labels = loadData(dataDir = config.train_dir)
     X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
     X_train = reshapeData(X_train)
     model,network = defineModel()
@@ -101,7 +110,7 @@ if __name__ == '__main__':
     lrScheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
     earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5,restore_best_weights=True)
     history = model.fit(X_train, y_train,validation_split=0.1, epochs=50,callbacks = [lrScheduler,earlyStop])
-    Testing(test_dir = 'D:/OneShotGestureRecognition/20181115/',embedding_model = network)
+    Testing(test_dir = config.eval_dir,embedding_model = network)
     # saving the weights for trained
     network.save_weights( './models/similarity_featureExtractor_weights.h5' )
     model.save_weights('./models/similarity_whole_model_weights.h5')

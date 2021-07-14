@@ -6,7 +6,8 @@ from tensorflow.keras.models import load_model
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
-from Config import config
+from Config import getConfig
+'''Initialization parameters'''
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
   try:
@@ -14,15 +15,15 @@ if gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
   except RuntimeError as e:
     print(e)
-config = config()
+config = getConfig()
 
-evaluation_Dir = 'D:/OneShotGestureRecognition/20181115'
-train_Dir = 'D:/OneShotGestureRecognition/20181116'
+
+
 #Define and load the trained model
-model,trained_featureExtractor = defineModel( dataDir=train_Dir )
+model,trained_featureExtractor = defineModel( dataDir=config.train_dir )
 trained_featureExtractor.load_weights( './models/similarity_model_weights.h5' )
 trained_featureExtractor.summary()
-Testing(test_dir = evaluation_Dir,embedding_model = trained_featureExtractor)
+Testing(test_dir = evaluation_Dir,embedding_model = trained_featureExtractor,N_test_sample = 100)
 '''
 Trained feature extractor performance on evaluation dataset:
 Checking 2 way accuracy....
@@ -37,7 +38,7 @@ Checking 6 way accuracy....
 Accuracy 24.50
 rained feature extractor performance on training dataset:
 '''
-data,labels = loadData( dataDir = train_Dir )
+data,labels = loadData( dataDir = config.eval_dir )
 X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
 model.load_weights('./models/similarity_whole_model_weights.h5')
-model.evaluate(reshapeData(X_train),y_train)
+# model.evaluate(reshapeData(X_train),y_train)
