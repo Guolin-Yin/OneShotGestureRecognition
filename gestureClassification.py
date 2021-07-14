@@ -16,7 +16,7 @@ import re
 from SiameseNetworkWithTripletLoss import SiamesNetworkTriplet_2
 from sklearn.metrics.pairwise import cosine_similarity
 
-def defineModel(dataDir = dataDir):
+def defineModel(dataDir = 'D:/OneShotGestureRecognition/20181116/'):
     embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir,lr = 0.001)
     network = embedding.build_embedding_network()
     # network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
@@ -102,7 +102,9 @@ if __name__ == '__main__':
     earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5,restore_best_weights=True)
     history = model.fit(X_train, y_train,validation_split=0.1, epochs=50,callbacks = [lrScheduler,earlyStop])
     Testing(test_dir = 'D:/OneShotGestureRecognition/20181115/',embedding_model = network)
-    network.save_weights('./models/similarity_model_weights.h5')
+    # saving the weights for trained
+    network.save_weights( './models/similarity_featureExtractor_weights.h5' )
+    model.save_weights('./models/similarity_whole_model_weights.h5')
 # Output for sipecific layer
 # desiredLayers = [15]
 # desiredOutputs = [network.layers[i].output for i in desiredLayers]
