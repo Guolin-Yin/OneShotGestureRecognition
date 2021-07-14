@@ -232,11 +232,11 @@ class SiamesNetworkTriplet_2:
         # network.add( MaxPooling1D( pool_size=4, strides=2 ) )
         network.add( BatchNormalization( ) )
         network.add( Flatten( ) )
-        network.add( Dense( 128, activation='relu' ) )
-        network.add( Dropout( 0.4 ) )
-        network.add( Dense( 256, activation='relu' ) )
-        network.add( Dropout( 0.6 ) )
-        network.add( Dense( 128, activation='relu', name='last_layer' ) )
+        # network.add( Dense( 128, activation='relu' ) )
+        # network.add( Dropout( 0.4 ) )
+        # network.add( Dense( 256, activation='relu' ) )
+        # network.add( Dropout( 0.6 ) )
+        # network.add( Dense( 128, activation='relu', name='last_layer' ) )
         network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 )) )
         self.embedding_network = network
         return network
@@ -246,7 +246,7 @@ class SiamesNetworkTriplet_2:
             Input :
                 input_shape : shape of input images
                 ten_ges_embedding_network : Neural ten_ges_embedding_network to train outputing embeddings
-                margin : minimal distance between Anchor-Positive and Anchor-Negative for the lossfunction (alpha)
+                margin : minimal distance between Anchor-Positive and Anchor-Negative for the loss function (alpha)
             https://github.com/pranjalg2308/siamese_triplet_loss/blob/master/Siamese_With_Triplet_Loss.ipynb
             https://keras.io/examples/vision/siamese_network/
             https://github.com/CrimyTheBold/tripletloss/blob/master/02%20-%20tripletloss%20MNIST.ipynb

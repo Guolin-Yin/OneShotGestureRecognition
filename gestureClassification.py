@@ -24,11 +24,14 @@ def defineModel(dataDir = dataDir):
     input = Input([1600,7],name='data input')
     encoded_model = network(input)
     dense_1 = Dense(units = 128,activation='relu')(encoded_model)
-    dense_2 = Dense( units=64, activation='relu' )( dense_1 )
-    output = Dense(units = 6, activation= 'softmax')(dense_2)
+    dropOut_1 = Dropout( 0.4 )(dense_1)
+    dense_2 = Dense( units=256, activation='relu' )( dropOut_1 )
+    dropOut_2 = Dropout( 0.6 )(dense_2)
+    dense_3 = Dense( units=128, activation='relu' )( dropOut_2 )
+    output = Dense(units = 10, activation= 'softmax')(dense_3)
     model = Model(inputs = input,outputs = output )
     optimizer = tf.keras.optimizers.Adam(
-            lr=0.0001,
+            lr=0.001,
             beta_1=0.9,
             beta_2=0.999,
             epsilon=1e-07,
@@ -36,10 +39,10 @@ def defineModel(dataDir = dataDir):
             # lr_multipliers=learning_rate_multipliers,
              )
     model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
-    network.summary()
+    model.summary()
     return model,network
 def Testing( test_dir:str,embedding_model ):
-    test_sample = 100
+    test_sample = 1000
     nway_min = 2
     nway_max = 6
     test_acc = [ ]
@@ -62,7 +65,7 @@ def Testing( test_dir:str,embedding_model ):
             # print(sample_index, nway_anchor_embedding.shape, sample_embedding.shape)
             # sim = K.sum( K.square( nway_anchor_embedding - sample_embedding ), axis = 1 )
             # using cosine_similarity
-            sim = cosine_similarity( nway_anchor_embedding, np.expand_dims( sample_embedding[sample_index ], axis = 0 ) )
+            sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
             if np.argmax( sim ) == sample_index:
                 correct_count += 1
         nway_list.append( nway )
@@ -78,18 +81,27 @@ def loadData(dataDir = dataDir):
         path = os.path.join(dataDir,name)
         data.append(sio.loadmat(path)['csiAmplitude'])
         gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
-        labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=6))
+        labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=10))
     return np.asarray(data),np.asarray(labels)
 def reshapeData(x):
     x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
     return x
-# data,labels = loadData()
-# X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
-# X_train = reshapeData(X_train)
-model,network = defineModel()
-# history = model.fit(X_train, y_train,validation_split=0.1, epochs=50)
-# Testing(test_dir = 'D:/OneShotGestureRecognition/20181115/',embedding_model = network)
+def scheduler(epoch, lr):
+    if epoch < 5:
+        return lr
+    else:
+        return lr * tf.math.exp(-0.1)
+if __name__ == '__main__':
+    data,labels = loadData()
+    X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
+    X_train = reshapeData(X_train)
+    model,network = defineModel()
 
+    lrScheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
+    earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5,restore_best_weights=True)
+    history = model.fit(X_train, y_train,validation_split=0.1, epochs=50,callbacks = [lrScheduler,earlyStop])
+    Testing(test_dir = 'D:/OneShotGestureRecognition/20181115/',embedding_model = network)
+    network.save_weights('./models/similarity_model_weights.h5')
 # Output for sipecific layer
 # desiredLayers = [15]
 # desiredOutputs = [network.layers[i].output for i in desiredLayers]
