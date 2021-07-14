@@ -15,7 +15,7 @@ import scipy.io as sio
 import re
 from SiameseNetworkWithTripletLoss import SiamesNetworkTriplet_2
 from sklearn.metrics.pairwise import cosine_similarity
-dataDir = 'D:/OneShotGestureRecognition/20181116/'
+
 def defineModel(dataDir = dataDir):
     embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir,lr = 0.001)
     network = embedding.build_embedding_network()
@@ -73,7 +73,7 @@ def Testing( test_dir:str,embedding_model ):
         test_acc.append( acc )
         print( "Accuracy %.2f" % acc )
 # load data
-def loadData(dataDir = dataDir):
+def loadData(dataDir):
     fileName = os.listdir(dataDir)
     data = []
     labels = []
@@ -92,7 +92,8 @@ def scheduler(epoch, lr):
     else:
         return lr * tf.math.exp(-0.1)
 if __name__ == '__main__':
-    data,labels = loadData()
+    dataDir = 'D:/OneShotGestureRecognition/20181116/'
+    data,labels = loadData(dataDir = dataDir)
     X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
     X_train = reshapeData(X_train)
     model,network = defineModel()
