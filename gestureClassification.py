@@ -55,6 +55,8 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int ):
     nway_min = 2
     nway_max = 6
     test_acc = [ ]
+    def averageSim(x):
+        return np.mean(x)
     # nway_list = [ ]
     for nway in range( nway_min, nway_max + 1 ):
         print( "Checking %d way accuracy...." % nway )
@@ -76,22 +78,28 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int ):
             print( "Accuracy %.2f" % acc )
         if nway > 1:
             for _ in range( test_sample ):
+                sim = []
                 # Retrieving nway number of triplets and calculating embedding vector
-                nway_anchor, nway_positive, _ = gestureDataLoader(  data_path =test_dir,
-                                                                    batch_size = nway ).getTripletTrainBatcher( )
-                nway_anchor = reshapeData(nway_anchor)
+                nway_anchor, nway_positive= gestureDataLoader(  data_path =test_dir,
+                                                                    batch_size = nway ).getTripletTrainBatcher( isTest = True,nShots = 20 )
+
                 nway_positive = reshapeData(nway_positive)
                 # support set, it has N different classes depending on the batch_size
                 # nway_anchor has the same class with nway_positive at the same row
-                nway_anchor_embedding = embedding_model.predict( nway_anchor )
 
                 sample_index = random.randint( 0, nway - 1 )
                 sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
-                # print(sample_index, nway_anchor_embedding.shape, sample_embedding.shape)
-                sim = K.sum( K.square( nway_anchor_embedding - sample_embedding ), axis = 1 )
+
+                for nB in range(nway):
+                    nway_anchor_nB = reshapeData( nway_anchor[nB] )
+                    nway_anchor_embedding_for_batch = embedding_model.predict( nway_anchor_nB )
+                    sim_nb_batch = averageSim(cosine_similarity( nway_anchor_embedding_for_batch, sample_embedding ))
+                    sim.append(sim_nb_batch)
+
+                # sim = K.sum( K.square( nway_anchor_embedding - sample_embedding ), axis = 1 )
                 # using cosine_similarity
                 # sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-                if np.argmin( sim ) == sample_index:
+                if np.argmax( sim ) == sample_index:
                     correct_count += 1
         #   nway_list.append( nway )
             acc = (correct_count / test_sample) * 100.
@@ -108,7 +116,10 @@ def loadData(dataDir):
         gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
         labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=10))
     return np.asarray(data),np.asarray(labels)
-def reshapeData(x):
+def reshapeData(x,mode:str = None):
+    # if mode == 'nshots':
+    #     x = x.reshape( np.shape( x )[ 0 ],x.shape[ 1 ], x.shape[ 3 ], x.shape[ 2 ] )
+    # else:
     x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
     return x
 def scheduler(epoch, lr):

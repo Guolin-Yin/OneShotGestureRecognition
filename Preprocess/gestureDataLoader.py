@@ -111,7 +111,7 @@ class gestureDataLoader:
                         filePath = os.path.join(self.data_path,currentFileName)
                         recordGesture.append(filePath)
                 self.gesture_class[g_type] = recordGesture
-    def _mapPathToDataAndLabels(self,path:list, is_one_shot_task:bool,is_triplet_loss:bool):
+    def _mapPathToDataAndLabels(self,path:list,is_triplet_loss:bool,is_one_shot_task:bool=None,isTest:bool=None,nshots:int=None):
         if not is_triplet_loss:
             num_of_pairs = int(len(path)/2)
             pairs_of_samples = [ np.zeros( (num_of_pairs, self.num_subcarriers, self.len_signals) ) for i in range( 2 ) ]
@@ -129,24 +129,27 @@ class gestureDataLoader:
                     else:
                         labels[pair] = 0
             return pairs_of_samples, labels
-        else:
-
-
-            num_triplets = int(len(path)/3)
-            triplets = [ np.zeros( (self.batch_size, self.num_subcarriers, self.len_signals) ) for i in range( 3 ) ]
-            for i in range(num_triplets):
-                data = sio.loadmat( path[ i * 3 ] )[ 'csiAmplitude' ]
-                triplets[ 0 ][ i, :, : ] = data
-                data = sio.loadmat( path[ i * 3 + 1 ] )[ 'csiAmplitude' ]
-                triplets[ 1 ][ i, :, :  ] = data
-                data = sio.loadmat( path[ i * 3 + 2 ] )[ 'csiAmplitude' ]
-                triplets[ 2 ][ i, :, : ] = data
-            # buff = [ ]
-            # for in_trip in range(len(triplets)):
-            #     buf = [ ]
-            #     for j in range(triplets[0].shape[0]):
-            #         buf.append(self._preprocessData(triplets[in_trip][j,:,:]))
-            #     buff.append(np.asarray(buf))
+        if is_triplet_loss:
+            if isTest:
+                num_pairs = int( len( path ) / (nshots + 1) )
+                triplets = [ np.zeros( (self.batch_size, nshots, self.num_subcarriers, self.len_signals) ) ,\
+                             np.zeros( (self.batch_size, self.num_subcarriers, self.len_signals) )]
+                for i in range( num_pairs ):
+                    data = []
+                    for n in range(nshots + 1):
+                        data.append( sio.loadmat( path[ i * (nshots + 1) + n ] )[ 'csiAmplitude' ] )
+                    triplets[ 0 ][i,:nshots,:,:] = np.asarray(data[0:nshots])
+                    triplets[ 1 ][i,:,:] = np.asarray(data[nshots:nshots+1])
+            else:
+                num_triplets = int(len(path)/3)
+                triplets = [ np.zeros( (self.batch_size, self.num_subcarriers, self.len_signals) ) for i in range( 3 ) ]
+                for i in range(num_triplets):
+                    data = sio.loadmat( path[ i * 3 ] )[ 'csiAmplitude' ]
+                    triplets[ 0 ][ i, :, : ] = data
+                    data = sio.loadmat( path[ i * 3 + 1 ] )[ 'csiAmplitude' ]
+                    triplets[ 1 ][ i, :, :  ] = data
+                    data = sio.loadmat( path[ i * 3 + 2 ] )[ 'csiAmplitude' ]
+                    triplets[ 2 ][ i, :, : ] = data
             return triplets
     def getTrainBatcher(self):
         '''
@@ -191,7 +194,7 @@ class gestureDataLoader:
             anchor_gesture_Type = list( self.gesture_class.keys( ) )[rand_gesture_idx ]
             All_available_current_Gesture_path = self.gesture_class[ anchor_gesture_Type ]
             if isTest:
-                idx = np.random.choice( len( All_available_current_Gesture_path ), size=nShots, replace=False )
+                idx = np.random.choice( len( All_available_current_Gesture_path ), size=nShots+1, replace=False )
                 for s in idx:
                     triplets_path.append( All_available_current_Gesture_path[ s ] )
             if not isTest:
@@ -210,7 +213,16 @@ class gestureDataLoader:
                 All_available_current_Gesture_path = different_gesture_type[negative_gesture_type]
                 idx_Negative = np.random.choice(len(All_available_current_Gesture_path),size=1,replace=False)
                 triplets_path.append( All_available_current_Gesture_path[ idx_Negative[0] ] )
-        data = self._mapPathToDataAndLabels( triplets_path, is_one_shot_task=False, is_triplet_loss=True )
+        if isTest:
+            data = self._mapPathToDataAndLabels( triplets_path,
+                                                 is_one_shot_task=False,
+                                                 is_triplet_loss=True,
+                                                 isTest = isTest,
+                                                 nshots = nShots)
+        if not isTest:
+            data = self._mapPathToDataAndLabels( triplets_path,
+                                                 is_one_shot_task=False,
+                                                 is_triplet_loss=True )
         return data
     def tripletsDataGenerator(self):
         while True:
@@ -221,11 +233,7 @@ class gestureDataLoader:
 
 if __name__ == '__main__':
     gestureDataLoader = gestureDataLoader( data_path = 'D:/OneShotGestureRecognition/20181116')
-    data = gestureDataLoader.getTripletTrainBatcher()
+    data,tData = gestureDataLoader.getTripletTrainBatcher(isTest = True,nShots = 5)
+    a = data.reshape(data.shape[0]*data.shape[1],data.shape[2],data.shape[3])
     # triplets = gestureDataLoader.getTripletTrainBatcher()
     # generator = gestureDataLoader.tripletsDataGenerator()
-    # x = standardisers( data )
-    # y = remove_zero( x )
-    # z = get_deonised_data( y, cf_freq=100 )
-    # e = get_median_dnData( data=z, size=7, mode="array" )
-    # f,_ = pca_denoise(data = e, n_comp = 7)

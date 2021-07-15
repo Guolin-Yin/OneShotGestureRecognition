@@ -21,7 +21,7 @@ config = getConfig()
 model,trained_featureExtractor = defineModel( dataDir=config.train_dir )
 trained_featureExtractor.load_weights( './models/similarity_model_weights.h5' )
 trained_featureExtractor.summary()
-Testing(test_dir = evaluation_Dir,embedding_model = trained_featureExtractor,N_test_sample = 100)
+Testing(test_dir = config.eval_dir,embedding_model = trained_featureExtractor,N_test_sample = 100)
 
 data,labels = loadData( dataDir = config.eval_dir )
 X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)

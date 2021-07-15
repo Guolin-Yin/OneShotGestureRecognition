@@ -426,3 +426,60 @@ def remove_dense(model):
     encoder = Model(inputs=model.input, outputs= model.get_layer('feature_layer').output)
     return encoder
 
+
+def compute_probs( network, X, Y ):
+    '''
+    Input
+        network : current NN to compute embeddings
+        X : tensor of shape (m,w,h,1) containing pics to evaluate
+        Y : tensor of shape (m,) containing true class
+
+    Returns
+        probs : array of shape (m,m) containing distances
+
+    '''
+    m = X.shape[ 0 ]
+    nbevaluation = int( m * (m - 1) / 2 )
+    probs = np.zeros( (nbevaluation) )
+    y = np.zeros( (nbevaluation) )
+
+    # Compute all embeddings for all pics with current network
+    embeddings = network.predict( X )
+
+    size_embedding = embeddings.shape[ 1 ]
+
+    # For each pics of our dataset
+    k = 0
+    for i in range( m ):
+        # Against all other images
+        for j in range( i + 1, m ):
+            # compute the probability of being the right decision : it should be 1 for right class, 0 for all other
+            # classes
+            probs[ k ] = -compute_dist( embeddings[ i, : ], embeddings[ j, : ] )
+            if (Y[ i ] == Y[ j ]):
+                y[ k ] = 1
+                # print("{3}:{0} vs {1} : {2}\tSAME".format(i,j,probs[k],k))
+            else:
+                y[ k ] = 0
+                # print("{3}:{0} vs {1} : \t\t\t{2}\tDIFF".format(i,j,probs[k],k))
+            k += 1
+    return probs, y
+
+
+def compute_metrics( probs, yprobs ):
+    '''
+    Returns
+        fpr : Increasing false positive rates such that element i is the false positive rate of predictions with
+        score >= thresholds[i]
+        tpr : Increasing true positive rates such that element i is the true positive rate of predictions with score
+        >= thresholds[i].
+        thresholds : Decreasing thresholds on the decision function used to compute fpr and tpr. thresholds[0]
+        represents no instances being predicted and is arbitrarily set to max(y_score) + 1
+        auc : Area Under the ROC Curve metric
+    '''
+    # calculate AUC
+    auc = roc_auc_score( yprobs, probs )
+    # calculate roc curve
+    fpr, tpr, thresholds = roc_curve( yprobs, probs )
+
+    return fpr, tpr, thresholds, auc
