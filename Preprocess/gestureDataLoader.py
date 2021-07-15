@@ -111,7 +111,8 @@ class gestureDataLoader:
                         filePath = os.path.join(self.data_path,currentFileName)
                         recordGesture.append(filePath)
                 self.gesture_class[g_type] = recordGesture
-    def _mapPathToDataAndLabels(self,path:list,is_triplet_loss:bool,is_one_shot_task:bool=None,isTest:bool=None,nshots:int=None):
+    def _mapPathToDataAndLabels(self,path:list,is_triplet_loss:bool,\
+                                is_one_shot_task:bool=None,isTest:bool=None,nshots:int=None):
         if not is_triplet_loss:
             num_of_pairs = int(len(path)/2)
             pairs_of_samples = [ np.zeros( (num_of_pairs, self.num_subcarriers, self.len_signals) ) for i in range( 2 ) ]
