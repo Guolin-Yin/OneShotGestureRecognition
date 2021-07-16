@@ -44,7 +44,7 @@ class SiamesNetworkTriplet:
         best_accuracy_iteration = 0
 
         for iter in range(number_of_iterations):
-            data = self.gestureDataLoader.getTripletTrainBatcher()
+            data = self.gestureDataLoader.getTripletTrainBatcher( )
             train_loss = self.model.train_on_batch(data)
             # Update learning rate and momentum
             if (iter + 1)% 500 == 0:
@@ -283,8 +283,8 @@ def OneShotTesting( test_dir:str,embedding_model ):
         correct_count = 0
         for _ in range( test_sample ):
             # Retrieving nway number of triplets and calculating embedding vector
-            nway_anchor, nway_positive, _ = gestureDataLoader(  data_path =test_dir,
-                                                                batch_size = nway ).getTripletTrainBatcher( )
+            nway_anchor, nway_positive, _ = gestureDataLoader( data_path=test_dir,
+                                                               batch_size=nway ).getTripletTrainBatcher( )
             # support set, it has N different classes depending on the batch_size
             # nway_anchor has the same class with nway_positive at the same row
             nway_anchor_embedding = embedding_model.predict( nway_anchor )

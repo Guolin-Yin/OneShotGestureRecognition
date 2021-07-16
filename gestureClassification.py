@@ -37,7 +37,7 @@ def defineModel(dataDir):
     # dense_2 = Dense( units=256, activation='relu' )( dropOut_1 )
     # dropOut_2 = Dropout( 0.6 )(dense_2)
     # dense_3 = Dense( units=128, activation='relu' )( dropOut_2 )
-    output = Dense(units = 10, activation= 'softmax')(encoded_model)
+    output = Dense(units = 6, activation= 'softmax')(encoded_model)
     model = Model(inputs = input,outputs = output )
     optimizer = tf.keras.optimizers.Adam(
             lr=0.001,
@@ -50,10 +50,9 @@ def defineModel(dataDir):
     model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
     model.summary()
     return model,network
-def Testing( test_dir:str,embedding_model,N_test_sample:int,ifOneShot:bool=True ):
-    test_sample = N_test_sample
+def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=True ):
     nway_min = 2
-    nway_max = 6
+    nway_max = 10
     test_acc = [ ]
     def averageSim(x):
         return np.mean(x)
@@ -62,7 +61,7 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,ifOneShot:bool=True 
         print( "Checking %d way accuracy...." % nway )
         correct_count = 0
         if nway == 1:
-            for _ in range( test_sample ):
+            for _ in range( N_test_sample ):
                 threshold =0
                 nway_anchor, nway_positive, _ = gestureDataLoader( data_path=test_dir,
                                                                    batch_size=nway ).getTripletTrainBatcher( )
@@ -74,15 +73,37 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,ifOneShot:bool=True 
                 sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
                 if sim >= threshold:
                     correct_count += 1
-            acc = (correct_count / test_sample) * 100.
+            acc = (correct_count / N_test_sample) * 100.
             print( "Accuracy %.2f" % acc )
         if nway > 1:
-            if not ifOneShot:
-                for _ in range( test_sample ):
+            if isOneShotTask:
+                for _ in range( N_test_sample ):
+                    # Retrieving nway number of triplets and calculating embedding vector
+                    nway_anchor, nway_positive,_ = gestureDataLoader( data_path=test_dir,
+                                                                      batch_size=nway ).getTripletTrainBatcher( isOneShotTask=isOneShotTask )
+
+                    nway_positive = reshapeData( nway_positive )
+                    nway_anchor = reshapeData( nway_anchor )
+                    # support set, it has N different classes depending on the batch_size
+                    # nway_anchor has the same class with nway_positive at the same row
+                    sample_index = random.randint( 0, nway - 1 )
+                    nway_anchor_embedding = embedding_model.predict( nway_anchor )
+                    sample_embedding = embedding_model.predict(np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
+                    # using cosine_similarity
+                    sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
+                    if np.argmax( sim ) == sample_index:
+                        correct_count += 1
+                #   nway_list.append( nway )
+                acc = (correct_count / N_test_sample) * 100.
+                test_acc.append( acc )
+                print( "Accuracy %.2f" % acc )
+            if not isOneShotTask:
+                for _ in range( N_test_sample ):
                     sim = []
                     # Retrieving nway number of triplets and calculating embedding vector
-                    nway_anchor, nway_positive= gestureDataLoader(  data_path =test_dir,
-                                                                        batch_size = nway ).getTripletTrainBatcher( isTest = True,nShots = 20 )
+                    nway_anchor, nway_positive= gestureDataLoader( data_path=test_dir,
+                                                                   batch_size=nway ).getTripletTrainBatcher(
+                        isOneShotTask=False, nShots=20 )
 
                     nway_positive = reshapeData(nway_positive)
                     # support set, it has N different classes depending on the batch_size
@@ -96,40 +117,15 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,ifOneShot:bool=True 
                         nway_anchor_embedding_for_batch = embedding_model.predict( nway_anchor_nB )
                         sim_nb_batch = averageSim(cosine_similarity( nway_anchor_embedding_for_batch, sample_embedding ))
                         sim.append(sim_nb_batch)
-
-                    # sim = K.sum( K.square( nway_anchor_embedding - sample_embedding ), axis = 1 )
-                    # using cosine_similarity
-                    # sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
                     if np.argmax( sim ) == sample_index:
                         correct_count += 1
             #   nway_list.append( nway )
-                acc = (correct_count / test_sample) * 100.
-                test_acc.append( acc )
-                print( "Accuracy %.2f" % acc )
-            if ifOneShot:
-                for _ in range( test_sample ):
-                    # Retrieving nway number of triplets and calculating embedding vector
-                    nway_anchor, nway_positive = gestureDataLoader( data_path=test_dir,
-                                                                    batch_size=nway ).getTripletTrainBatcher( isTest =False )
-
-                    nway_positive = reshapeData( nway_positive )
-                    nway_anchor = reshapeData( nway_anchor )
-                    # support set, it has N different classes depending on the batch_size
-                    # nway_anchor has the same class with nway_positive at the same row
-                    sample_index = random.randint( 0, nway - 1 )
-                    nway_anchor_embedding = embedding_model.predict( nway_anchor )
-                    sample_embedding = embedding_model.predict(np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
-
-                    # using cosine_similarity
-                    sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-                    if np.argmax( sim ) == sample_index:
-                        correct_count += 1
-                #   nway_list.append( nway )
-                acc = (correct_count / test_sample) * 100.
+                acc = (correct_count / N_test_sample) * 100.
                 test_acc.append( acc )
                 print( "Accuracy %.2f" % acc )
 # load data
 def loadData(dataDir):
+    print('Loading data.....................................')
     fileName = os.listdir(dataDir)
     data = []
     labels = []
@@ -137,7 +133,7 @@ def loadData(dataDir):
         path = os.path.join(dataDir,name)
         data.append(sio.loadmat(path)['csiAmplitude'])
         gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
-        labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=10))
+        labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=6))
     return np.asarray(data),np.asarray(labels)
 def reshapeData(x):
     x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
@@ -149,7 +145,7 @@ def scheduler(epoch, lr):
         return lr * tf.math.exp(-0.2)
 if __name__ == '__main__':
 
-    data,labels = loadData(dataDir = config.train_dir)
+    data,labels = loadData(dataDir = config.eval_dir)
     X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
     X_train = reshapeData(X_train)
     model,network = defineModel(config.train_dir)
@@ -157,11 +153,11 @@ if __name__ == '__main__':
     lrScheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
     earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5,restore_best_weights=True)
     history = model.fit(X_train, y_train,validation_split=0.1, epochs=50,callbacks = [lrScheduler,earlyStop])
-    Testing(test_dir = config.eval_dir,embedding_model = network,N_test_sample=500)
+    # Testing(test_dir = config.train_dir,embedding_model = network,N_test_sample=500)
     model.evaluate(reshapeData(X_test), y_test)
     # saving the weights for trained
-    network.save_weights( './models/similarity_featureExtractor_weights.h5' )
-    model.save_weights('./models/similarity_whole_model_weights.h5')
+    network.save_weights( './models/similarity_featureExtractor_weights_2.h5' )
+    model.save_weights('./models/similarity_whole_model_weights_2.h5')
 # Output for sipecific layer
 # desiredLayers = [15]
 # desiredOutputs = [network.layers[i].output for i in desiredLayers]

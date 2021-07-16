@@ -19,11 +19,11 @@ config = getConfig()
 
 #Define and load the trained model
 model,trained_featureExtractor = defineModel( dataDir=config.train_dir )
-trained_featureExtractor.load_weights( './models/similarity_model_weights.h5' )
+trained_featureExtractor.load_weights( './models/similarity_featureExtractor_weights_2.h5' )
 trained_featureExtractor.summary()
-Testing(test_dir = config.eval_dir,embedding_model = trained_featureExtractor,N_test_sample = 100)
+Testing( test_dir=config.train_dir, embedding_model=trained_featureExtractor, N_test_sample=1000 )
 
 data,labels = loadData( dataDir = config.eval_dir )
 X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
-model.load_weights('./models/similarity_whole_model_weights.h5')
-# model.evaluate(reshapeData(X_train),y_train)
+model.load_weights('./models/similarity_whole_model_weights_2.h5')
+model.evaluate(reshapeData(X_train),y_train)
