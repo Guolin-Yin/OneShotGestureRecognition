@@ -16,6 +16,7 @@ import re
 from SiameseNetworkWithTripletLoss import SiamesNetworkTriplet_2
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
+from saveData import preprocessData
 '''Initialization parameters'''
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -25,19 +26,12 @@ if gpus:
   except RuntimeError as e:
     print(e)
 config = getConfig()
-def defineModel(dataDir):
-    embedding = SiamesNetworkTriplet_2(batch_size=32,data_dir=dataDir,lr = 0.001)
+def defineModel():
+    embedding = SiamesNetworkTriplet_2(batch_size=32,lr = 0.001)
     network = embedding.build_embedding_network()
-    # network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
-    # input = Input(embedding.input_shape,name='data input')
     input = Input([1600,7],name='data input')
     encoded_model = network(input)
-    # dense_1 = Dense(units = 128,activation='relu')(encoded_model)
-    # dropOut_1 = Dropout( 0.4 )(dense_1)
-    # dense_2 = Dense( units=256, activation='relu' )( dropOut_1 )
-    # dropOut_2 = Dropout( 0.6 )(dense_2)
-    # dense_3 = Dense( units=128, activation='relu' )( dropOut_2 )
-    output = Dense(units = 6, activation= 'softmax')(encoded_model)
+    output = Dense(units = config.num_classes, activation= 'softmax')(encoded_model)
     model = Model(inputs = input,outputs = output )
     optimizer = tf.keras.optimizers.Adam(
             lr=0.001,
@@ -52,7 +46,7 @@ def defineModel(dataDir):
     return model,network
 def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=True ):
     nway_min = 2
-    nway_max = 10
+    nway_max = 6
     test_acc = [ ]
     def averageSim(x):
         return np.mean(x)
@@ -81,9 +75,11 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=T
                     # Retrieving nway number of triplets and calculating embedding vector
                     nway_anchor, nway_positive,_ = gestureDataLoader( data_path=test_dir,
                                                                       batch_size=nway ).getTripletTrainBatcher( isOneShotTask=isOneShotTask )
+                    nway_anchor = np.asarray( list(map(preprocessData,nway_anchor)))
+                    nway_positive = np.asarray(list(map(preprocessData,nway_positive)))
 
-                    nway_positive = reshapeData( nway_positive )
-                    nway_anchor = reshapeData( nway_anchor )
+                    nway_positive = reshapeData( nway_positive)
+                    nway_anchor = reshapeData( nway_anchor)
                     # support set, it has N different classes depending on the batch_size
                     # nway_anchor has the same class with nway_positive at the same row
                     sample_index = random.randint( 0, nway - 1 )
@@ -126,18 +122,37 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=T
 # load data
 def loadData(dataDir):
     print('Loading data.....................................')
-    fileName = os.listdir(dataDir)
+
     data = []
     labels = []
-    for name in fileName:
-        path = os.path.join(dataDir,name)
-        data.append(sio.loadmat(path)['csiAmplitude'])
-        gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
-        labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=6))
+    gesture_6 = ['E:/Widar_dataset_matfiles/20181109/User1',
+                'E:/Widar_dataset_matfiles/20181109/User2',]
+    gesture_10 = ['E:/Widar_dataset_matfiles/20181112/User1',
+                  'E:/Widar_dataset_matfiles/20181112/User2',
+                  'Combined_link_dataset/20181116']
+    for Dir in dataDir:
+        fileName = os.listdir( Dir )
+        for name in fileName:
+            if re.findall( r'\d+\b', name )[5] == '3':
+                print(f'Loading {name}')
+                path = os.path.join( Dir, name )
+                data.append(preprocessData(sio.loadmat(path)['csiAmplitude']))
+                if Dir in gesture_6:
+                    gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
+                elif Dir in gesture_10:
+                    gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) + 6 - 1
+                labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=config.num_classes))
     return np.asarray(data),np.asarray(labels)
-def reshapeData(x):
-    x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
-    return x
+def reshapeData(x,mode:str = 'reshape'):
+    if mode == 'reshape':
+        x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
+        return x
+    if mode == 'transpose':
+        out = np.zeros((x.shape[0],x.shape[2],x.shape[1]))
+        for i in range(x.shape[0]):
+            out[i,:,:] = x[i,:,:].transpose()
+        return out
+
 def scheduler(epoch, lr):
     if epoch < 5:
         return lr
@@ -145,19 +160,23 @@ def scheduler(epoch, lr):
         return lr * tf.math.exp(-0.2)
 if __name__ == '__main__':
 
-    data,labels = loadData(dataDir = config.eval_dir)
-    X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
-    X_train = reshapeData(X_train)
-    model,network = defineModel(config.train_dir)
+    data,labels = loadData(dataDir = config.train_dir)
+    X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.5,shuffle = True)
+    X_train = reshapeData(X_train,mode = 'reshape')
+    model,network = defineModel()
 
     lrScheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5,restore_best_weights=True)
-    history = model.fit(X_train, y_train,validation_split=0.1, epochs=50,callbacks = [lrScheduler,earlyStop])
-    # Testing(test_dir = config.train_dir,embedding_model = network,N_test_sample=500)
-    model.evaluate(reshapeData(X_test), y_test)
+    earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,restore_best_weights=True)
+    history = model.fit(X_train, y_train,
+                        validation_split=0.2,
+                        batch_size=32, epochs=50,
+                        callbacks = [lrScheduler,earlyStop])
+    model.evaluate(reshapeData(X_test,mode='reshape'), y_test)
+
+
     # saving the weights for trained
-    network.save_weights( './models/similarity_featureExtractor_weights_2.h5' )
-    model.save_weights('./models/similarity_whole_model_weights_2.h5')
+    network.save_weights( './models/similarity_featureExtractor_weights_task2_single_link_16class_half_samples.h5' )
+    # model.save_weights('./models/similarity_whole_model_weights_task3_six_link.h5')
 # Output for sipecific layer
 # desiredLayers = [15]
 # desiredOutputs = [network.layers[i].output for i in desiredLayers]

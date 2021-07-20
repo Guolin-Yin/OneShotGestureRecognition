@@ -86,7 +86,7 @@ class gestureDataLoader:
         return e
     def _mapFilenameToClass(self):
         date_filename = re.findall( r'\b\d+\b', self.data_path )[0]
-        sim_gesture_6ges = ['20181115','20181109','Pre_16']
+        sim_gesture_6ges = ['20181115','20181109','Pre_16','20181121']
         draw_gesture_10ges = [ '20181112', '20181116','Pre_16' ]
         if date_filename in sim_gesture_6ges:
             keys = [ 'Push&Pull',
