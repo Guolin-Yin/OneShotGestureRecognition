@@ -1,9 +1,10 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer,Conv1D, Conv2D, Flatten, Dense,Dropout, Input, Lambda,MaxPooling2D,AveragePooling2D,\
-                                    concatenate,BatchNormalization,MaxPooling1D
+                                    concatenate,BatchNormalization,MaxPooling1D,ReLU,Softmax
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.regularizers import l2
+from tensorflow.keras import regularizers
 import tensorflow.keras.backend as K
 import random
 from Preprocess.gestureDataLoader import gestureDataLoader
@@ -213,12 +214,43 @@ class SiamesWithTriplet:
             self.embedding_network = network
         elif mode == '2D':
             network = Sequential()
-            network.add(Conv2D(filters = 3,kernel_size = (3,3),input_shape=[200,30,3],activation='relu',strides= (1,1),padding = 'same'))
-            network.add(AveragePooling2D(pool_size=(3,3),padding='valid'))
-            network.add(Dropout(0.6))
+            network.add(Conv2D(filters = 32,kernel_size = 4,activation='relu', input_shape=[200,60,3],padding = 'valid'))
             network.add( BatchNormalization( ) )
+            network.add(MaxPooling2D(pool_size=4,strides = 4,padding='valid',name = 'feature_layer'))
+
+            # network.add(Conv2D( filters=64, kernel_size=4, activation='relu', padding='valid' ) )
+            # network.add( BatchNormalization( ) )
+            # network.add( MaxPooling2D( pool_size=4, strides=4, padding='valid' ) )
+
+            # network.add( Conv2D( filters=32, kernel_size=4, activation='relu', padding='valid' ) )
+            # network.add( BatchNormalization( ) )
+            # network.add( MaxPooling2D( pool_size=4, strides=4, padding='valid' ) )
+
             network.add( Flatten( ) )
-            network.add(Dense(units = config.num_classes, activation= 'softmax'))
+
+            network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
+            # optimizer = tf.keras.optimizers.SGD(
+            #         learning_rate=0.01, momentum=0.9
+            # )
+            # network.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
+            # network.summary( )
+        elif mode == 'signFi':
+            network = Sequential( )
+            network.add(
+                Conv2D( filters=4, kernel_size=4, activation='relu', input_shape=[ 200, 60, 3 ], padding='valid' ) )
+            network.add( BatchNormalization( ) )
+            network.add( MaxPooling2D( pool_size=4, strides=4, padding='valid' ) )
+            # network.add(Dropout(0.1))
+            network.add( Flatten( ) )
+            network.add( Dense( units=config.num_classes, activity_regularizer=l2( 1e-3 ) ) )
+            # network.add( Dense( units=552, ) )
+            network.add( Softmax( ) )
+            network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
+            optimizer = tf.keras.optimizers.SGD(
+                    learning_rate=0.01, momentum=0.9
+            )
+            network.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
+            network.summary( )
         return network
     def build_TripletModel( self, network,data_dir,margin ):
         '''
