@@ -149,7 +149,7 @@ def getOneshotTaskData(test_data,test_labels,nway):
     return support_set,query_set
 def signTest(test_data,test_labels,N_test_sample,embedding_model,isOneShotTask:bool = True):
     nway_min = 2
-    nway_max = 6
+    nway_max = 16
     test_acc = [ ]
     for nway in range( nway_min, nway_max + 1 ):
         print( "Checking %d way accuracy...." % nway )
@@ -171,6 +171,7 @@ def signTest(test_data,test_labels,N_test_sample,embedding_model,isOneShotTask:b
             acc = (correct_count / N_test_sample) * 100.
             test_acc.append( acc )
             print( "Accuracy %.2f" % acc )
+    return test_acc
 # load data
 def getTrainTestSplit(x_all,label_lab):
     train_data = np.zeros((5200,200,60,3))

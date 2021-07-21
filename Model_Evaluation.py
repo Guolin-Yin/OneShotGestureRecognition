@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from gestureClassification import Testing,defineModel,reshapeData,signTest,getTrainTestSplit
+from gestureClassification import Testing,defineModel,reshapeData,signTest,getTrainTestSplit,getOneshotTaskData
 from Preprocess.gestureDataLoader import signDataLoder
 from SiameseNetworkWithTripletLoss import SiamesWithTriplet
 from sklearn.metrics.pairwise import cosine_similarity
@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from Config import getConfig
+from methodTesting.plotResults import pltResults
 '''Initialization parameters'''
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -40,8 +41,9 @@ x_phase = np.angle(x)
 x_all = np.concatenate((x_amp,x_phase),axis = 2)
 label_lab = data[2]['label_lab']
 _,_,test_data,test_labels = getTrainTestSplit(x_all = x_all,label_lab = label_lab)
-signTest(test_data,test_labels,N_test_sample = 1000,embedding_model = trained_featureExtractor,isOneShotTask = True)
-
+test_acc = signTest(test_data,test_labels,N_test_sample = 100,embedding_model = trained_featureExtractor,isOneShotTask = True)
+pltResults(test_acc)
+# support_set, query_set = getOneshotTaskData( test_data, test_labels, nway=16 )
 # network.summary()
 # data,labels = DirectLoadData( dataDir = config.train_dir )
 # X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.1)
