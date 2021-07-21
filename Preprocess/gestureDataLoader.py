@@ -225,10 +225,59 @@ class gestureDataLoader:
             a,p,n = self.getTripletTrainBatcher( )
             labels = np.ones(self.batch_size)
             yield [a,p,n], labels
+    def DirectLoadData(self, dataDir ):
+        print( 'Loading data.....................................' )
 
+        data = [ ]
+        labels = [ ]
+        gesture_6 = [ 'E:/Widar_dataset_matfiles/20181109/User1',
+                      'E:/Widar_dataset_matfiles/20181109/User2', ]
+        gesture_10 = [ 'E:/Widar_dataset_matfiles/20181112/User1',
+                       'E:/Widar_dataset_matfiles/20181112/User2',
+                       'Combined_link_dataset/20181116' ]
+        for Dir in dataDir:
+            fileName = os.listdir( Dir )
+            for name in fileName:
+                if re.findall( r'\d+\b', name )[ 5 ] == '3':
+                    print( f'Loading {name}' )
+                    path = os.path.join( Dir, name )
+                    data.append( preprocessData( sio.loadmat( path )[ 'csiAmplitude' ] ) )
+                    if Dir in gesture_6:
+                        gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) - 1
+                    elif Dir in gesture_10:
+                        gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) + 6 - 1
+                    labels.append( tf.keras.utils.to_categorical( gestureMark, num_classes=config.num_classes ) )
+        return np.asarray( data ), np.asarray( labels )
+class signDataLoder:
+    def __init__( self,dataDir ):
+        self.dataDir = dataDir
+        self.data = []
+    def _reformat( self,ori_data ):
+        reformatData = np.zeros((ori_data.shape[3],ori_data.shape[0],ori_data.shape[1],ori_data.shape[2]),dtype='complex_')
+        for i in range(ori_data.shape[-1]):
+            reformatData[i,:,:,:] = ori_data[:,:,:,i]
+        return reformatData
+    def loadData( self,  ):
+        fileName = os.listdir( self.dataDir )
+        for name in fileName:
+            path = os.path.join(self.dataDir,name)
+            buf = sio.loadmat(path)
+            buf.pop( '__header__', None )
+            buf.pop('__version__',None)
+            buf.pop( '__globals__', None )
+            for i in range(len(buf)):
+                if 'label' in list( buf.keys( ) )[ i ]:
+                    continue
+                buf[list( buf.keys( ) )[ i ]] = self._reformat(buf[list( buf.keys( ) )[ i ]])
+            self.data.append( buf )
+        return [self.data,fileName]
 if __name__ == '__main__':
-    gestureDataLoader = gestureDataLoader( data_path = 'D:/OneShotGestureRecognition/20181116')
-    data,tData = gestureDataLoader.getTripletTrainBatcher( isOneShotTask=True, nShots=5 )
-    a = data.reshape(data.shape[0]*data.shape[1],data.shape[2],data.shape[3])
+    signData = signDataLoder(dataDir = 'D:/Matlab/SignFi/Dataset')
+    data,fileName = signData.loadData()
+    lab_data = data[2]['csid_lab']
+    lab_label = data[2]['label_lab']
+    # gestureDataLoader = gestureDataLoader( data_path = 'D:/OneShotGestureRecognition/20181116')
+    # data,tData = gestureDataLoader.getTripletTrainBatcher( isOneShotTask=True, nShots=5 )
+    # a = data.reshape(data.shape[0]*data.shape[1],data.shape[2],data.shape[3])
     # triplets = gestureDataLoader.getTripletTrainBatcher()
     # generator = gestureDataLoader.tripletsDataGenerator()

@@ -1,5 +1,6 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer,Conv1D, Conv2D, Flatten, Dense,Dropout, Input, Lambda,MaxPooling2D,concatenate,BatchNormalization,MaxPooling1D
+from tensorflow.keras.layers import Layer,Conv1D, Conv2D, Flatten, Dense,Dropout, Input, Lambda,MaxPooling2D,AveragePooling2D,\
+                                    concatenate,BatchNormalization,MaxPooling1D
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.regularizers import l2
@@ -7,6 +8,7 @@ import tensorflow.keras.backend as K
 import random
 from Preprocess.gestureDataLoader import gestureDataLoader
 import numpy as np
+from Config import getConfig
 import os
 # class TripletLossLayer( Layer ):
 #     def __init__( self, alpha, **kwargs ):
@@ -159,8 +161,9 @@ import os
 #         self.model.compile(loss = None, optimizer=optimizer )
 #         # self.model.compile( loss=self.tripletFunc( alpha=margin ), optimizer=optimizer )
 #         self.model.summary( )
-class SiamesNetworkTriplet_2:
-    def __init__( self,batch_size,lr):
+config = getConfig()
+class SiamesWithTriplet:
+    def __init__( self,batch_size = config.batch_size,lr = config.lr):
         self.batch_size = batch_size
         self.learning_rate = lr
 
@@ -170,7 +173,7 @@ class SiamesNetworkTriplet_2:
         if epoch % decay_step == 0 and epoch > 10:
             return lr * decay_rate
         return lr
-    def triplet_loss( self,x ):
+    def _triplet_loss( self,x ):
         # Triplet Loss function.
         anchor, positive, negative = x
         #        K.l2_normalize
@@ -183,30 +186,39 @@ class SiamesNetworkTriplet_2:
         loss = K.maximum( basic_loss, 0.0 )
         # print(f'Dp = {pos_dist} Dn = {neg_dist}')
         return loss
-    def identity_loss(self, y_true, y_pred ):
+    def _identity_loss(self, y_true, y_pred ):
         return K.mean( y_pred )
-    def build_embedding_network(self):
-        network = Sequential( )
-        network.add( Conv1D( filters=512, input_shape=([ 1600, 7 ]), activation='relu', kernel_size=10, strides=2,
-                        padding='same' ,kernel_regularizer=l2( 1e-3 )) )
-        network.add( BatchNormalization( ) )
-        network.add( MaxPooling1D( pool_size=3, strides=1 ) )
-        # network.add(Dropout( 0.5 ))
+    def build_embedding_network(self,mode:str='1D' ):
+        if mode == '1D':
+            network = Sequential( )
+            network.add( Conv1D( filters=512, input_shape=([ 1600, 7 ]), activation='relu', kernel_size=10, strides=2,
+                            padding='same' ,kernel_regularizer=l2( 1e-3 )) )
+            network.add( BatchNormalization( ) )
+            network.add( MaxPooling1D( pool_size=3, strides=1 ) )
+            # network.add(Dropout( 0.5 ))
 
-        network.add( Conv1D( filters=1024, activation='relu', kernel_size=5, padding='same',kernel_regularizer=l2( 1e-3 ) ) )
-        network.add( BatchNormalization( ) )
-        network.add( MaxPooling1D( pool_size=3, strides=1 ) )
-        # network.add( Dropout( 0.5 ) )
+            network.add( Conv1D( filters=1024, activation='relu', kernel_size=5, padding='same',kernel_regularizer=l2( 1e-3 ) ) )
+            network.add( BatchNormalization( ) )
+            network.add( MaxPooling1D( pool_size=3, strides=1 ) )
+            # network.add( Dropout( 0.5 ) )
 
-        network.add( Conv1D( filters=512, activation='relu', kernel_size=5, padding='same',kernel_regularizer=l2( 1e-3 ) ) )
-        network.add( Conv1D( filters=256, activation='relu', kernel_size=10, padding='same',kernel_regularizer=l2( 1e-2 ) ) )
-        # network.add( MaxPooling1D( pool_size=4, strides=2 ) )
-        network.add( BatchNormalization( ) )
-        network.add( Flatten( ) )
-        # network.add( Dropout( 0.5 ) )
+            network.add( Conv1D( filters=512, activation='relu', kernel_size=5, padding='same',kernel_regularizer=l2( 1e-3 ) ) )
+            network.add( Conv1D( filters=256, activation='relu', kernel_size=10, padding='same',kernel_regularizer=l2( 1e-2 ) ) )
+            # network.add( MaxPooling1D( pool_size=4, strides=2 ) )
+            network.add( BatchNormalization( ) )
+            network.add( Flatten( ) )
+            # network.add( Dropout( 0.5 ) )
 
-        network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 )) )
-        self.embedding_network = network
+            network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 )) )
+            self.embedding_network = network
+        elif mode == '2D':
+            network = Sequential()
+            network.add(Conv2D(filters = 3,kernel_size = (3,3),input_shape=[200,30,3],activation='relu',strides= (1,1),padding = 'same'))
+            network.add(AveragePooling2D(pool_size=(3,3),padding='valid'))
+            network.add(Dropout(0.6))
+            network.add( BatchNormalization( ) )
+            network.add( Flatten( ) )
+            network.add(Dense(units = config.num_classes, activation= 'softmax'))
         return network
     def build_TripletModel( self, network,data_dir,margin ):
         '''

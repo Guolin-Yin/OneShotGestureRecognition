@@ -8,12 +8,12 @@ from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.regularizers import l2
 import tensorflow.keras.backend as K
 import random
-from Preprocess.gestureDataLoader import gestureDataLoader
+from Preprocess.gestureDataLoader import *
 import numpy as np
 import os
 import scipy.io as sio
 import re
-from SiameseNetworkWithTripletLoss import SiamesNetworkTriplet_2
+from SiameseNetworkWithTripletLoss import SiamesWithTriplet
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
 from saveData import preprocessData
@@ -27,7 +27,7 @@ if gpus:
     print(e)
 config = getConfig()
 def defineModel():
-    embedding = SiamesNetworkTriplet_2(batch_size=32,lr = 0.001)
+    embedding = SiamesWithTriplet( )
     network = embedding.build_embedding_network()
     input = Input([1600,7],name='data input')
     encoded_model = network(input)
@@ -120,29 +120,7 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=T
                 test_acc.append( acc )
                 print( "Accuracy %.2f" % acc )
 # load data
-def loadData(dataDir):
-    print('Loading data.....................................')
 
-    data = []
-    labels = []
-    gesture_6 = ['E:/Widar_dataset_matfiles/20181109/User1',
-                'E:/Widar_dataset_matfiles/20181109/User2',]
-    gesture_10 = ['E:/Widar_dataset_matfiles/20181112/User1',
-                  'E:/Widar_dataset_matfiles/20181112/User2',
-                  'Combined_link_dataset/20181116']
-    for Dir in dataDir:
-        fileName = os.listdir( Dir )
-        for name in fileName:
-            if re.findall( r'\d+\b', name )[5] == '3':
-                print(f'Loading {name}')
-                path = os.path.join( Dir, name )
-                data.append(preprocessData(sio.loadmat(path)['csiAmplitude']))
-                if Dir in gesture_6:
-                    gestureMark = int(re.findall( r'\d+\b', name )[ 1 ]) - 1
-                elif Dir in gesture_10:
-                    gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) + 6 - 1
-                labels.append(tf.keras.utils.to_categorical(gestureMark,num_classes=config.num_classes))
-    return np.asarray(data),np.asarray(labels)
 def reshapeData(x,mode:str = 'reshape'):
     if mode == 'reshape':
         x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
@@ -152,30 +130,32 @@ def reshapeData(x,mode:str = 'reshape'):
         for i in range(x.shape[0]):
             out[i,:,:] = x[i,:,:].transpose()
         return out
-
 def scheduler(epoch, lr):
     if epoch < 5:
         return lr
     else:
         return lr * tf.math.exp(-0.2)
 if __name__ == '__main__':
+# Sign recognition
+    data,filename = signDataLoder( dataDir=config.train_dir ).loadData()
 
-    data,labels = loadData(dataDir = config.train_dir)
-    X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.5,shuffle = True)
-    X_train = reshapeData(X_train,mode = 'reshape')
-    model,network = defineModel()
-
-    lrScheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,restore_best_weights=True)
-    history = model.fit(X_train, y_train,
-                        validation_split=0.2,
-                        batch_size=32, epochs=50,
-                        callbacks = [lrScheduler,earlyStop])
-    model.evaluate(reshapeData(X_test,mode='reshape'), y_test)
-
-
-    # saving the weights for trained
-    network.save_weights( './models/similarity_featureExtractor_weights_task2_single_link_16class_half_samples.h5' )
+# Gesture recognition
+    # data,labels = gestureDataLoader.DirectLoadData(dataDir = config.train_dir)
+    # X_train, X_test, y_train, y_test = train_test_split( data, labels, test_size=0.5,shuffle = True)
+    # X_train = reshapeData(X_train,mode = 'reshape')
+    # model,network = defineModel()
+    #
+    # lrScheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
+    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,restore_best_weights=True)
+    # history = model.fit(X_train, y_train,
+    #                     validation_split=0.2,
+    #                     batch_size=32, epochs=50,
+    #                     callbacks = [lrScheduler,earlyStop])
+    # model.evaluate(reshapeData(X_test,mode='reshape'), y_test)
+    #
+    #
+    # # saving the weights for trained
+    # network.save_weights( './models/similarity_featureExtractor_weights_task2_single_link_16class_half_samples.h5' )
     # model.save_weights('./models/similarity_whole_model_weights_task3_six_link.h5')
 # Output for sipecific layer
 # desiredLayers = [15]
