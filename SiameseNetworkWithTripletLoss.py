@@ -214,7 +214,7 @@ class SiamesWithTriplet:
             self.embedding_network = network
         elif mode == '2D':
             network = Sequential()
-            network.add(Conv2D(filters = 32,kernel_size = 4,activation='relu', input_shape=[200,60,3],padding = 'valid'))
+            network.add(Conv2D(filters = 32,kernel_size = 4,activation='relu', input_shape=config.input_shape,padding = 'valid'))
             network.add( BatchNormalization( ) )
             network.add(MaxPooling2D(pool_size=4,strides = 4,padding='valid',name = 'feature_layer'))
 
@@ -242,7 +242,7 @@ class SiamesWithTriplet:
             network.add( MaxPooling2D( pool_size=4, strides=4, padding='valid' ) )
             # network.add(Dropout(0.1))
             network.add( Flatten( ) )
-            network.add( Dense( units=config.num_classes, activity_regularizer=l2( 1e-3 ) ) )
+            network.add( Dense( units=config.N_train_classes, activity_regularizer=l2( 1e-3 ) ) )
             # network.add( Dense( units=552, ) )
             network.add( Softmax( ) )
             network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )

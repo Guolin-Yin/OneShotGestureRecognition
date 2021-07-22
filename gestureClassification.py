@@ -20,13 +20,13 @@ from Config import getConfig
 from saveData import preprocessData
 from sklearn.model_selection import KFold
 '''Initialization parameters'''
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-  try:
-    for gpu in gpus:
-      tf.config.experimental.set_memory_growth(gpu, True)
-  except RuntimeError as e:
-    print(e)
+# gpus = tf.config.experimental.list_physical_devices('GPU')
+# if gpus:
+#   try:
+#     for gpu in gpus:
+#       tf.config.experimental.set_memory_growth(gpu, True)
+#   except RuntimeError as e:
+#     print(e)
 config = getConfig()
 def defineModel(mode:str = '1D'):
     embedding = SiamesWithTriplet( )
@@ -35,7 +35,7 @@ def defineModel(mode:str = '1D'):
     if mode == '1D':
         input = Input([1600,7],name='data input')
         encoded_model = network( input )
-        output = Dense(units = config.num_classes, activation= 'softmax')(encoded_model)
+        output = Dense( units = config.N_train_classes, activation='softmax' )( encoded_model )
         model = Model(inputs = input,outputs = output )
         optimizer = tf.keras.optimizers.Adam(
                 lr=0.001,
@@ -49,14 +49,14 @@ def defineModel(mode:str = '1D'):
         model.summary()
     elif mode == '2D':
         # Define model
-        input = Input( [ 200,60,3 ], name='data input' )
+        input = Input( config.input_shape, name='data input' )
         encoded_model = network( input )
-        full_connect = Dense( units=config.num_classes)( encoded_model )
+        full_connect = Dense( units=config.N_train_classes )( encoded_model )
         output = Softmax( )(full_connect)
         model = Model(inputs = input,outputs = output)
         # Complie model
         optimizer = tf.keras.optimizers.SGD(
-                learning_rate=0.01, momentum=0.9
+                learning_rate=config.lr, momentum=0.9
         )
         model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
         model.summary( )
@@ -136,106 +136,111 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=T
                 acc = (correct_count / N_test_sample) * 100.
                 test_acc.append( acc )
                 print( "Accuracy %.2f" % acc )
-def getOneshotTaskData(test_data,test_labels,nway):
-    signRange = np.arange( int(np.min( test_labels )), int(np.max( test_labels ) + 1), 1 )
-    selected_Sign = np.random.choice(signRange,size=nway,replace = False)
-    support_set = []
-    query_set = []
-    for i in selected_Sign:
-        index,_ = np.where(test_labels == i)
-        selected_samples = np.random.choice( index, size=2, replace=False )
-        support_set.append(test_data[selected_samples[0]])
-        query_set.append(test_data[selected_samples[1]])
-    return support_set,query_set
-def signTest(test_data,test_labels,N_test_sample,embedding_model,isOneShotTask:bool = True):
-    nway_min = 2
-    nway_max = 16
-    test_acc = [ ]
-    for nway in range( nway_min, nway_max + 1 ):
-        print( "Checking %d way accuracy...." % nway )
-        correct_count = 0
-        if isOneShotTask:
-            for _ in range( N_test_sample ):
-                # Retrieving nway number of triplets and calculating embedding vector
-                support_set, query_set = getOneshotTaskData( test_data, test_labels, nway=nway )
-                # support set, it has N different classes depending on the batch_size
-                # nway_anchor has the same class with nway_positive at the same row
-                sample_index = random.randint( 0, nway - 1 )
-                nway_anchor_embedding = embedding_model.predict( np.asarray( support_set) )
-                sample_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
-                # using cosine_similarity
-                sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-                if np.argmax( sim ) == sample_index:
-                    correct_count += 1
-            #   nway_list.append( nway )
-            acc = (correct_count / N_test_sample) * 100.
-            test_acc.append( acc )
-            print( "Accuracy %.2f" % acc )
-    return test_acc
-# load data
-def getTrainTestSplit(x_all,label_lab):
-    train_data = np.zeros((5200,200,60,3))
-    train_labels = np.zeros((5200,1))
-    test_data = np.zeros((320,200,60,3))
-    test_labels = np.zeros((320,1))
-    count_tra = 0
-    count_tes = 0
-    for i in list(np.arange(0,5520,276)):
-        # train_data.append(x_all[i:i+260,:,:,:])
-        # train_labels.append(label_lab[i:i+260,:].reshape(-1))
-        # test_data.append(x_all[i+260:i+276,:,:,:])
-        # test_labels.append(label_lab[i+260:i+276].reshape(-1))
-        train_data[ count_tra:count_tra + 260, :, :, : ] = x_all[ i:i + 260, :, :, : ]
-        train_labels[ count_tra:count_tra + 260, : ] = label_lab[ i:i + 260, : ]
-        test_data[count_tes:count_tes+16,:,:,:] = x_all[i+260:i+276,:,:,:]
-        test_labels[count_tes:count_tes+16,:] = label_lab[i+260:i+276,:]
-        count_tra += 260
-        count_tes += 16
-    return [train_data,train_labels,test_data,test_labels]
-def reshapeData(x,mode:str = 'reshape'):
-    if mode == 'reshape':
-        x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
-        return x
-    if mode == 'transpose':
-        out = np.zeros((x.shape[0],x.shape[2],x.shape[1]))
-        for i in range(x.shape[0]):
-            out[i,:,:] = x[i,:,:].transpose()
-        return out
-def scheduler(epoch, lr):
-    if epoch < 320:
-        return lr
-    else:
-        return lr * tf.math.exp(-0.1)
-        # return
+# def getOneshotTaskData(test_data,test_labels,nway):
+#     signRange = np.arange( int(np.min( test_labels )), int(np.max( test_labels ) + 1), 1 )
+#     selected_Sign = np.random.choice(signRange,size=nway,replace = False)
+#     support_set = []
+#     query_set = []
+#     for i in selected_Sign:
+#         index,_ = np.where(test_labels == i)
+#         selected_samples = np.random.choice( index, size=2, replace=False )
+#         support_set.append(test_data[selected_samples[0]])
+#         query_set.append(test_data[selected_samples[1]])
+#     return support_set,query_set
+# def signTest(test_data,test_labels,N_test_sample,embedding_model,isOneShotTask:bool = True):
+#     nway_min = 2
+#     nway_max = 16
+#     test_acc = [ ]
+#     for nway in range( nway_min, nway_max + 1 ):
+#         print( "Checking %d way accuracy...." % nway )
+#         correct_count = 0
+#         if isOneShotTask:
+#             for _ in range( N_test_sample ):
+#                 # Retrieving nway number of triplets and calculating embedding vector
+#                 support_set, query_set = getOneshotTaskData( test_data, test_labels, nway=nway )
+#                 # support set, it has N different classes depending on the batch_size
+#                 # nway_anchor has the same class with nway_positive at the same row
+#                 sample_index = random.randint( 0, nway - 1 )
+#                 nway_anchor_embedding = embedding_model.predict( np.asarray( support_set) )
+#                 sample_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
+#                 # using cosine_similarity
+#                 sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
+#                 if np.argmax( sim ) == sample_index:
+#                     correct_count += 1
+#             #   nway_list.append( nway )
+#             acc = (correct_count / N_test_sample) * 100.
+#             test_acc.append( acc )
+#             print( "Accuracy %.2f" % acc )
+#     return test_acc
+class trainTestModel:
+    def __init__( self):
+        pass
+    def _getOneshotTaskData(self, test_data, test_labels, nway ):
+        signRange = np.arange( int( np.min( test_labels ) ), int( np.max( test_labels ) + 1 ), 1 )
+        selected_Sign = np.random.choice( signRange, size=nway, replace=False )
+        support_set = [ ]
+        query_set = [ ]
+        for i in selected_Sign:
+            index, _ = np.where( test_labels == i )
+            selected_samples = np.random.choice( index, size=2, replace=False )
+            support_set.append( test_data[ selected_samples[ 0 ] ] )
+            query_set.append( test_data[ selected_samples[ 1 ] ] )
+        return support_set, query_set
+    def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True ):
+        nway_min = 7
+        nway_max = 26
+        test_acc = [ ]
+        for nway in range( nway_min, nway_max + 1 ):
+            print( "Checking %d way accuracy...." % nway )
+            correct_count = 0
+            if isOneShotTask:
+                for _ in range( N_test_sample ):
+                    # Retrieving nway number of triplets and calculating embedding vector
+                    support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway=nway )
+                    # support set, it has N different classes depending on the batch_size
+                    # nway_anchor has the same class with nway_positive at the same row
+                    sample_index = random.randint( 0, nway - 1 )
+                    nway_anchor_embedding = embedding_model.predict( np.asarray( support_set ) )
+                    sample_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
+                    # using cosine_similarity
+                    sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
+                    if np.argmax( sim ) == sample_index:
+                        correct_count += 1
+                #   nway_list.append( nway )
+                acc = (correct_count / N_test_sample) * 100.
+                test_acc.append( acc )
+                print( "Accuracy %.2f" % acc )
+        return test_acc
+    def reshapeData(self, x,mode:str = 'reshape'):
+        if mode == 'reshape':
+            x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
+            return x
+        if mode == 'transpose':
+            out = np.zeros((x.shape[0],x.shape[2],x.shape[1]))
+            for i in range(x.shape[0]):
+                out[i,:,:] = x[i,:,:].transpose()
+            return out
+    def scheduler(self, epoch, lr):
+        if epoch < 320:
+            return lr
+        else:
+            return lr * tf.math.exp(-0.1)
+            # return
 if __name__ == '__main__':
     # Sign recognition
-    data,filename = signDataLoder( dataDir=config.train_dir ).loadData()
-    lrScheduler = tf.keras.callbacks.LearningRateScheduler( scheduler )
-    x = data[2]['csid_lab']
-    x_amp = np.abs(x)
-    x_phase = np.angle(x)
-
-    x_all = np.concatenate((x_amp,x_phase),axis = 2)
-    label_lab = data[2]['label_lab']
-    train_data,train_labels,test_data,test_labels = getTrainTestSplit(x_all = x_all,label_lab = label_lab)
-
-    idx = np.random.permutation( len(train_labels) )
-    train_data = train_data[idx,:,:,:]
-    train_labels = train_labels[idx,:]
+    obj = signDataLoder( dataDir=config.train_dir )
+    trainTestObj = trainTestModel()
+    x_all, y_all = obj.getFormatedData()
+    train_data,train_labels,test_data,test_labels = obj.getTrainTestSplit( data=x_all, labels=y_all,
+                                                                           N_train_classes =  config.N_train_classes)
     train_labels = to_categorical(train_labels - 1,num_classes=int(np.max(train_labels)))
-    # X_train, X_test, y_train, y_test = train_test_split( x_all, y, test_size=0.2,shuffle = True)
 
-    # Siamese = SiamesWithTriplet( )
-    # model = Siamese.build_embedding_network(mode = '2D')
+    lrScheduler = tf.keras.callbacks.LearningRateScheduler( trainTestObj.scheduler )
     model, network = defineModel( mode = '2D')
     history = model.fit(train_data,train_labels,validation_split=0.2,
                      epochs=1000,shuffle=True
                     )
-
-
-
-
-    network.save_weights('./models/signFi_network_whole_network_structure_acc=0.91_160classes.h5')
+    network.save_weights('./models/signFi_featureExtractor_weight_model_training_acc_0.94_on_250cls.h5')
     # model.save( './models/signFi_model_whole_model_structure.h5' )
     # kf = KFold( 5, shuffle=True, random_state=42 )
     # train_idx,test_idx = kf.split(x_all)

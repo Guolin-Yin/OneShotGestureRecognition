@@ -73,7 +73,7 @@ class gestureDataLoader:
     #             if direction == selected_direction:
     #                 if rx == selected_receiver:
     #                     idx.append(i)
-    #                     labels.append(to_categorical(gestureType, num_classes = 9))
+    #                     labels.append(to_categorical(gestureType, N_train_classes = 9))
     #                     print(self.filename[i])
     #     selectedData = self.csiAmplitude[idx,:,:]
     #     return selectedData,labels
@@ -246,18 +246,20 @@ class gestureDataLoader:
                         gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) - 1
                     elif Dir in gesture_10:
                         gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) + 6 - 1
-                    labels.append( tf.keras.utils.to_categorical( gestureMark, num_classes=config.num_classes ) )
+                    labels.append( tf.keras.utils.to_categorical( gestureMark, num_classes=config.N_train_classes ) )
         return np.asarray( data ), np.asarray( labels )
 class signDataLoder:
     def __init__( self,dataDir ):
         self.dataDir = dataDir
         self.data = []
+        self.data, self.filename = self.loadData()
     def _reformat( self,ori_data ):
         reformatData = np.zeros((ori_data.shape[3],ori_data.shape[0],ori_data.shape[1],ori_data.shape[2]),dtype='complex_')
         for i in range(ori_data.shape[-1]):
             reformatData[i,:,:,:] = ori_data[:,:,:,i]
         return reformatData
     def loadData( self,  ):
+        print("Loading data................")
         fileName = os.listdir( self.dataDir )
         for name in fileName:
             path = os.path.join(self.dataDir,name)
@@ -271,11 +273,47 @@ class signDataLoder:
                 buf[list( buf.keys( ) )[ i ]] = self._reformat(buf[list( buf.keys( ) )[ i ]])
             self.data.append( buf )
         return [self.data,fileName]
+    def getFormatedData(self):
+        x = self.data[ 2 ][ 'csid_lab' ]
+        x_amp = np.abs( x )
+        x_phase = np.angle( x )
+
+        x_all = np.concatenate( (x_amp, x_phase), axis=2 )
+        y_all = self.data[ 2 ][ 'label_lab' ]
+        return [x_all,y_all]
+
+    def getTrainTestSplit(self, data, labels, N_train_classes: int = 260, N_samples_per_class: int = 20,
+                           shuffle_training: bool = True ):
+        N_samples = len( labels )
+        N_classes = int( N_samples / N_samples_per_class )
+        N_train_samples = N_train_classes * N_samples_per_class
+        N_test_samples = N_samples - N_train_samples
+        N_test_classes = int( N_test_samples / N_samples_per_class )
+
+        train_data = np.zeros( (N_train_samples, 200, 60, 3) )
+        train_labels = np.zeros( (N_train_samples, 1) )
+        test_data = np.zeros( (N_test_samples, 200, 60, 3) )
+        test_labels = np.zeros( (N_test_samples, 1) )
+        count_tra = 0
+        count_tes = 0
+        for i in list( np.arange( 0, N_samples, N_classes ) ):
+            train_data[ count_tra:count_tra + N_train_classes, :, :, : ] = data[ i:i + N_train_classes, :, :, : ]
+            train_labels[ count_tra:count_tra + N_train_classes, : ] = labels[ i:i + N_train_classes, : ]
+            test_data[ count_tes:count_tes + N_test_classes, :, :, : ] = data[ i + N_train_classes:i + N_classes, :, :,
+                                                                         : ]
+            test_labels[ count_tes:count_tes + N_test_classes, : ] = labels[ i + N_train_classes:i + N_classes, : ]
+            count_tra += N_train_classes
+            count_tes += N_test_classes
+        if shuffle_training:
+            idx = np.random.permutation( len( train_labels ) )
+            train_data = train_data[ idx, :, :, : ]
+            train_labels = train_labels[ idx, : ]
+        return [ train_data, train_labels, test_data, test_labels ]
 if __name__ == '__main__':
     signData = signDataLoder(dataDir = 'D:/Matlab/SignFi/Dataset')
     data,fileName = signData.loadData()
     lab_data = data[2]['csid_lab']
-    lab_label = data[2]['label_lab']
+    lab_label = data[2]['y_all']
     # gestureDataLoader = gestureDataLoader( data_path = 'D:/OneShotGestureRecognition/20181116')
     # data,tData = gestureDataLoader.getTripletTrainBatcher( isOneShotTask=True, nShots=5 )
     # a = data.reshape(data.shape[0]*data.shape[1],data.shape[2],data.shape[3])
