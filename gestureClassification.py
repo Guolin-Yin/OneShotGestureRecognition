@@ -27,40 +27,6 @@ from sklearn.model_selection import KFold
 #       tf.config.experimental.set_memory_growth(gpu, True)
 #   except RuntimeError as e:
 #     print(e)
-config = getConfig()
-def defineModel(mode:str = '1D'):
-    embedding = SiamesWithTriplet( )
-    network = embedding.build_embedding_network( mode=mode )
-
-    if mode == '1D':
-        input = Input([1600,7],name='data input')
-        encoded_model = network( input )
-        output = Dense( units = config.N_train_classes, activation='softmax' )( encoded_model )
-        model = Model(inputs = input,outputs = output )
-        optimizer = tf.keras.optimizers.Adam(
-                lr=0.001,
-                beta_1=0.9,
-                beta_2=0.999,
-                epsilon=1e-07,
-                amsgrad=False,
-                # lr_multipliers=learning_rate_multipliers,
-                 )
-        model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
-        model.summary()
-    elif mode == '2D':
-        # Define model
-        input = Input( config.input_shape, name='data input' )
-        encoded_model = network( input )
-        full_connect = Dense( units=config.N_train_classes )( encoded_model )
-        output = Softmax( )(full_connect)
-        model = Model(inputs = input,outputs = output)
-        # Complie model
-        optimizer = tf.keras.optimizers.SGD(
-                learning_rate=config.lr, momentum=0.9
-        )
-        model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
-        model.summary( )
-    return model,network
 def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=True ):
     nway_min = 2
     nway_max = 6
@@ -172,6 +138,52 @@ def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=T
 #             test_acc.append( acc )
 #             print( "Accuracy %.2f" % acc )
 #     return test_acc
+config = getConfig()
+def defineModel(mode:str = '1D'):
+    embedding = SiamesWithTriplet( )
+    network = embedding.build_embedding_network( mode=mode )
+
+    if mode == '1D':
+        input = Input([1600,7],name='data input')
+        encoded_model = network( input )
+        output = Dense( units = config.N_train_classes, activation='softmax' )( encoded_model )
+        model = Model(inputs = input,outputs = output )
+        optimizer = tf.keras.optimizers.Adam(
+                lr=0.001,
+                beta_1=0.9,
+                beta_2=0.999,
+                epsilon=1e-07,
+                amsgrad=False,
+                # lr_multipliers=learning_rate_multipliers,
+                 )
+        model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
+        model.summary()
+    elif mode == '2D':
+        # Define model
+        input = Input( config.input_shape, name='data input' )
+        encoded_model = network( input )
+        full_connect = Dense( units=config.N_train_classes )( encoded_model )
+        output = Softmax( )(full_connect)
+        model = Model(inputs = input,outputs = output)
+        # Complie model
+        optimizer = tf.keras.optimizers.SGD(
+                learning_rate=config.lr, momentum=0.9
+        )
+        model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
+        model.summary( )
+    elif mode == 'Alexnet':
+        input = Input( config.input_shape, name='data input' )
+        encoded_model = network( input )
+        full_connect = Dense( units=config.N_train_classes )( encoded_model )
+        output = Softmax( )( full_connect )
+        model = Model( inputs=input, outputs=output )
+        # Complie model
+        optimizer = tf.keras.optimizers.SGD(
+                learning_rate=config.lr, momentum=0.9
+        )
+        model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
+        # model.summary( )
+    return model,network
 class trainTestModel:
     def __init__( self):
         pass
@@ -187,7 +199,7 @@ class trainTestModel:
             query_set.append( test_data[ selected_samples[ 1 ] ] )
         return support_set, query_set
     def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True ):
-        nway_min = 7
+        nway_min = 2
         nway_max = 26
         test_acc = [ ]
         for nway in range( nway_min, nway_max + 1 ):
@@ -236,11 +248,15 @@ if __name__ == '__main__':
     train_labels = to_categorical(train_labels - 1,num_classes=int(np.max(train_labels)))
 
     lrScheduler = tf.keras.callbacks.LearningRateScheduler( trainTestObj.scheduler )
-    model, network = defineModel( mode = '2D')
+    model, network = defineModel( mode = 'Alexnet')
+    earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=20,restore_best_weights=True)
     history = model.fit(train_data,train_labels,validation_split=0.2,
-                     epochs=1000,shuffle=True
+                     epochs=1000,shuffle=True,
+                        callbacks = [earlyStop]
                     )
-    network.save_weights('./models/signFi_featureExtractor_weight_model_training_acc_0.94_on_250cls.h5')
+    val_acc = history.history[ 'val_acc' ]
+    save_path = f'./models/signFi_wholeModel_weight_AlexNet_training_acc_{val_acc[-1]:.2f}_on_276cls.h5'
+    model.save_weights(save_path)
     # model.save( './models/signFi_model_whole_model_structure.h5' )
     # kf = KFold( 5, shuffle=True, random_state=42 )
     # train_idx,test_idx = kf.split(x_all)

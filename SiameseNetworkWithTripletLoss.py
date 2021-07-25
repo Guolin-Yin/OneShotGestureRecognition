@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer,Conv1D, Conv2D, Flatten, Dense,Dropout, Input, Lambda,MaxPooling2D,AveragePooling2D,\
-                                    concatenate,BatchNormalization,MaxPooling1D,ReLU,Softmax
+                                    concatenate,BatchNormalization,MaxPooling1D,ReLU,Softmax,ZeroPadding2D
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.regularizers import l2
@@ -167,7 +167,6 @@ class SiamesWithTriplet:
     def __init__( self,batch_size = config.batch_size,lr = config.lr):
         self.batch_size = batch_size
         self.learning_rate = lr
-
     def lr_scheduler(self, epoch, lr ):
         decay_rate = 0.1
         decay_step = 12
@@ -218,16 +217,7 @@ class SiamesWithTriplet:
             network.add( BatchNormalization( ) )
             network.add(MaxPooling2D(pool_size=4,strides = 4,padding='valid',name = 'feature_layer'))
 
-            # network.add(Conv2D( filters=64, kernel_size=4, activation='relu', padding='valid' ) )
-            # network.add( BatchNormalization( ) )
-            # network.add( MaxPooling2D( pool_size=4, strides=4, padding='valid' ) )
-
-            # network.add( Conv2D( filters=32, kernel_size=4, activation='relu', padding='valid' ) )
-            # network.add( BatchNormalization( ) )
-            # network.add( MaxPooling2D( pool_size=4, strides=4, padding='valid' ) )
-
             network.add( Flatten( ) )
-
             network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
             # optimizer = tf.keras.optimizers.SGD(
             #         learning_rate=0.01, momentum=0.9
@@ -250,6 +240,31 @@ class SiamesWithTriplet:
                     learning_rate=0.01, momentum=0.9
             )
             network.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
+            network.summary( )
+        elif mode == 'Alexnet':
+            network = Sequential( )
+            network.add(Conv2D(filters = 96, kernel_size=(11,5), strides = 2, input_shape=config.input_shape,padding='valid', activation='relu', name = 'Conv_1'))
+            network.add( MaxPooling2D(pool_size = 3, strides = 1, name = 'Maxpool_1'))
+
+            network.add( ZeroPadding2D( padding = 2 , name = 'Padding_layer_1') )
+            network.add( Conv2D(filters = 256, kernel_size = 5, strides = 1, padding='valid', name = 'Conv_2'))
+            network.add( MaxPooling2D( pool_size=3, strides=2, name='Maxpool_2' ) )
+
+            network.add( ZeroPadding2D( padding=1, name='Padding_leayer_2' ) )
+            network.add( Conv2D( filters=384, activation='relu', kernel_size=3, strides=1, padding='valid', name='Conv_3' ) )
+
+            network.add( ZeroPadding2D( padding=1, name='Padding_layer_3' ) )
+            network.add( Conv2D( filters=384,activation='relu', kernel_size=3, strides=1, padding='valid', name='Conv_4' ) )
+
+            network.add( ZeroPadding2D( padding=1, name='Padding_layer_4' ) )
+            network.add( Conv2D( filters=256, activation='relu', kernel_size=(4,3), strides=1, padding='valid', name='Conv_5' ) )
+
+            network.add( MaxPooling2D( pool_size=3, strides=2, name='Maxpool_3' ) )
+            network.add( Dropout(0.5))
+            network.add( Flatten( ))
+            network.add( Dense(units = 4096, name = 'FC_1'))
+            network.add( Dense( units=4096, name = 'FC_2' ) )
+            network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
             network.summary( )
         return network
     def build_TripletModel( self, network,data_dir,margin ):

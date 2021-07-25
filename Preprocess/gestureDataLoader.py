@@ -273,17 +273,37 @@ class signDataLoder:
                 buf[list( buf.keys( ) )[ i ]] = self._reformat(buf[list( buf.keys( ) )[ i ]])
             self.data.append( buf )
         return [self.data,fileName]
-    def getFormatedData(self):
-        x = self.data[ 2 ][ 'csid_lab' ]
-        x_amp = np.abs( x )
-        x_phase = np.angle( x )
-
-        x_all = np.concatenate( (x_amp, x_phase), axis=2 )
-        y_all = self.data[ 2 ][ 'label_lab' ]
+    def getFormatedData(self,source:str='lab'):
+        if source == 'lab':
+            print( 'loading data from lab' )
+            x = self.data[ 2 ][ 'csid_lab' ]
+            x_amp = np.abs( x )
+            x_phase = np.angle( x )
+            x_all = np.concatenate( (x_amp, x_phase), axis=2 )
+            y_all = self.data[ 2 ][ 'label_lab' ]
+        elif source == 'home':
+            print('loading data from home')
+            x = self.data[ 0 ][ 'csid_home' ]
+            x_amp = np.abs( x )
+            x_phase = np.angle( x )
+            x_all = np.concatenate( (x_amp, x_phase), axis=2 )
+            y_all = self.data[ 0 ][ 'label_home' ]
+        elif source == 'lab_other':
+            x = self.data[ 2 ][ 'csid_lab' ]
+            x_amp = np.abs( x )
+            x_phase = np.angle( x )
+            x_all = np.concatenate( (x_amp, x_phase), axis=2 )
+            y_all = self.data[ 2 ][ 'label_lab' ]
         return [x_all,y_all]
 
     def getTrainTestSplit(self, data, labels, N_train_classes: int = 260, N_samples_per_class: int = 20,
                            shuffle_training: bool = True ):
+        if N_train_classes == 276:
+            train_data = data
+            train_labels = labels
+            test_data = None
+            test_labels = None
+            return [ train_data, train_labels, test_data, test_labels ]
         N_samples = len( labels )
         N_classes = int( N_samples / N_samples_per_class )
         N_train_samples = N_train_classes * N_samples_per_class
