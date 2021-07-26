@@ -289,11 +289,11 @@ class signDataLoder:
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 0 ][ 'label_home' ]
         elif source == 'lab_other':
-            x = self.data[ 2 ][ 'csid_lab' ]
+            x = self.data[ 1 ][ 'csi1' ][0:1500]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
-            y_all = self.data[ 2 ][ 'label_lab' ]
+            y_all = self.data[ 1 ][ 'label' ][0:1500]
         return [x_all,y_all]
 
     def getTrainTestSplit(self, data, labels, N_train_classes: int = 260, N_samples_per_class: int = 20,

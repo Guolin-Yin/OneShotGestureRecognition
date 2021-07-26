@@ -197,7 +197,7 @@ class trainTestModel:
             selected_samples = np.random.choice( index, size=2, replace=False )
             support_set.append( test_data[ selected_samples[ 0 ] ] )
             query_set.append( test_data[ selected_samples[ 1 ] ] )
-        return support_set, query_set
+        return support_set, query_set,selected_Sign
     def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True ):
         nway_min = 2
         nway_max = 26
@@ -208,7 +208,7 @@ class trainTestModel:
             if isOneShotTask:
                 for _ in range( N_test_sample ):
                     # Retrieving nway number of triplets and calculating embedding vector
-                    support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway=nway )
+                    support_set, query_set,selected_Sign = self._getOneshotTaskData( test_data, test_labels, nway=nway )
                     # support set, it has N different classes depending on the batch_size
                     # nway_anchor has the same class with nway_positive at the same row
                     sample_index = random.randint( 0, nway - 1 )
@@ -218,7 +218,6 @@ class trainTestModel:
                     sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
                     if np.argmax( sim ) == sample_index:
                         correct_count += 1
-                #   nway_list.append( nway )
                 acc = (correct_count / N_test_sample) * 100.
                 test_acc.append( acc )
                 print( "Accuracy %.2f" % acc )
