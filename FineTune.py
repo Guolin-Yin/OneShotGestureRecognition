@@ -92,6 +92,7 @@ class fineTuningModel:
         sim = cosine_similarity( support_set_embedding, query_set_embedding )
         return sim
 if __name__ == '__main__':
+    print('start')
     fine_tune_data,fine_tune_labels = getFineTuneData()
     fineTuningModel = fineTuningModel()
     sim = fineTuningModel.predict( Support_input,Query_input )
