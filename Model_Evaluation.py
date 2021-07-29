@@ -21,14 +21,17 @@ def pltResults(acc):
     ways2 = np.arange( 2, 26, 1 )
     ax = plt.figure().gca()
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-
-    ax.plot( ways, acc[ 0 ],linestyle='dashed', marker='o', label='test on lab environment same user (New sign)' )
-    ax.plot( ways, acc[ 1 ], linestyle='dashed', marker='o', label='test on lab environment same user' )
-    ax.plot( ways, acc[ 2 ], linestyle='dashed', marker='o', label='test on different environment same user (New sign)' )
-    ax.plot( ways, acc[ 3 ], linestyle='dashed', marker='o', label='test on different environment different user ' )
-    ax.plot( ways2, acc[ 4 ], linestyle='dashed', marker='o', label='test on different environment different user (New sign)' )
+    ax.plot( ways2, acc[ 0 ], linestyle='dashed', marker='o', label='Train on user 1 to 4, test on user 5' )
+    ax.plot( ways2, acc[ 1 ], linestyle='dashed', marker='o', label='Train on user 1     , test on user 5' )
+    ax.plot( ways2, acc[ 2 ],linestyle='dashed', marker='o', label='Train on user 1 to 4, test on user 5 using softmax' )
+    ax.plot( ways2, acc[ 3 ], linestyle='dashed', marker='o',
+             label='Train on user 1 to 4, test on user 5 using softmax with fixed support set' )
+    # ax.plot( ways, acc[ 1 ], linestyle='dashed', marker='o', label='test on different environment same user' )
+    # ax.plot( ways, acc[ 2 ], linestyle='dashed', marker='o', label='test on different environment same user (New sign)' )
+    # ax.plot( ways, acc[ 3 ], linestyle='dashed', marker='o', label='test on different environment different user ' )
+    # ax.plot( ways2, acc[ 4 ], linestyle='dashed', marker='o', label='test on different environment different user (New sign)' )
     ax.set_ylim( 0, 102 )
-    ax.set_title( 'Feature extractor trained on lab environment with 250 classes' )
+    ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
     ax.set_xlabel( 'Number of new classes' )
     ax.set_ylabel( 'Accuracy' )
     ax.legend( )
@@ -112,9 +115,80 @@ def record():
                                    95.3,
                                    96.0,
                                    96.89999999999999 ]
+    train_on_user1to4_test_on5 = [93.60000000000001,
+ 88.4,
+ 84.89999999999999,
+ 83.3,
+ 82.5,
+ 80.60000000000001,
+ 77.3,
+ 74.5,
+ 77.10000000000001,
+ 73.0,
+ 76.9,
+ 75.2,
+ 72.8,
+ 73.5,
+ 73.4,
+ 71.5,
+ 75.5,
+ 71.5,
+ 71.1,
+ 70.3,
+ 73.4,
+ 72.6,
+ 70.19999999999999,
+ 69.89999999999999]
+    train_on_user1to4_test_on5_softmax = [ 93.89999999999999,
+      89.0,
+      86.1,
+      83.0,
+      81.0,
+      80.2,
+      79.0,
+      75.1,
+      77.60000000000001,
+      77.2,
+      73.6,
+      71.6,
+      75.6,
+      76.4,
+      73.4,
+      72.6,
+      72.2,
+      73.4,
+      70.3,
+      70.3,
+      73.0,
+      72.8,
+      70.39999999999999,
+      69.89999999999999 ]
+    train_on_user1to4_test_on5_softmax_with_fixed_support = [ 91.10000000000001,
+      89.2,
+      86.3,
+      81.89999999999999,
+      80.7,
+      80.0,
+      77.8,
+      74.8,
+      73.8,
+      74.8,
+      73.8,
+      72.0,
+      74.1,
+      74.3,
+      74.6,
+      71.5,
+      71.2,
+      72.3,
+      72.8,
+      70.5,
+      68.5,
+      70.8,
+      73.0,
+      71.5 ]
 
-    pltResults( [ test_on_lab, test_on_user5_trained_sign, test_on_home, test_on_user1_trained_sign,
-                  test_on_user1_unseen_sign ] )
+    pltResults( [ train_on_user1to4_test_on5,test_on_user1_unseen_sign,train_on_user1to4_test_on5_softmax,train_on_user1to4_test_on5_softmax_with_fixed_support ] )
 def split(x_all,y_all):
     start = np.where( y_all == 254 )[ 0 ]
     # end = start + 25
@@ -126,19 +200,31 @@ def split(x_all,y_all):
         test_data_user1[count:count + 25] = x_all[i:i + 25]
         count += 25
     return [test_data_user1,test_labels_user1]
-def OneShotPerformanceTest():
-    _,trained_featureExtractor = defineModel( mode = 'Alexnet' )
-    trained_featureExtractor.load_weights( 'D:\OneShotGestureRecognition\models\signFi_featureExtractor_weight_AlexNet_training_acc_0.95_on_250cls.h5' )
-    testSign = signDataLoder( dataDir=config.train_dir )
-    x_all, y_all = testSign.getFormatedData( source='home' )
-    # test_data, test_labels = split( x_all, y_all )
-    test_data, test_labels, _, _ = testSign.getTrainTestSplit( data=x_all, labels=y_all,
-                                                               N_train_classes=26,
-                                                               N_samples_per_class= 10)
+def OneShotPerformanceTest(source:str = '276'):
     testOneshot = trainTestModel( )
-    test_acc = testOneshot.signTest( test_data=test_data, test_labels=test_labels,
-                                     N_test_sample=1000, embedding_model=trained_featureExtractor,
-                                     isOneShotTask=True )
+    testSign = signDataLoder( dataDir=config.train_dir )
+    if source == '276':
+        _,trained_featureExtractor = defineModel( mode = 'Alexnet' )
+        trained_featureExtractor.load_weights( 'D:\OneShotGestureRecognition\models\signFi_featureExtractor_weight_AlexNet_training_acc_0.95_on_250cls.h5' )
+        testSign = signDataLoder( dataDir=config.train_dir )
+        x_all, y_all = testSign.getFormatedData( source='home' )
+        # test_data, test_labels = split( x_all, y_all )
+        test_data, test_labels, _, _ = testSign.getTrainTestSplit( data=x_all, labels=y_all,
+                                                                   N_train_classes=26,
+                                                                   N_samples_per_class= 10)
+
+        test_acc = testOneshot.signTest( test_data=test_data, test_labels=test_labels,
+                                         N_test_sample=1000, embedding_model=trained_featureExtractor,
+                                         isOneShotTask=True )
+    elif source == '150':
+        _, trained_featureExtractor = defineModel( mode='Alexnet' )
+        trained_featureExtractor.load_weights('./models/signFi_wholeModel_weight_AlexNet_training_acc_0.90_on_125cls_user1to4.h5')
+        x_all, y_all = testSign.getFormatedData( source='lab_other' )
+        test_data = x_all[ 1250:1500 ]
+        test_labels = y_all[ 1250:1500 ]
+        test_acc = testOneshot.signTest( test_data=test_data, test_labels=test_labels,
+                                         N_test_sample=1000, embedding_model=trained_featureExtractor,
+                                         isOneShotTask=True,mode = 'fix' )
     return test_acc
 def CnnModelTesting():
     model, _ = defineModel( mode='Alexnet' )
@@ -150,6 +236,7 @@ def CnnModelTesting():
     test_labels = np.concatenate((test_labels_1,test_labels_2),axis = 0)
     model.evaluate(x_all,test_labels)
 if __name__ == '__main__':
-    OneShotPerformanceTest()
+    # test_acc = OneShotPerformanceTest('150')
+    record()
     # CnnModelTesting()
 

@@ -11,23 +11,23 @@ from Preprocess.gestureDataLoader import gestureDataLoader
 import numpy as np
 from Config import getConfig
 import os
-# class TripletLossLayer( Layer ):
-#     def __init__( self, alpha, **kwargs ):
-#         self.alpha = alpha
-#         super( TripletLossLayer, self ).__init__( **kwargs )
-#
-#     def triplet_loss( self, inputs ):
-#         anchor, positive, negative = inputs
-#         p_dist = K.sum( K.square( anchor - positive ), axis=-1 )
-#         n_dist = K.sum( K.square( anchor - negative ), axis=-1 )
-#         loss = K.sum( K.maximum( p_dist - n_dist + self.alpha, 0 ), axis=0 )
-#         return loss
-#
-#     def call( self, inputs ):
-#         loss = self.triplet_loss( inputs )
-#         self.add_loss( loss )
-#         print( 'Adding loss')
-#         return loss
+class TripletLossLayer( Layer ):
+    def __init__( self, alpha, **kwargs ):
+        self.alpha = alpha
+        super( TripletLossLayer, self ).__init__( **kwargs )
+
+    def triplet_loss( self, inputs ):
+        anchor, positive, negative = inputs
+        p_dist = K.sum( K.square( anchor - positive ), axis=-1 )
+        n_dist = K.sum( K.square( anchor - negative ), axis=-1 )
+        loss = K.sum( K.maximum( p_dist - n_dist + self.alpha, 0 ), axis=0 )
+        return loss
+
+    def call( self, inputs ):
+        loss = self.triplet_loss( inputs )
+        self.add_loss( loss )
+        print( 'Adding loss')
+        return loss
 # class SiamesNetworkTriplet:
 #     def __init__( self,batch_size,data_dir):
 #         self.batch_size = batch_size
@@ -293,14 +293,14 @@ class SiamesWithTriplet:
         encoded_p = network( positive_input )
         encoded_n = network( negative_input )
 
-        loss = Lambda( self.triplet_loss )( [ encoded_a, encoded_p, encoded_n ] )
+        loss = Lambda( self._triplet_loss )( [ encoded_a, encoded_p, encoded_n ] )
         self.model = Model( inputs=[ anchor_input, positive_input, negative_input ], outputs=loss )
         # self.model.add_loss(CustomMSE())
         optimizer = SGD(
                 lr=self.learning_rate,
                 # lr_multipliers=learning_rate_multipliers,
                 momentum=0.5 )
-        self.model.compile(loss=self.identity_loss,optimizer=optimizer,metrics = None )
+        self.model.compile(loss=self._identity_loss,optimizer=optimizer,metrics = None )
         self.model.summary( )
         return self.model
 def OneShotTesting( test_dir:str,embedding_model ):

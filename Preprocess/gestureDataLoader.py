@@ -273,6 +273,11 @@ class signDataLoder:
                 buf[list( buf.keys( ) )[ i ]] = self._reformat(buf[list( buf.keys( ) )[ i ]])
             self.data.append( buf )
         return [self.data,fileName]
+    def _getConcatenated( self, x ):
+        x_amp = np.abs( x )
+        x_phase = np.angle( x )
+        x_all = np.concatenate( (x_amp, x_phase), axis=2 )
+        return x_all
     def getFormatedData(self,source:str='lab'):
         if source == 'lab':
             print( 'loading data from lab' )
@@ -289,11 +294,22 @@ class signDataLoder:
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 0 ][ 'label_home' ]
         elif source == 'lab_other':
-            x = self.data[ 1 ][ 'csi1' ][0:1500]
+            print( 'loading data from user 5' )
+            x = self.data[ 1 ][ 'csi5' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
-            y_all = self.data[ 1 ][ 'label' ][0:1500]
+            y_all = self.data[ 1 ][ 'label' ][6000:7500]
+        elif source == 'user1to4':
+            x_1 = self._getConcatenated(self.data[ 1 ][ 'csi1' ])
+            x_2 = self._getConcatenated(self.data[ 1 ][ 'csi2' ])
+            x_3 = self._getConcatenated(self.data[ 1 ][ 'csi3' ])
+            x_4 = self._getConcatenated(self.data[ 1 ][ 'csi4' ])
+            x_all = np.concatenate( (x_1,x_2,x_3,x_4),axis = 0)
+            y_all = self.data[ 1 ][ 'label' ][ 0:6000 ]
+            # y_2 = self.data[ 1 ][ 'label' ][ 1500:3000 ]
+            # y_3 = self.data[ 1 ][ 'label' ][ 3000:4500 ]
+            # y_4 = self.data[ 1 ][ 'label' ][ 4500:6000 ]
         return [x_all,y_all]
 
     def getTrainTestSplit(self, data, labels, N_train_classes: int = 260, N_samples_per_class: int = 20,

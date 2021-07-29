@@ -11,7 +11,7 @@ class getConfig:
 
         self.eval_dir = 'E:/Widar_dataset_matfiles/20181121/test_user1_r3'
         self.lr = 1e-2
-        self.N_train_classes = 250
+        self.N_train_classes = 125
         self.batch_size = 32
         self.input_shape = [200,60,3]
         self.initGPU()

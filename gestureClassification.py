@@ -16,6 +16,7 @@ import scipy.io as sio
 import re
 from SiameseNetworkWithTripletLoss import SiamesWithTriplet
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import normalize
 from Config import getConfig
 from saveData import preprocessData
 from sklearn.model_selection import KFold
@@ -184,39 +185,73 @@ def defineModel(mode:str = '1D'):
         model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
         # model.summary( )
     return model,network
+def labTrainData(x_all, y_all,source:str = 'user1to4'):
+
+    if source == 'user1to4':
+        train_data = np.zeros((5000,200,60,3))
+        train_labels = np.zeros((5000,1),dtype = int)
+        test_data = np.zeros((1000,200,60,3))
+        test_labels = np.zeros( (1000, 1),dtype=int )
+        count_tra = 0
+        count_test = 0
+        for i in np.arange(0,6000,1500):
+            train_data[ count_tra:count_tra + 1250, :, :, : ] = x_all[ i:i + 1250, :, :, : ]
+            train_labels[ count_tra:count_tra + 1250, : ] = y_all[ i:i + 1250, : ]
+            test_data[count_test:count_test+250,:,:,:] = x_all[i+1250:i+1500,:,:,:]
+            test_labels[count_test:count_test+250,:] = y_all[i+1250:i+1500,:]
+            count_tra+=1250
+            count_test+=250
+        idx = np.random.permutation( len( train_labels ) )
+        return [train_data[idx],train_labels[idx],test_data,test_labels]
+    elif source == 'singleuser':
+        x_all = x_all[ 0:1250 ]
+        y_all = y_all[ 0:1250 ]
+        idx = np.random.permutation( len( y_all ) )
+        x_all = x_all[ idx, :, :, : ]
+        y_all = y_all[ idx, : ]
+    return [ x_all, y_all ]
 class trainTestModel:
     def __init__( self):
         pass
-    def _getOneshotTaskData(self, test_data, test_labels, nway ):
+    def _getOneshotTaskData(self, test_data, test_labels, nway,mode:str = 'cross_val' ):
         signRange = np.arange( int( np.min( test_labels ) ), int( np.max( test_labels ) + 1 ), 1 )
         selected_Sign = np.random.choice( signRange, size=nway, replace=False )
         support_set = [ ]
         query_set = [ ]
         for i in selected_Sign:
             index, _ = np.where( test_labels == i )
-            selected_samples = np.random.choice( index, size=2, replace=False )
-            support_set.append( test_data[ selected_samples[ 0 ] ] )
-            query_set.append( test_data[ selected_samples[ 1 ] ] )
+            if mode == 'cross_val':
+                selected_samples = np.random.choice( index, size=2, replace=False )
+                support_set.append( test_data[ selected_samples[ 0 ] ] )
+                query_set.append( test_data[ selected_samples[ 1 ] ] )
+            elif mode == 'fix':
+                selected_samples = np.random.choice( index[1:], size=1, replace=False )
+                support_set.append( test_data[ index[ 0 ] ] )
+                query_set.append( test_data[ selected_samples[ 0 ] ] )
         return support_set, query_set,selected_Sign
-    def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True ):
+    def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True, mode:str = 'cross_val' ):
         nway_min = 2
-        nway_max = 26
+        nway_max = 25
         test_acc = [ ]
+        softmax_func = tf.keras.layers.Softmax( )
         for nway in range( nway_min, nway_max + 1 ):
             print( "Checking %d way accuracy...." % nway )
             correct_count = 0
             if isOneShotTask:
                 for _ in range( N_test_sample ):
                     # Retrieving nway number of triplets and calculating embedding vector
-                    support_set, query_set,selected_Sign = self._getOneshotTaskData( test_data, test_labels, nway=nway )
+                    support_set, query_set,_ = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode = mode)
                     # support set, it has N different classes depending on the batch_size
                     # nway_anchor has the same class with nway_positive at the same row
                     sample_index = random.randint( 0, nway - 1 )
-                    nway_anchor_embedding = embedding_model.predict( np.asarray( support_set ) )
-                    sample_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
+                    support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
+                    # support_set_embedding = normalize( support_set_embedding, axis=1, norm='max' )
+                    query_set_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
+                    # query_set_embedding = normalize( query_set_embedding, axis=1, norm='max' )
                     # using cosine_similarity
-                    sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-                    if np.argmax( sim ) == sample_index:
+                    sim = cosine_similarity( support_set_embedding, query_set_embedding )
+                    prob = softmax_func( np.squeeze( sim, -1 ) ).numpy()
+                    if np.argmax( prob ) == sample_index:
                         correct_count += 1
                 acc = (correct_count / N_test_sample) * 100.
                 test_acc.append( acc )
@@ -232,30 +267,35 @@ class trainTestModel:
                 out[i,:,:] = x[i,:,:].transpose()
             return out
     def scheduler(self, epoch, lr):
-        if epoch < 320:
+        if epoch < 130:
             return lr
         else:
             return lr * tf.math.exp(-0.1)
             # return
 if __name__ == '__main__':
-    # Sign recognition
+    # initialize the training parameters
     obj = signDataLoder( dataDir=config.train_dir )
     trainTestObj = trainTestModel()
-    x_all, y_all = obj.getFormatedData()
-    train_data,train_labels,test_data,test_labels = obj.getTrainTestSplit( data=x_all, labels=y_all,
-                                                                           N_train_classes =  config.N_train_classes)
+    lrScheduler = tf.keras.callbacks.LearningRateScheduler( trainTestObj.scheduler )
+    earlyStop = tf.keras.callbacks.EarlyStopping( monitor='val_loss', patience=20, restore_best_weights=True )
+    # Sign recognition
+    x_all, y_all = obj.getFormatedData(source = 'user1to4')
+    [train_data,train_labels,test_data,test_labels] = labTrainData(x_all, y_all)
+    # train_data,train_labels,test_data,test_labels = obj.getTrainTestSplit( data=x_all, labels=y_all,
+    #                                                                        N_train_classes =  config.N_train_classes)
+
     train_labels = to_categorical(train_labels - 1,num_classes=int(np.max(train_labels)))
 
-    lrScheduler = tf.keras.callbacks.LearningRateScheduler( trainTestObj.scheduler )
+
     model, network = defineModel( mode = 'Alexnet')
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=20,restore_best_weights=True)
+
     history = model.fit(train_data,train_labels,validation_split=0.2,
                      epochs=1000,shuffle=True,
-                        callbacks = [earlyStop]
+                        callbacks = [earlyStop,lrScheduler]
                     )
     val_acc = history.history[ 'val_acc' ]
-    save_path = f'./models/signFi_wholeModel_weight_AlexNet_training_acc_{val_acc[-1]:.2f}_on_276cls.h5'
-    model.save_weights(save_path)
+    save_path = f'./models/signFi_wholeModel_weight_AlexNet_training_acc_{val_acc[-1]:.2f}_on_{config.N_train_classes}cls_user1to4.h5'
+    network.save_weights(save_path)
     # model.save( './models/signFi_model_whole_model_structure.h5' )
     # kf = KFold( 5, shuffle=True, random_state=42 )
     # train_idx,test_idx = kf.split(x_all)
