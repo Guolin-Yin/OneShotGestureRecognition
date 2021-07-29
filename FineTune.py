@@ -2,13 +2,13 @@ import tensorflow as tf
 import numpy as np
 from gestureClassification import *
 from Preprocess.gestureDataLoader import signDataLoder
-from tensorflow.keras.layers import Dense,Softmax,Input, Lambda
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Input, Softmax, Dense, Reshape, Lambda,Dot,concatenate
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.utils import to_categorical
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
-config = getConfig()
-testSign = signDataLoder( dataDir=config.train_dir )
+
 # x_all, y_all = testSign.getFormatedData( source='lab_other' )
 def _getFeatureExtractor():
     _, trained_featureExtractor = defineModel( mode='Alexnet' )
@@ -68,35 +68,41 @@ def testFineTune():
                                      isOneShotTask=True, mode='fix' )
     return test_acc
 class fineTuningModel:
-    def __init__( self):
-        self.trained_featureExtractor = _getFeatureExtractor( )
+    def __init__( self ):
+        self.trained_featureExtractor = self._getFeatureExtractor( )
         self.trained_featureExtractor.trainable = False
-        builTuningModel()
-    def _cosineSim( self, x ):
-        Support_embedding, Query_embedding = x
-        sim = cosine_similarity( Support_embedding, Query_embedding )
-        return sim
-    def builTuningModel( self ):
+        self.input_shape = config.input_shape
+        self.builTestModel( )
+    def _getFeatureExtractor( self ):
+        _, trained_featureExtractor = defineModel( mode='Alexnet' )
+        trained_featureExtractor.load_weights(
+            './models/signFi_wholeModel_weight_AlexNet_training_acc_0.90_on_125cls_user1to4.h5' )
+        return trained_featureExtractor
+    def builTestModel( self ):
         Support_input = Input( self.input_shape, name="Support_input" )
         Query_input = Input( self.input_shape, name="Query_input" )
-        Support_embedding = self.trained_featureExtractor(Support_input)
+        Support_embedding = self.trained_featureExtractor( Support_input )
         Query_embedding = self.trained_featureExtractor(Query_input)
-        cosSim_layer = Lambda( self._cosineSim )([Support_embedding,Query_embedding])
-        self.embedding_model = Model( inputs=[ Support_input, Query_input ], outputs=cosSim_layer )
-    def predict( self, Support_input,Query_input ):
-        sim = self.model.predict( Support_input,Query_input )
+        cosSim_layer = Dot( axes=1, normalize=True )([Support_embedding,Query_embedding])
+        self.embedding_model = Model( inputs=[ Support_input, Query_input  ], outputs=cosSim_layer )
+    def predict( self, Support_input=None, Query_input = None):
+        sim = self.embedding_model.predict( [Support_input,Query_input] )
         return sim
-    def original_predictions( self, Support_input,Query_input ):
-        support_set_embedding = embedding_model.predict( np.asarray( Support_input ) )
-        query_set_embedding = embedding_model.predict( np.expand_dims( Query_input, axis=0 ) )
-        sim = cosine_similarity( support_set_embedding, query_set_embedding )
-        return sim
+    def buildFineTuningModel( self ):
+
+
+
 if __name__ == '__main__':
     print('start')
-    fine_tune_data,fine_tune_labels = getFineTuneData()
-    fineTuningModel = fineTuningModel()
-    sim = fineTuningModel.predict( Support_input,Query_input )
-    sim_ori = fineTuningModel.original_predictions( Support_input,Query_input )
+    config = getConfig( )
+    fineTuning = fineTuningModel( )
+    testSign = signDataLoder( dataDir=config.train_dir )
+
+    fine_tune_data, fine_tune_labels = getFineTuneData( )
+    Support_input = np.expand_dims(fine_tune_data[1:2],axis=0)
+    Query_input = np.expand_dims(fine_tune_data[6:7],axis=0)
+    sim = fineTuning.predict( Support_input = fine_tune_data[0:2], Query_input = fine_tune_data[5] )
+
 
     # # support_set_embedding = getEmbeddingVectors(fine_tune_data)
     # labels = to_categorical(fine_tune_labels-1,num_classes=5)
@@ -106,4 +112,17 @@ if __name__ == '__main__':
     # encoder.save_weights( save_path )
 
     # testFineTune()
+
+# input_a = Input(shape=(input_dim, 1))
+# input_b = Input(shape=(input_dim, 1))
+#
+# cos_distance = merge([input_a, input_b], mode='cos', dot_axes=1) # magic dot_axes works here!
+# cos_distance = Reshape((1,))(cos_distance)
+# cos_similarity = Lambda(lambda x: 1-x)(cos_distance)
+#
+# model = Model([input_a, input_b], [cos_similarity])
+
+
+
+
 

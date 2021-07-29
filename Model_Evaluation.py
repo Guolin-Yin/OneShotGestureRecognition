@@ -236,7 +236,7 @@ def CnnModelTesting():
     test_labels = np.concatenate((test_labels_1,test_labels_2),axis = 0)
     model.evaluate(x_all,test_labels)
 if __name__ == '__main__':
-    # test_acc = OneShotPerformanceTest('150')
-    record()
+    test_acc = OneShotPerformanceTest('150')
+    # record()
     # CnnModelTesting()
 

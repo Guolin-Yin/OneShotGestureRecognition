@@ -2,11 +2,11 @@ import os
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from Preprocess.gestureDataLoader import gestureDataLoader
-from keras.models import Model, Sequential
-from keras.layers import Conv2D, MaxPool2D, Flatten, Dense, Input, Lambda
-from keras.optimizers import SGD
-from keras.regularizers import l2
-import keras.backend as K
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Conv2D, MaxPool2D, Flatten, Dense, Input, Lambda
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.regularizers import l2
+import tensorflow.keras.backend as K
 import numpy as np
 
 class TripletLossLayer( Layer ):
@@ -291,6 +291,6 @@ if __name__ == '__main__':
     # gestureDataLoader = gestureDataLoader( )
     # data, label = gestureDataLoader.getTrainBatcher( )
     # triplets = gestureDataLoader.getTripletTrainBatcher( )
-    network = SiamesNetworkTriplet(batch_size=32,data_dir = './20181115/')
+    network = SiamesNetwork(batch_size=32,data_dir = 'E:/Widar_dataset_matfiles/20181115/')
     network.train_siamese_network(number_of_iterations = 10000, evaluate_each =500, model_name = 'siameseTriplet')
     # trainSiameseSimMain( )
