@@ -9,8 +9,6 @@ from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.utils import to_categorical
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
-
-# x_all, y_all = testSign.getFormatedData( source='lab_other' )
 def _getFeatureExtractor():
     _, trained_featureExtractor = defineModel( mode='Alexnet' )
     trained_featureExtractor.load_weights('./models/signFi_wholeModel_weight_AlexNet_training_acc_0.90_on_125cls_user1to4.h5' )
@@ -68,8 +66,6 @@ def testFineTune():
                                      N_test_sample=1000, embedding_model=encoder,
                                      isOneShotTask=True, mode='fix' )
     return test_acc
-
-
 class models:
     def __init__( self ):
         pass
@@ -213,18 +209,23 @@ class fineTuningModel:
         Support_set = self.data[ 'Support_data' ]
         # Support_label = to_categorical(self.data[ 'Support_label' ]-np.min(self.data['Query_label' ]),num_classes=25)
         self.buildFineTuningModel()
+        softmax_func = tf.keras.layers.Softmax( )
         correct_count = 0
+        test_acc = []
         if isOneShotTask:
+            feature_extractor, classifier = self.rebuildExtractorFcn( )
             for _ in range(N_test_sample):
                 Support_data, Query_data, sample_index = self._getFineTuneTestData( Support_set=Support_set,query_set =
-                query_set,
-                        nway = nway)
-                feature_extractor, classifier = self.rebuildExtractorFcn()
+                query_set, nway = nway)
+
                 Support_set_embedding = feature_extractor.predict(Support_data)
                 Query_set_embedding = feature_extractor.predict( Query_data )
-                prob = classifier.predict([Support_set_embedding,Query_set_embedding])
+                # prob = classifier.predict([Support_set_embedding,Query_set_embedding])
+                sim = cosine_similarity( Support_set_embedding, np.expand_dims(Query_set_embedding[0],axis = 0 ))
+                prob = softmax_func( np.squeeze( sim, -1 ) ).numpy( )
                 if np.argmax( prob ) == sample_index:
                     correct_count += 1
+                    print(correct_count)
             acc = (correct_count / N_test_sample) * 100.
             test_acc.append( acc )
             print( "Accuracy %.2f" % acc )
