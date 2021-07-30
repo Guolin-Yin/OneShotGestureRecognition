@@ -180,55 +180,71 @@ class fineTuningModel:
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
         return self.fine_Tune_model
-    def _getFineTuneTestData(self,Support_set,query_set,nway):
-        Support_data = Support_set[0:25]
+    def _getFineTuneTestData(self,query_set,nway):
+
         sample_sign = np.random.choice(np.arange(0,125,25),size = 1,replace = False)
         sample_index = random.randint( 0, nway - 1 )
         query_data = np.repeat( query_set[ sample_sign+sample_index ], [ nway ], axis = 0 )
-        return [Support_data,query_data,sample_index]
+        return [query_data,sample_index]
     def _configModel( self,model ):
         feature_extractor = Model( inputs = model.input, outputs = model.get_layer( 'fine_tune_layer' ).output )
 
         '''Classifier input: two feature vector
                       output: one probability
         '''
-        cls_intput_Support = Input(25,name='Support_input')
+        cls_intput_Support = Input(25,name = 'Support_input')
         cls_intput_Query = Input( 25, name = 'Query_input' )
         cosSim_layer = Dot( axes = 1, normalize = True )([cls_intput_Support,cls_intput_Query])
-        cls_output = Softmax( )( cosSim_layer )
+        cls_output = Softmax( )( tf.squeeze(cosSim_layer,-1) )
         classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
         return [feature_extractor,classifier]
     def rebuildExtractorFcn(self):
         self.fine_Tune_model.load_weights(config.tunedModel_path)
         feature_extractor, classifier = self._configModel(model = self.fine_Tune_model)
         return [feature_extractor, classifier]
+    def getNShotsEmbedding( self ):
+        Sign_class = np.arange( 0, 25, 1 )
+        Sign_samples = np.arange( 0, 125, 25 )
+        five_shot_support_embedding = [ ]
+        five_shot_support_data = [ ]
+        for i in Sign_class:
+            for j in Sign_samples:
+                five_shot_support_data.append( Support_data[ i + j ] )
+            five_shot_support_embedding.append(
+                    np.mean( self.trained_featureExtractor.predict( np.asarray( five_shot_support_data ) ), axis = 0 )
+                    )
+        five_shot_support_embedding = np.asarray( five_shot_support_embedding )
+        return five_shot_support_embedding
     def test( self ,isOneShotTask:bool = True):
         nway = 25
         N_test_sample = 1000
-        query_set, query_label = self.getValData( )
-        Support_set = self.data[ 'Support_data' ]
-        # Support_label = to_categorical(self.data[ 'Support_label' ]-np.min(self.data['Query_label' ]),num_classes=25)
-        self.buildFineTuningModel()
         softmax_func = tf.keras.layers.Softmax( )
         correct_count = 0
         test_acc = []
+        # load Support and Query dataset
+        query_set, query_label = self.getValData( )
+        Support_data = self.data[ 'Support_data' ] # use one sample as support data
         if isOneShotTask:
             feature_extractor, classifier = self.rebuildExtractorFcn( )
+            Support_set_embedding = feature_extractor.predict( Support_data )
             for _ in range(N_test_sample):
-                Support_data, Query_data, sample_index = self._getFineTuneTestData( Support_set=Support_set,query_set =
-                query_set, nway = nway)
-
-                Support_set_embedding = feature_extractor.predict(Support_data)
+                Query_data, sample_index = self._getFineTuneTestData( query_set = query_set, nway = nway)
                 Query_set_embedding = feature_extractor.predict( Query_data )
-                # prob = classifier.predict([Support_set_embedding,Query_set_embedding])
-                sim = cosine_similarity( Support_set_embedding, np.expand_dims(Query_set_embedding[0],axis = 0 ))
-                prob = softmax_func( np.squeeze( sim, -1 ) ).numpy( )
-                if np.argmax( prob ) == sample_index:
+                prob_classifier = classifier.predict([Support_set_embedding,Query_set_embedding])
+                # sim = cosine_similarity( Support_set_embedding, np.expand_dims(Query_set_embedding[0],axis = 0 ))
+                # prob = softmax_func( np.squeeze( sim, -1 ) ).numpy( )
+                if np.argmax( prob_classifier ) == sample_index:
                     correct_count += 1
                     print(correct_count)
             acc = (correct_count / N_test_sample) * 100.
             test_acc.append( acc )
             print( "Accuracy %.2f" % acc )
+            # Test method 2:
+            # optimizer = tf.keras.optimizers.SGD( learning_rate = config.lr, momentum = 0.9 )
+            # self.fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+            # self.fine_Tune_model.evaluate( query_set, query_label )
+        if not isOneShotTask:
+
         return test_acc
                 # self.fine_Tune_model.predict()
 if __name__ == '__main__':
@@ -236,7 +252,7 @@ if __name__ == '__main__':
     config = getConfig( )
     fineTuningModelObj = fineTuningModel()
     tunedModel = fineTuningModelObj.rebuildExtractorFcn()
-    test_acc = fineTuningModelObj.test()
+    test_acc = fineTuningModelObj.test(isOneShotTask=False)
     print('Done')
     # tunedModel.save_weights(config.tunedModel_path)
     # feature_extractor = buildFeatureExtractor()
