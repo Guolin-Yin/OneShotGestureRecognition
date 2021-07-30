@@ -9,6 +9,7 @@ from os.path import dirname, join
 from tensorflow.keras.utils import to_categorical
 from Preprocess.SignalPreprocess import *
 import matplotlib.pyplot as plt
+from scipy import stats
 class gestureDataLoader:
     def __init__(self,batch_size :int = 32,data_path:str = 'D:/OneShotGestureRecognition/20181115/'):
         self.data_path = data_path
@@ -273,17 +274,30 @@ class signDataLoder:
                 buf[list( buf.keys( ) )[ i ]] = self._reformat(buf[list( buf.keys( ) )[ i ]])
             self.data.append( buf )
         return [self.data,fileName]
-    def _getConcatenated( self, x ):
+    def _getConcatenated( self, x ,isZscore:bool):
         x_amp = np.abs( x )
         x_phase = np.angle( x )
+        if isZscore:
+            x_amp = stats.zscore( x_amp, axis = 1, ddof = 0 )
+            x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
         x_all = np.concatenate( (x_amp, x_phase), axis=2 )
         return x_all
-    def getFormatedData(self,source:str='lab'):
+    def getStandardData( self,amp,phase ):
+        # Deal with amplitude
+        out_amp = []
+        out_phase = []
+        for i in range(len(amp)):
+            buf = np.asarray( list( map( standardisers, np.abs( amp[i] ) ) ) )
+            out_amp.append(buf)
+    def getFormatedData(self,source:str='lab',isZscore:bool=True):
         if source == 'lab':
             print( 'loading data from lab' )
             x = self.data[ 2 ][ 'csid_lab' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
+            if isZscore:
+                x_amp = stats.zscore( x_amp, axis = 1, ddof = 0 )
+                x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 2 ][ 'label_lab' ]
         elif source == 'home':
@@ -291,6 +305,9 @@ class signDataLoder:
             x = self.data[ 0 ][ 'csid_home' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
+            if isZscore:
+                x_amp = stats.zscore( x_amp, axis = 1, ddof = 0 )
+                x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 0 ][ 'label_home' ]
         elif source == 'lab_other':
@@ -298,13 +315,16 @@ class signDataLoder:
             x = self.data[ 1 ][ 'csi5' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
+            if isZscore:
+                x_amp = stats.zscore( x_amp, axis = 1, ddof = 0 )
+                x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 1 ][ 'label' ][6000:7500]
         elif source == 'user1to4':
-            x_1 = self._getConcatenated(self.data[ 1 ][ 'csi1' ])
-            x_2 = self._getConcatenated(self.data[ 1 ][ 'csi2' ])
-            x_3 = self._getConcatenated(self.data[ 1 ][ 'csi3' ])
-            x_4 = self._getConcatenated(self.data[ 1 ][ 'csi4' ])
+            x_1 = self._getConcatenated(self.data[ 1 ][ 'csi1' ],isZscore)
+            x_2 = self._getConcatenated(self.data[ 1 ][ 'csi2' ],isZscore)
+            x_3 = self._getConcatenated(self.data[ 1 ][ 'csi3' ],isZscore)
+            x_4 = self._getConcatenated(self.data[ 1 ][ 'csi4' ],isZscore)
             x_all = np.concatenate( (x_1,x_2,x_3,x_4),axis = 0)
             y_all = self.data[ 1 ][ 'label' ][ 0:6000 ]
             # y_2 = self.data[ 1 ][ 'label' ][ 1500:3000 ]

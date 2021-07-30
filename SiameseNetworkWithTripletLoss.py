@@ -265,7 +265,7 @@ class SiamesWithTriplet:
             network.add( Dense(units = 4096, name = 'FC_1'))
             network.add( Dense( units=4096, name = 'FC_2' ) )
             network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )
-            network.summary( )
+
         return network
     def build_TripletModel( self, network,data_dir,margin ):
         '''

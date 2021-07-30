@@ -14,6 +14,8 @@ class getConfig:
         self.N_train_classes = 125
         self.batch_size = 32
         self.input_shape = [200,60,3]
+        self.featureExtractor_path = './models/signFi_wholeModel_weight_AlexNet_training_acc_0.90_on_125cls_user1to4.h5'
+        self.tunedModel_path = './models/fc_fineTuned.h5'
         self.initGPU()
     def get_params(self):
         return {train_dir: self.train_dir,

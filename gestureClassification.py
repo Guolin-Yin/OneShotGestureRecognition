@@ -211,8 +211,10 @@ def labTrainData(x_all, y_all,source:str = 'user1to4'):
         y_all = y_all[ idx, : ]
     return [ x_all, y_all ]
 class trainTestModel:
-    def __init__( self):
-        pass
+    def __init__( self,mode:str = 'Alexnet' ):
+        embedding = SiamesWithTriplet( )
+        self.trained_featureExtractor = embedding.build_embedding_network( mode=mode )
+
     def _getOneshotTaskData(self, test_data, test_labels, nway,mode:str = 'cross_val' ):
         signRange = np.arange( int( np.min( test_labels ) ), int( np.max( test_labels ) + 1 ), 1 )
         selected_Sign = np.random.choice( signRange, size=nway, replace=False )
@@ -229,6 +231,31 @@ class trainTestModel:
                 support_set.append( test_data[ index[ 0 ] ] )
                 query_set.append( test_data[ selected_samples[ 0 ] ] )
         return support_set, query_set,selected_Sign
+    def builTestModel( self ):
+        Support_input = Input( self.input_shape, name="Support_input" )
+        Query_input = Input( self.input_shape, name="Query_input" )
+        Support_embedding = self.trained_featureExtractor( Support_input )
+        Query_embedding = self.trained_featureExtractor(Query_input)
+        cosSim_layer = Dot( axes=1, normalize=True )([Support_embedding,Query_embedding])
+        self.embedding_model_test = Model( inputs=[ Support_input, Query_input  ], outputs=cosSim_layer )
+    def Test( self, test_data, test_labels, mode:str = 'fix',isOneShotTask: bool = True):
+        nway = 5
+        N_test_sample = 1000
+        test_acc = [ ]
+        softmax_func = tf.keras.layers.Softmax( )
+        for _ in range( N_test_sample ):
+            if isOneShotTask:
+                support_set, query_set, _ = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode=mode )
+                sample_index = random.randint( 0, nway - 1 )
+                query_sample = np.repeat(query_set[sample_index],[nway],axis = 0)
+                sim = self.embedding_model.predict( [ support_set, query_sample ] )
+                prob = softmax_func( np.squeeze( sim, -1 ) ).numpy( )
+                if np.argmax( prob ) == sample_index:
+                    correct_count += 1
+        acc = (correct_count / N_test_sample) * 100.
+        test_acc.append( acc )
+        print( "Accuracy %.2f" % acc )
+
     def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True, mode:str = 'cross_val' ):
         nway_min = 2
         nway_max = 25
@@ -267,11 +294,10 @@ class trainTestModel:
                 out[i,:,:] = x[i,:,:].transpose()
             return out
     def scheduler(self, epoch, lr):
-        if epoch < 130:
+        if epoch < 100:
             return lr
         else:
             return lr * tf.math.exp(-0.1)
-            # return
 if __name__ == '__main__':
     # initialize the training parameters
     obj = signDataLoder( dataDir=config.train_dir )
