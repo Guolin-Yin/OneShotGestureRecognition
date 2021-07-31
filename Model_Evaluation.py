@@ -211,7 +211,7 @@ def split(x_all,y_all):
         count += 25
     return [test_data_user1,test_labels_user1]
 def OneShotPerformanceTest(source:str = '276'):
-    testOneshot = trainTestModel( )
+    testOneshot = PreTrainModel( )
     testSign = signDataLoder( dataDir=config.train_dir )
     if source == '276':
         _,trained_featureExtractor = defineModel( mode = 'Alexnet' )
