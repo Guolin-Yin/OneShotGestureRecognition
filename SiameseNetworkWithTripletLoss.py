@@ -176,15 +176,10 @@ class SiamesWithTriplet:
     def _triplet_loss( self,x ):
         # Triplet Loss function.
         anchor, positive, negative = x
-        #        K.l2_normalize
-        # distance between the anchor and the positive
         pos_dist = K.sum( K.square( anchor - positive ), axis=1 )
-        # distance between the anchor and the negative
         neg_dist = K.sum( K.square( anchor - negative ), axis=1 )
-
         basic_loss = pos_dist - neg_dist + self.alpha
         loss = K.maximum( basic_loss, 0.0 )
-        # print(f'Dp = {pos_dist} Dn = {neg_dist}')
         return loss
     def _identity_loss(self, y_true, y_pred ):
         return K.mean( y_pred )

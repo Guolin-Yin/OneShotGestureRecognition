@@ -20,6 +20,7 @@ from sklearn.preprocessing import normalize
 from Config import getConfig
 from saveData import preprocessData
 from sklearn.model_selection import KFold
+from MODEL import models
 '''Initialization parameters'''
 # gpus = tf.config.experimental.list_physical_devices('GPU')
 # if gpus:
@@ -185,36 +186,82 @@ def defineModel(mode:str = '1D'):
         model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
         # model.summary( )
     return model,network
-def labTrainData(x_all, y_all,source:str = 'user1to4'):
 
-    if source == 'user1to4':
-        train_data = np.zeros((5000,200,60,3))
-        train_labels = np.zeros((5000,1),dtype = int)
-        test_data = np.zeros((1000,200,60,3))
-        test_labels = np.zeros( (1000, 1),dtype=int )
-        count_tra = 0
-        count_test = 0
-        for i in np.arange(0,6000,1500):
-            train_data[ count_tra:count_tra + 1250, :, :, : ] = x_all[ i:i + 1250, :, :, : ]
-            train_labels[ count_tra:count_tra + 1250, : ] = y_all[ i:i + 1250, : ]
-            test_data[count_test:count_test+250,:,:,:] = x_all[i+1250:i+1500,:,:,:]
-            test_labels[count_test:count_test+250,:] = y_all[i+1250:i+1500,:]
-            count_tra+=1250
-            count_test+=250
-        idx = np.random.permutation( len( train_labels ) )
-        return [train_data[idx],train_labels[idx],test_data,test_labels]
-    elif source == 'singleuser':
-        x_all = x_all[ 0:1250 ]
-        y_all = y_all[ 0:1250 ]
-        idx = np.random.permutation( len( y_all ) )
-        x_all = x_all[ idx, :, :, : ]
-        y_all = y_all[ idx, : ]
-    return [ x_all, y_all ]
 class trainTestModel:
     def __init__( self,mode:str = 'Alexnet' ):
         embedding = SiamesWithTriplet( )
         self.trained_featureExtractor = embedding.build_embedding_network( mode=mode )
 
+    def builPretrainModel( self,mode: str = '1D' ):
+        # embedding = SiamesWithTriplet( )
+        # network = embedding.build_embedding_network( mode = mode )
+        embedding = models()
+        network = embedding.buildFeatureExtractor( mode='Alexnet' )
+        if mode == '1D':
+            input = Input( [ 1600, 7 ], name = 'data input' )
+            encoded_model = network( input )
+            output = Dense( units = config.N_train_classes, activation = 'softmax' )( encoded_model )
+            model = Model( inputs = input, outputs = output )
+            optimizer = tf.keras.optimizers.Adam(
+                    lr = 0.001,
+                    beta_1 = 0.9,
+                    beta_2 = 0.999,
+                    epsilon = 1e-07,
+                    amsgrad = False,
+                    # lr_multipliers=learning_rate_multipliers,
+                    )
+            model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+            model.summary( )
+        elif mode == '2D':
+            # Define model
+            input = Input( config.input_shape, name = 'data input' )
+            encoded_model = network( input )
+            full_connect = Dense( units = config.N_train_classes )( encoded_model )
+            output = Softmax( )( full_connect )
+            model = Model( inputs = input, outputs = output )
+            # Complie model
+            optimizer = tf.keras.optimizers.SGD(
+                    learning_rate = config.lr, momentum = 0.9
+                    )
+            model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+            model.summary( )
+        elif mode == 'Alexnet':
+            input = Input( config.input_shape, name = 'data input' )
+            encoded_model = network( input )
+            full_connect = Dense( units = config.N_train_classes )( encoded_model )
+            output = Softmax( )( full_connect )
+            model = Model( inputs = input, outputs = output )
+            # Complie model
+            optimizer = tf.keras.optimizers.SGD(
+                    learning_rate = config.lr, momentum = 0.9
+                    )
+            model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+            # model.summary( )
+        return model, network
+    def labTrainData( self,x_all, y_all, source: str = 'user1to4' ):
+        if source == 'user1to4':
+            train_data = np.zeros( (5000, 200, 60, 3) )
+            train_labels = np.zeros( (5000, 1), dtype = int )
+            test_data = np.zeros( (1000, 200, 60, 3) )
+            test_labels = np.zeros( (1000, 1), dtype = int )
+            count_tra = 0
+            count_test = 0
+            for i in np.arange( 0, 6000, 1500 ):
+                train_data[ count_tra:count_tra + 1250, :, :, : ] = x_all[ i:i + 1250, :, :, : ]
+                train_labels[ count_tra:count_tra + 1250, : ] = y_all[ i:i + 1250, : ]
+                test_data[ count_test:count_test + 250, :, :, : ] = x_all[ i + 1250:i + 1500, :, :, : ]
+                test_labels[ count_test:count_test + 250, : ] = y_all[ i + 1250:i + 1500, : ]
+                count_tra += 1250
+                count_test += 250
+            idx = np.random.permutation( len( train_labels ) )
+            return [ train_data[ idx ], train_labels[ idx ], test_data, test_labels ]
+        elif source == 'singleuser':
+            x_all = x_all[ 0:1250 ]
+            y_all = y_all[ 0:1250 ]
+            idx = np.random.permutation( len( y_all ) )
+            x_all = x_all[ idx, :, :, : ]
+            y_all = y_all[ idx, : ]
+        return [ x_all, y_all ]
     def _getOneshotTaskData(self, test_data, test_labels, nway,mode:str = 'cross_val' ):
         signRange = np.arange( int( np.min( test_labels ) ), int( np.max( test_labels ) + 1 ), 1 )
         selected_Sign = np.random.choice( signRange, size=nway, replace=False )
@@ -255,7 +302,6 @@ class trainTestModel:
         acc = (correct_count / N_test_sample) * 100.
         test_acc.append( acc )
         print( "Accuracy %.2f" % acc )
-
     def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True, mode:str = 'cross_val' ):
         nway_min = 2
         nway_max = 25
@@ -299,22 +345,18 @@ class trainTestModel:
         else:
             return lr * tf.math.exp(-0.1)
 if __name__ == '__main__':
-    # initialize the training parameters
+    # Declare objects
     obj = signDataLoder( dataDir=config.train_dir )
     trainTestObj = trainTestModel()
+    # Training params
     lrScheduler = tf.keras.callbacks.LearningRateScheduler( trainTestObj.scheduler )
     earlyStop = tf.keras.callbacks.EarlyStopping( monitor='val_loss', patience=20, restore_best_weights=True )
     # Sign recognition
     x_all, y_all = obj.getFormatedData(source = 'user1to4')
-    [train_data,train_labels,test_data,test_labels] = labTrainData(x_all, y_all)
-    # train_data,train_labels,test_data,test_labels = obj.getTrainTestSplit( data=x_all, labels=y_all,
-    #                                                                        N_train_classes =  config.N_train_classes)
+    [train_data,train_labels,test_data,test_labels] = trainTestObj.labTrainData(x_all, y_all)
 
     train_labels = to_categorical(train_labels - 1,num_classes=int(np.max(train_labels)))
-
-
-    model, network = defineModel( mode = 'Alexnet')
-
+    model, network = trainTestObj.builPretrainModel( mode = 'Alexnet' )
     history = model.fit(train_data,train_labels,validation_split=0.2,
                      epochs=1000,shuffle=True,
                         callbacks = [earlyStop,lrScheduler]
