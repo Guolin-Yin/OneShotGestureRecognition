@@ -167,8 +167,8 @@ class SiamesNetwork:
 
                         model_json = self.model.to_json()
 
-                        if not os.path.exists("./models"):
-                            os.makedirs("./models")
+                        if not os.path.exists( "../models" ):
+                            os.makedirs( "../models" )
                         with open("models/"+model_name+ ".json","w") as json_file:
                             json_file.write(model_json)
                         self.model.save_weights("models/"+model_name+".h5")
@@ -255,7 +255,7 @@ def trainSiameseSimMain( ):
     l2_penalization[ 'Conv4' ] = 1e-2
     l2_penalization[ 'Dense1' ] = 1e-4
     # Path where the logs will be saved
-    tensorboard_log_path = './logs/siamese_net_lr10e-4'
+    tensorboard_log_path = '../logs/siamese_net_lr10e-4'
     siamese_network = SiamesNetwork(
             data_path=dataset_path,
             learning_rate=learning_rate,

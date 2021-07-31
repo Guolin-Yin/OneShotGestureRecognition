@@ -1,21 +1,31 @@
-import tensorflow as tf
-import numpy as np
 from gestureClassification import *
 from Preprocess.gestureDataLoader import signDataLoder
-from SiameseNetworkWithTripletLoss import SiamesWithTriplet
-from sklearn.metrics.pairwise import cosine_similarity
-from tensorflow.keras.models import load_model
-from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
 from Config import getConfig
 from matplotlib.ticker import MaxNLocator
+import matplotlib.pyplot as plt
+
 # from methodTesting.plotResults import pltResults
 
 config = getConfig()
-def remove_dense(model):
-    encoder = Model(inputs=model.input, outputs= model.get_layer('feature_layer').output)
-    return encoder
+def plot_barchart():
+    N = 2
+    id = np.arange(N)
+    width = 0.35
+    oneshot_accuracy = [ 70.0, 86.5 ]
+    fiveshot_accuracy = [ 84.4, 99.0 ]
+    plt.bar( id, oneshot_accuracy, width, label = 'one shot results' )
+    plt.bar( id+width, fiveshot_accuracy, width, label = 'five shot results' )
+    plt.ylabel( "Accuracy" )
+    plt.title( "Train model on user 1 to 4, Test model on user 5" )
+    plt.legend()
+    plt.xticks( id + width / 2, ('Without fine tuning', 'With fine tuning') )
+    for index, data in enumerate( oneshot_accuracy ):
+        plt.text( x = index-0.1, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
+
+    for index, data in enumerate( fiveshot_accuracy ):
+        plt.text( x = index+0.3, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
+    plt.show()
 def pltResults(acc):
     ways = np.arange( 2, 27, 1 )
     ways2 = np.arange( 2, 26, 1 )
@@ -236,7 +246,8 @@ def CnnModelTesting():
     test_labels = np.concatenate((test_labels_1,test_labels_2),axis = 0)
     model.evaluate(x_all,test_labels)
 if __name__ == '__main__':
-    test_acc = OneShotPerformanceTest('150')
+    plot_barchart()
+    # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
 

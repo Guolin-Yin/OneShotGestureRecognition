@@ -19,7 +19,7 @@ def main( ):
     l2_penalization[ 'Conv4' ] = 1e-2
     l2_penalization[ 'Dense1' ] = 1e-4
     # Path where the logs will be saved
-    tensorboard_log_path = './logs/siamese_net_lr10e-4'
+    tensorboard_log_path = '../logs/siamese_net_lr10e-4'
     siamese_network = SiamesNetwork(
             data_path=dataset_path,
             learning_rate=learning_rate,

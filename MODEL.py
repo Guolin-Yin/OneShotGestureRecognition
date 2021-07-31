@@ -8,20 +8,7 @@ config = getConfig()
 class models:
     def __init__( self ):
         pass
-	def builPretrainModel( self,mode:str ='Alexnet' ):
-		if mode == 'Alexnet':
-			input = Input( config.input_shape, name = 'data input' )
-			encoded_model = network( input )
-			full_connect = Dense( units = config.N_train_classes )( encoded_model )
-			output = Softmax( )( full_connect )
-			model = Model( inputs = input, outputs = output )
-			# Complie model
-			optimizer = tf.keras.optimizers.SGD(
-					learning_rate = config.lr, momentum = 0.9
-					)
-			model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
-			# model.summary( )
-			return model, network
+
     def buildFeatureExtractor( self ,mode:str ='Alexnet'):
         if mode =='Alexnet':
             input = Input( config.input_shape, name = 'input_layer' )
@@ -57,6 +44,20 @@ class models:
             output = Lambda( lambda x: K.l2_normalize( x, axis = -1 ) )( FC_2 )
             feature_extractor = Model( inputs = input, outputs = output )
         return feature_extractor
+	# def builPretrainModel( self, mode:str ='Alexnet' ):
+	# 	if mode == 'Alexnet':
+	# 		input = Input( config.input_shape, name = 'data input' )
+	# 		encoded_model = network( input )
+	# 		full_connect = Dense( units = config.N_train_classes )( encoded_model )
+	# 		output = Softmax( )( full_connect )
+	# 		model = Model( inputs = input, outputs = output )
+	# 		# Complie model
+	# 		optimizer = tf.keras.optimizers.SGD(
+	# 				learning_rate = config.lr, momentum = 0.9
+	# 				)
+	# 		model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+	# 		# model.summary( )
+	# 		return model, network
     def buildTuneModel( self ):
         feature_extractor = self.buildFeatureExtractor( mode = 'Alexnet')
         fc = Dense( units = 25, name = "fine_tune_layer" )( feature_extractor.output )

@@ -67,9 +67,8 @@ from MODEL import models
 #                                      N_test_sample=1000, embedding_model=encoder,
 #                                      isOneShotTask=True, mode='fix' )
 #     return test_acc
-
 class fineTuningModel:
-    def __init__( self ):
+    def __init__( self,nshots ):
         self.modelObj = models( )
         self.num_finetune_classes = 25
         self.trained_featureExtractor = self._getFeatureExtractor( )
@@ -77,23 +76,34 @@ class fineTuningModel:
         self.classifier = []
         self.input_shape = config.input_shape
         self.trainTestObj = trainTestModel( )
-        self.fine_Tune_model = self.buildFineTuningModel( )
+        self.fine_Tune_model = self.modelObj.buildTuneModel()
         self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
         self.earlyStop = tf.keras.callbacks.EarlyStopping( monitor = 'val_loss', patience = 20, restore_best_weights =
         True )
-        self.data = self.getSQData( )
+        self.data = self._getSQData( nshots = nshots)
         self.fineTuned_model_path = config.tunedModel_path
-    def getSQData( self ):
-        '''For 25 way, 5 shot'''
-        testSign = signDataLoder( dataDir=config.train_dir )
-        x_all, y_all = testSign.getFormatedData( source='lab_other' )
-        x = x_all[ 1250:1500 ]
-        y = y_all[ 1250:1500 ]
-        num = len(y)//2
-        Support_data = x[ 0:num, :, :, : ]
-        Support_label = y[0:num,:]
-        Query_data = x[num:len(x)+1,:,:,:]
-        Query_label = y[num:len(x)+1,:]
+    def _getSQData( self,nshots:int = 5 ):
+        testSign = signDataLoder( dataDir = config.train_dir )
+        if nshots == 1:
+            '''For 25 way, 1 shot'''
+            x_all, y_all = testSign.getFormatedData( source = 'labUser5' )
+            x = x_all[ 1250:1500 ]
+            y = y_all[ 1250:1500 ]
+            idx,_ = np.where(y == y[0])
+            Support_data = x[idx[0]:idx[1],:,:,:]
+            Support_label = y[idx[0]:idx[1],:]
+            Query_data = x[idx[1]:len(x)+1,:,:,:]
+            Query_label = y[idx[1]:len(x)+1,:]
+        if nshots == 5:
+            '''For 25 way, 5 shot'''
+            x_all, y_all = testSign.getFormatedData( source='labUser5' )
+            x = x_all[ 1250:1500 ]
+            y = y_all[ 1250:1500 ]
+            num = len(y)//2
+            Support_data = x[ 0:num, :, :, : ]
+            Support_label = y[0:num,:]
+            Query_data = x[num:len(x)+1,:,:,:]
+            Query_label = y[num:len(x)+1,:]
         output = {'Support_data':Support_data,
                   'Support_label':Support_label,
                   'Query_data':Query_data,
@@ -103,18 +113,37 @@ class fineTuningModel:
         trained_featureExtractor = self.modelObj.buildFeatureExtractor( mode='Alexnet' )
         trained_featureExtractor.load_weights(config.featureExtractor_path )
         return trained_featureExtractor
-    def predict( self, Support_input=None, Query_input = None):
-        sim = self.embedding_model.predict( [Support_input,Query_input] )
-        return sim
-    def buildFineTuningModel( self,weights=None ):
-        # input = Input(self.input_shape, name="input_fine_tuning")
-        # Support_set_embedding = self.trained_featureExtractor(input)
-        # fc = Dense( units = self.num_finetune_classes, name="fine_tune_layer")(Support_set_embedding)
-        # output = Softmax( )(fc)
-        # fine_Tune_model = Model(inputs = input,outputs = output)
-        # fine_Tune_model.summary()
-        fine_Tune_model = self.modelObj.buildTuneModel()
-        return fine_Tune_model
+    def _getFineTuneTestData(self,query_set,nway):
+        sample_sign = np.random.choice(np.arange(0,len(query_set),25),size = 1,replace = False)
+        sample_index = random.randint( 0, nway - 1 )
+        query_data = np.repeat( query_set[ sample_sign+sample_index ], [ nway ], axis = 0 )
+        return [query_data,sample_index]
+    def getNShotsEmbedding( self, Support_data):
+        Sign_class = np.arange( 0, 25, 1 )
+        Sign_samples = np.arange( 0, 125, 25 )
+        five_shot_support_embedding = [ ]
+        for i in Sign_class:
+            five_shot_support_data = [ ]
+            for j in Sign_samples:
+                five_shot_support_data.append( Support_data[ i + j ] )
+            five_shot_support_embedding.append(
+                    np.mean( self.trained_featureExtractor.predict( np.asarray( five_shot_support_data ) ), axis = 0 )
+                    )
+        five_shot_support_embedding = np.asarray( five_shot_support_embedding )
+        return five_shot_support_embedding
+    def loadFeaExtractorNClassifier(self):
+        self.fine_Tune_model.load_weights(config.tunedModel_path)
+        feature_extractor = Model( inputs = self.fine_Tune_model.input, outputs = self.fine_Tune_model.get_layer( 'fine_tune_layer' ).output )
+        '''Classifier input: two feature vector
+                      output: one probability
+        '''
+        cls_intput_Support = Input(25,name = 'Support_input')
+        cls_intput_Query = Input( 25, name = 'Query_input' )
+        cosSim_layer = Dot( axes = 1, normalize = True )([cls_intput_Support,cls_intput_Query])
+        cls_output = Softmax( )( tf.squeeze(cosSim_layer,-1) )
+        classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
+        # feature_extractor, classifier = self._configModel(model = self.fine_Tune_model)
+        return [feature_extractor, classifier]
     def getValData( self ):
         val_data = self.data['Query_data']
         val_label = to_categorical( self.data[ 'Query_label' ] - np.min(self.data['Query_label' ]),num_classes = 25 )
@@ -135,50 +164,6 @@ class fineTuningModel:
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
         return self.fine_Tune_model
-    def _getFineTuneTestData(self,query_set,nway):
-
-        sample_sign = np.random.choice(np.arange(0,125,25),size = 1,replace = False)
-        sample_index = random.randint( 0, nway - 1 )
-        query_data = np.repeat( query_set[ sample_sign+sample_index ], [ nway ], axis = 0 )
-        return [query_data,sample_index]
-    # def _configModel( self,model ):
-    #     feature_extractor = Model( inputs = model.input, outputs = model.get_layer( 'fine_tune_layer' ).output )
-    #
-    #     '''Classifier input: two feature vector
-    #                   output: one probability
-    #     '''
-    #     cls_intput_Support = Input(25,name = 'Support_input')
-    #     cls_intput_Query = Input( 25, name = 'Query_input' )
-    #     cosSim_layer = Dot( axes = 1, normalize = True )([cls_intput_Support,cls_intput_Query])
-    #     cls_output = Softmax( )( tf.squeeze(cosSim_layer,-1) )
-    #     classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
-    #     return [feature_extractor,classifier]
-    def rebuildFineTunedExtractor(self):
-        self.fine_Tune_model.load_weights(config.tunedModel_path)
-        feature_extractor = Model( inputs = self.fine_Tune_model.input, outputs = self.fine_Tune_model.get_layer( 'fine_tune_layer' ).output )
-        '''Classifier input: two feature vector
-                      output: one probability
-        '''
-        cls_intput_Support = Input(25,name = 'Support_input')
-        cls_intput_Query = Input( 25, name = 'Query_input' )
-        cosSim_layer = Dot( axes = 1, normalize = True )([cls_intput_Support,cls_intput_Query])
-        cls_output = Softmax( )( tf.squeeze(cosSim_layer,-1) )
-        classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
-        # feature_extractor, classifier = self._configModel(model = self.fine_Tune_model)
-        return [feature_extractor, classifier]
-    def getNShotsEmbedding( self, Support_data):
-        Sign_class = np.arange( 0, 25, 1 )
-        Sign_samples = np.arange( 0, 125, 25 )
-        five_shot_support_embedding = [ ]
-        for i in Sign_class:
-            five_shot_support_data = [ ]
-            for j in Sign_samples:
-                five_shot_support_data.append( Support_data[ i + j ] )
-            five_shot_support_embedding.append(
-                    np.mean( self.trained_featureExtractor.predict( np.asarray( five_shot_support_data ) ), axis = 0 )
-                    )
-        five_shot_support_embedding = np.asarray( five_shot_support_embedding )
-        return five_shot_support_embedding
     def test( self ,isOneShotTask:bool = True):
         nway = 25
         N_test_sample = 1000
@@ -190,7 +175,7 @@ class fineTuningModel:
         Support_data = self.data[ 'Support_data' ]
         if isOneShotTask:
             '''Perform five shots learning with fine tuning'''
-            feature_extractor, classifier = self.rebuildFineTunedExtractor( )
+            feature_extractor, classifier = self.loadFeaExtractorNClassifier( )
             Support_set_embedding = feature_extractor.predict( Support_data )
             for _ in range(N_test_sample):
                 Query_data, sample_index = self._getFineTuneTestData( query_set = query_set, nway = nway)
@@ -210,8 +195,8 @@ class fineTuningModel:
             # self.fine_Tune_model.evaluate( query_set, query_label )
         if not isOneShotTask:
             '''perform 5 shots learning without fine tuning'''
+            five_shot_support_embedding = self.getNShotsEmbedding( Support_data )
             for _ in range(N_test_sample):
-                five_shot_support_embedding = self.getNShotsEmbedding(Support_data)
                 Query_data, sample_index = self._getFineTuneTestData( query_set = query_set, nway = nway )
                 Query_set_embedding = self.trained_featureExtractor.predict(Query_data)
                 sim = cosine_similarity( five_shot_support_embedding, np.expand_dims( Query_set_embedding[ 0 ], axis = 0 ) )
@@ -223,25 +208,15 @@ class fineTuningModel:
             test_acc.append( acc )
             print( "Accuracy %.2f" % acc )
         return test_acc
-                # self.fine_Tune_model.predict()
+
 if __name__ == '__main__':
     # print('start')
     config = getConfig( )
-    fineTuningModelObj = fineTuningModel()
-    tunedModel = fineTuningModelObj.rebuildFineTunedExtractor( )
-    test_acc = fineTuningModelObj.test(isOneShotTask=False)
+    fineTuningModelObj = fineTuningModel(nshots = 1)
+    # fine_Tune_model = fineTuningModelObj.tuning()
+    test_acc = fineTuningModelObj.test(isOneShotTask=True)
     print('Done')
-    # tunedModel.save_weights(config.tunedModel_path)
-    # feature_extractor = buildFeatureExtractor()
-    # feature_extractor.load_weights(config.featureExtractor_path)
-    # tuneObj = fineTuningModel( )
-    # # Tuned_model = tuneObj.tuning()
-    # tuneObj.test()
-    # Tuned_model.save_weights( tuneObj.fineTuned_model_path )
-    # fine_tune_data, fine_tune_labels = getFineTuneData( )
-    # Support_input = np.expand_dims(fine_tune_data[1:2],axis=0)
-    # Query_input = np.expand_dims(fine_tune_data[6:7],axis=0)
-    # sim = fineTuning.predict( Support_input = fine_tune_data[0:2], Query_input = fine_tune_data[5] )
+
 
 
 

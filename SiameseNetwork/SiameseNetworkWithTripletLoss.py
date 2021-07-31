@@ -351,8 +351,8 @@ if __name__ == '__main__':
     OneShotTesting( test_dir = './20181115/',
                     embedding_model=ten_ges_embedding_network,
                     )
-    if not os.path.exists( './models' ):
-        os.makedirs( './models' )
+    if not os.path.exists( '../models' ):
+        os.makedirs( '../models' )
     ten_ges_embedding_network.save('Triplet_loss_model.h5')
     # ten_ges_embedding_network = SiamesNetworkTriplet( batch_size=32, data_dir='./20181115/' )
     # acc = ten_ges_embedding_network.train_siamese_network(number_of_iterations = 1000,evaluate_each = 1000,model_name='testing')

@@ -10,6 +10,8 @@ from tensorflow.keras.utils import to_categorical
 from Preprocess.SignalPreprocess import *
 import matplotlib.pyplot as plt
 from scipy import stats
+from Config import getConfig
+config = getConfig()
 class gestureDataLoader:
     def __init__(self,batch_size :int = 32,data_path:str = 'D:/OneShotGestureRecognition/20181115/'):
         self.data_path = data_path
@@ -282,16 +284,9 @@ class signDataLoder:
             x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
         x_all = np.concatenate( (x_amp, x_phase), axis=2 )
         return x_all
-    def getStandardData( self,amp,phase ):
-        # Deal with amplitude
-        out_amp = []
-        out_phase = []
-        for i in range(len(amp)):
-            buf = np.asarray( list( map( standardisers, np.abs( amp[i] ) ) ) )
-            out_amp.append(buf)
     def getFormatedData(self,source:str='lab',isZscore:bool=True):
         if source == 'lab':
-            print( 'loading data from lab' )
+            print( 'lab environment user 5, 276 classes' )
             x = self.data[ 2 ][ 'csid_lab' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
@@ -301,7 +296,7 @@ class signDataLoder:
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 2 ][ 'label_lab' ]
         elif source == 'home':
-            print('loading data from home')
+            print('home environment user 5, 276 classes')
             x = self.data[ 0 ][ 'csid_home' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
@@ -310,8 +305,8 @@ class signDataLoder:
                 x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 0 ][ 'label_home' ]
-        elif source == 'lab_other':
-            print( 'loading data from user 5' )
+        elif source == 'labUser5':
+            print( 'lab environment user 5, 150 classes' )
             x = self.data[ 1 ][ 'csi5' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
@@ -321,15 +316,13 @@ class signDataLoder:
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 1 ][ 'label' ][6000:7500]
         elif source == 'user1to4':
+            print(' lab environment, user 1 to 4, 150 classes')
             x_1 = self._getConcatenated(self.data[ 1 ][ 'csi1' ],isZscore)
             x_2 = self._getConcatenated(self.data[ 1 ][ 'csi2' ],isZscore)
             x_3 = self._getConcatenated(self.data[ 1 ][ 'csi3' ],isZscore)
             x_4 = self._getConcatenated(self.data[ 1 ][ 'csi4' ],isZscore)
             x_all = np.concatenate( (x_1,x_2,x_3,x_4),axis = 0)
             y_all = self.data[ 1 ][ 'label' ][ 0:6000 ]
-            # y_2 = self.data[ 1 ][ 'label' ][ 1500:3000 ]
-            # y_3 = self.data[ 1 ][ 'label' ][ 3000:4500 ]
-            # y_4 = self.data[ 1 ][ 'label' ][ 4500:6000 ]
         return [x_all,y_all]
 
     def getTrainTestSplit(self, data, labels, N_train_classes: int = 260, N_samples_per_class: int = 20,
@@ -366,12 +359,5 @@ class signDataLoder:
             train_labels = train_labels[ idx, : ]
         return [ train_data, train_labels, test_data, test_labels ]
 if __name__ == '__main__':
-    signData = signDataLoder(dataDir = 'D:/Matlab/SignFi/Dataset')
-    data,fileName = signData.loadData()
-    lab_data = data[2]['csid_lab']
-    lab_label = data[2]['y_all']
-    # gestureDataLoader = gestureDataLoader( data_path = 'D:/OneShotGestureRecognition/20181116')
-    # data,tData = gestureDataLoader.getTripletTrainBatcher( isOneShotTask=True, nShots=5 )
-    # a = data.reshape(data.shape[0]*data.shape[1],data.shape[2],data.shape[3])
-    # triplets = gestureDataLoader.getTripletTrainBatcher()
-    # generator = gestureDataLoader.tripletsDataGenerator()
+    dataLoadObj = signDataLoder( dataDir=config.train_dir )
+    x_all, y_all = dataLoadObj.getFormatedData( source = 'user1to4' )

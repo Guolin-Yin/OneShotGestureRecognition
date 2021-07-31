@@ -1,207 +1,181 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer,Conv1D, Conv2D, Flatten,\
-    Dense,Dropout, Input, Lambda,MaxPooling2D,\
-    concatenate,BatchNormalization,MaxPooling1D,Softmax
-from sklearn.model_selection import train_test_split
-from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.optimizers import SGD
-from tensorflow.keras.regularizers import l2
-import tensorflow.keras.backend as K
-from tensorflow.keras.utils import to_categorical
-import random
+from tensorflow.keras.layers import Dense, Input, Softmax
+from tensorflow.keras.models import Model
 from Preprocess.gestureDataLoader import *
 import numpy as np
-import os
-import scipy.io as sio
-import re
-from SiameseNetworkWithTripletLoss import SiamesWithTriplet
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import normalize
 from Config import getConfig
-from saveData import preprocessData
-from sklearn.model_selection import KFold
 from MODEL import models
-'''Initialization parameters'''
-# gpus = tf.config.experimental.list_physical_devices('GPU')
-# if gpus:
-#   try:
-#     for gpu in gpus:
-#       tf.config.experimental.set_memory_growth(gpu, True)
-#   except RuntimeError as e:
-#     print(e)
-def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=True ):
-    nway_min = 2
-    nway_max = 6
-    test_acc = [ ]
-    def averageSim(x):
-        return np.mean(x)
-    # nway_list = [ ]
-    for nway in range( nway_min, nway_max + 1 ):
-        print( "Checking %d way accuracy...." % nway )
-        correct_count = 0
-        if nway == 1:
-            for _ in range( N_test_sample ):
-                threshold =0
-                nway_anchor, nway_positive, _ = gestureDataLoader( data_path=test_dir,
-                                                                   batch_size=nway ).getTripletTrainBatcher( )
-                nway_anchor = reshapeData(nway_anchor)
-                nway_positive = reshapeData(nway_positive)
-                nway_anchor_embedding = embedding_model.predict( nway_anchor )
-                sample_index = random.randint( 0, nway - 1 )
-                sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
-                sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-                if sim >= threshold:
-                    correct_count += 1
-            acc = (correct_count / N_test_sample) * 100.
-            print( "Accuracy %.2f" % acc )
-        if nway > 1:
-            if isOneShotTask:
-                for _ in range( N_test_sample ):
-                    # Retrieving nway number of triplets and calculating embedding vector
-                    nway_anchor, nway_positive,_ = gestureDataLoader( data_path=test_dir,
-                                                                      batch_size=nway ).getTripletTrainBatcher( isOneShotTask=isOneShotTask )
-                    nway_anchor = np.asarray( list(map(preprocessData,nway_anchor)))
-                    nway_positive = np.asarray(list(map(preprocessData,nway_positive)))
-
-                    nway_positive = reshapeData( nway_positive)
-                    nway_anchor = reshapeData( nway_anchor)
-                    # support set, it has N different classes depending on the batch_size
-                    # nway_anchor has the same class with nway_positive at the same row
-                    sample_index = random.randint( 0, nway - 1 )
-                    nway_anchor_embedding = embedding_model.predict( nway_anchor )
-                    sample_embedding = embedding_model.predict(np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
-                    # using cosine_similarity
-                    sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-                    if np.argmax( sim ) == sample_index:
-                        correct_count += 1
-                #   nway_list.append( nway )
-                acc = (correct_count / N_test_sample) * 100.
-                test_acc.append( acc )
-                print( "Accuracy %.2f" % acc )
-            if not isOneShotTask:
-                for _ in range( N_test_sample ):
-                    sim = []
-                    # Retrieving nway number of triplets and calculating embedding vector
-                    nway_anchor, nway_positive= gestureDataLoader( data_path=test_dir,
-                                                                   batch_size=nway ).getTripletTrainBatcher(
-                        isOneShotTask=False, nShots=20 )
-
-                    nway_positive = reshapeData(nway_positive)
-                    # support set, it has N different classes depending on the batch_size
-                    # nway_anchor has the same class with nway_positive at the same row
-
-                    sample_index = random.randint( 0, nway - 1 )
-                    sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
-
-                    for nB in range(nway):
-                        nway_anchor_nB = reshapeData( nway_anchor[nB] )
-                        nway_anchor_embedding_for_batch = embedding_model.predict( nway_anchor_nB )
-                        sim_nb_batch = averageSim(cosine_similarity( nway_anchor_embedding_for_batch, sample_embedding ))
-                        sim.append(sim_nb_batch)
-                    if np.argmax( sim ) == sample_index:
-                        correct_count += 1
-            #   nway_list.append( nway )
-                acc = (correct_count / N_test_sample) * 100.
-                test_acc.append( acc )
-                print( "Accuracy %.2f" % acc )
-# def getOneshotTaskData(test_data,test_labels,nway):
-#     signRange = np.arange( int(np.min( test_labels )), int(np.max( test_labels ) + 1), 1 )
-#     selected_Sign = np.random.choice(signRange,size=nway,replace = False)
-#     support_set = []
-#     query_set = []
-#     for i in selected_Sign:
-#         index,_ = np.where(test_labels == i)
-#         selected_samples = np.random.choice( index, size=2, replace=False )
-#         support_set.append(test_data[selected_samples[0]])
-#         query_set.append(test_data[selected_samples[1]])
-#     return support_set,query_set
-# def signTest(test_data,test_labels,N_test_sample,embedding_model,isOneShotTask:bool = True):
+# def Testing( test_dir:str,embedding_model,N_test_sample:int,isOneShotTask:bool=True ):
 #     nway_min = 2
-#     nway_max = 16
+#     nway_max = 6
 #     test_acc = [ ]
+#     def averageSim(x):
+#         return np.mean(x)
+#     # nway_list = [ ]
 #     for nway in range( nway_min, nway_max + 1 ):
 #         print( "Checking %d way accuracy...." % nway )
 #         correct_count = 0
-#         if isOneShotTask:
+#         if nway == 1:
 #             for _ in range( N_test_sample ):
-#                 # Retrieving nway number of triplets and calculating embedding vector
-#                 support_set, query_set = getOneshotTaskData( test_data, test_labels, nway=nway )
-#                 # support set, it has N different classes depending on the batch_size
-#                 # nway_anchor has the same class with nway_positive at the same row
+#                 threshold =0
+#                 nway_anchor, nway_positive, _ = gestureDataLoader( data_path=test_dir,
+#                                                                    batch_size=nway ).getTripletTrainBatcher( )
+#                 nway_anchor = reshapeData(nway_anchor)
+#                 nway_positive = reshapeData(nway_positive)
+#                 nway_anchor_embedding = embedding_model.predict( nway_anchor )
 #                 sample_index = random.randint( 0, nway - 1 )
-#                 nway_anchor_embedding = embedding_model.predict( np.asarray( support_set) )
-#                 sample_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
-#                 # using cosine_similarity
+#                 sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
 #                 sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
-#                 if np.argmax( sim ) == sample_index:
+#                 if sim >= threshold:
 #                     correct_count += 1
-#             #   nway_list.append( nway )
 #             acc = (correct_count / N_test_sample) * 100.
-#             test_acc.append( acc )
 #             print( "Accuracy %.2f" % acc )
-#     return test_acc
+#         if nway > 1:
+#             if isOneShotTask:
+#                 for _ in range( N_test_sample ):
+#                     # Retrieving nway number of triplets and calculating embedding vector
+#                     nway_anchor, nway_positive,_ = gestureDataLoader( data_path=test_dir,
+#                                                                       batch_size=nway ).getTripletTrainBatcher( isOneShotTask=isOneShotTask )
+#                     nway_anchor = np.asarray( list(map(preprocessData,nway_anchor)))
+#                     nway_positive = np.asarray(list(map(preprocessData,nway_positive)))
+#
+#                     nway_positive = reshapeData( nway_positive)
+#                     nway_anchor = reshapeData( nway_anchor)
+#                     # support set, it has N different classes depending on the batch_size
+#                     # nway_anchor has the same class with nway_positive at the same row
+#                     sample_index = random.randint( 0, nway - 1 )
+#                     nway_anchor_embedding = embedding_model.predict( nway_anchor )
+#                     sample_embedding = embedding_model.predict(np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
+#                     # using cosine_similarity
+#                     sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
+#                     if np.argmax( sim ) == sample_index:
+#                         correct_count += 1
+#                 #   nway_list.append( nway )
+#                 acc = (correct_count / N_test_sample) * 100.
+#                 test_acc.append( acc )
+#                 print( "Accuracy %.2f" % acc )
+#             if not isOneShotTask:
+#                 for _ in range( N_test_sample ):
+#                     sim = []
+#                     # Retrieving nway number of triplets and calculating embedding vector
+#                     nway_anchor, nway_positive= gestureDataLoader( data_path=test_dir,
+#                                                                    batch_size=nway ).getTripletTrainBatcher(
+#                         isOneShotTask=False, nShots=20 )
+#
+#                     nway_positive = reshapeData(nway_positive)
+#                     # support set, it has N different classes depending on the batch_size
+#                     # nway_anchor has the same class with nway_positive at the same row
+#
+#                     sample_index = random.randint( 0, nway - 1 )
+#                     sample_embedding = embedding_model.predict( np.expand_dims( nway_positive[ sample_index ], axis=0 ) )
+#
+#                     for nB in range(nway):
+#                         nway_anchor_nB = reshapeData( nway_anchor[nB] )
+#                         nway_anchor_embedding_for_batch = embedding_model.predict( nway_anchor_nB )
+#                         sim_nb_batch = averageSim(cosine_similarity( nway_anchor_embedding_for_batch, sample_embedding ))
+#                         sim.append(sim_nb_batch)
+#                     if np.argmax( sim ) == sample_index:
+#                         correct_count += 1
+#             #   nway_list.append( nway )
+#                 acc = (correct_count / N_test_sample) * 100.
+#                 test_acc.append( acc )
+#                 print( "Accuracy %.2f" % acc )
+# # def getOneshotTaskData(test_data,test_labels,nway):
+# #     signRange = np.arange( int(np.min( test_labels )), int(np.max( test_labels ) + 1), 1 )
+# #     selected_Sign = np.random.choice(signRange,size=nway,replace = False)
+# #     support_set = []
+# #     query_set = []
+# #     for i in selected_Sign:
+# #         index,_ = np.where(test_labels == i)
+# #         selected_samples = np.random.choice( index, size=2, replace=False )
+# #         support_set.append(test_data[selected_samples[0]])
+# #         query_set.append(test_data[selected_samples[1]])
+# #     return support_set,query_set
+# # def signTest(test_data,test_labels,N_test_sample,embedding_model,isOneShotTask:bool = True):
+# #     nway_min = 2
+# #     nway_max = 16
+# #     test_acc = [ ]
+# #     for nway in range( nway_min, nway_max + 1 ):
+# #         print( "Checking %d way accuracy...." % nway )
+# #         correct_count = 0
+# #         if isOneShotTask:
+# #             for _ in range( N_test_sample ):
+# #                 # Retrieving nway number of triplets and calculating embedding vector
+# #                 support_set, query_set = getOneshotTaskData( test_data, test_labels, nway=nway )
+# #                 # support set, it has N different classes depending on the batch_size
+# #                 # nway_anchor has the same class with nway_positive at the same row
+# #                 sample_index = random.randint( 0, nway - 1 )
+# #                 nway_anchor_embedding = embedding_model.predict( np.asarray( support_set) )
+# #                 sample_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
+# #                 # using cosine_similarity
+# #                 sim = cosine_similarity( nway_anchor_embedding, sample_embedding )
+# #                 if np.argmax( sim ) == sample_index:
+# #                     correct_count += 1
+# #             #   nway_list.append( nway )
+# #             acc = (correct_count / N_test_sample) * 100.
+# #             test_acc.append( acc )
+# #             print( "Accuracy %.2f" % acc )
+# #     return test_acc
+
+# def defineModel(mode:str = '1D'):
+#     embedding = SiamesWithTriplet( )
+#     network = embedding.build_embedding_network( mode=mode )
+#
+#     if mode == '1D':
+#         input = Input([1600,7],name='data input')
+#         encoded_model = network( input )
+#         output = Dense( units = config.N_train_classes, activation='softmax' )( encoded_model )
+#         model = Model(inputs = input,outputs = output )
+#         optimizer = tf.keras.optimizers.Adam(
+#                 lr=0.001,
+#                 beta_1=0.9,
+#                 beta_2=0.999,
+#                 epsilon=1e-07,
+#                 amsgrad=False,
+#                 # lr_multipliers=learning_rate_multipliers,
+#                  )
+#         model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
+#         model.summary()
+#     elif mode == '2D':
+#         # Define model
+#         input = Input( config.input_shape, name='data input' )
+#         encoded_model = network( input )
+#         full_connect = Dense( units=config.N_train_classes )( encoded_model )
+#         output = Softmax( )(full_connect)
+#         model = Model(inputs = input,outputs = output)
+#         # Complie model
+#         optimizer = tf.keras.optimizers.SGD(
+#                 learning_rate=config.lr, momentum=0.9
+#         )
+#         model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
+#         model.summary( )
+#     elif mode == 'Alexnet':
+#         input = Input( config.input_shape, name='data input' )
+#         encoded_model = network( input )
+#         full_connect = Dense( units=config.N_train_classes )( encoded_model )
+#         output = Softmax( )( full_connect )
+#         model = Model( inputs=input, outputs=output )
+#         # Complie model
+#         optimizer = tf.keras.optimizers.SGD(
+#                 learning_rate=config.lr, momentum=0.9
+#         )
+#         model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
+#         # model.summary( )
+#     return model,network
 config = getConfig()
-def defineModel(mode:str = '1D'):
-    embedding = SiamesWithTriplet( )
-    network = embedding.build_embedding_network( mode=mode )
-
-    if mode == '1D':
-        input = Input([1600,7],name='data input')
-        encoded_model = network( input )
-        output = Dense( units = config.N_train_classes, activation='softmax' )( encoded_model )
-        model = Model(inputs = input,outputs = output )
-        optimizer = tf.keras.optimizers.Adam(
-                lr=0.001,
-                beta_1=0.9,
-                beta_2=0.999,
-                epsilon=1e-07,
-                amsgrad=False,
-                # lr_multipliers=learning_rate_multipliers,
-                 )
-        model.compile(loss = 'categorical_crossentropy',optimizer=optimizer,metrics = 'acc')
-        model.summary()
-    elif mode == '2D':
-        # Define model
-        input = Input( config.input_shape, name='data input' )
-        encoded_model = network( input )
-        full_connect = Dense( units=config.N_train_classes )( encoded_model )
-        output = Softmax( )(full_connect)
-        model = Model(inputs = input,outputs = output)
-        # Complie model
-        optimizer = tf.keras.optimizers.SGD(
-                learning_rate=config.lr, momentum=0.9
-        )
-        model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
-        model.summary( )
-    elif mode == 'Alexnet':
-        input = Input( config.input_shape, name='data input' )
-        encoded_model = network( input )
-        full_connect = Dense( units=config.N_train_classes )( encoded_model )
-        output = Softmax( )( full_connect )
-        model = Model( inputs=input, outputs=output )
-        # Complie model
-        optimizer = tf.keras.optimizers.SGD(
-                learning_rate=config.lr, momentum=0.9
-        )
-        model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
-        # model.summary( )
-    return model,network
-
 class trainTestModel:
     def __init__( self,mode:str = 'Alexnet' ):
-        embedding = SiamesWithTriplet( )
-        self.trained_featureExtractor = embedding.build_embedding_network( mode=mode )
-
+        modelObj = models( )
+        self.feature_extractor = modelObj.buildFeatureExtractor( mode = 'Alexnet' )
     def builPretrainModel( self,mode: str = '1D' ):
-        # embedding = SiamesWithTriplet( )
-        # network = embedding.build_embedding_network( mode = mode )
         embedding = models()
         network = embedding.buildFeatureExtractor( mode='Alexnet' )
         if mode == '1D':
             input = Input( [ 1600, 7 ], name = 'data input' )
-            encoded_model = network( input )
-            output = Dense( units = config.N_train_classes, activation = 'softmax' )( encoded_model )
-            model = Model( inputs = input, outputs = output )
+            feature_extractor = network( input )
+            output = Dense( units = config.N_train_classes, activation = 'softmax' )( feature_extractor )
+            preTrain_model = Model( inputs = input, outputs = output )
             optimizer = tf.keras.optimizers.Adam(
                     lr = 0.001,
                     beta_1 = 0.9,
@@ -210,34 +184,34 @@ class trainTestModel:
                     amsgrad = False,
                     # lr_multipliers=learning_rate_multipliers,
                     )
-            model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
-            model.summary( )
+            preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+            preTrain_model.summary( )
         elif mode == '2D':
-            # Define model
+            # Define preTrain_model
             input = Input( config.input_shape, name = 'data input' )
-            encoded_model = network( input )
-            full_connect = Dense( units = config.N_train_classes )( encoded_model )
+            feature_extractor = network( input )
+            full_connect = Dense( units = config.N_train_classes )( feature_extractor )
             output = Softmax( )( full_connect )
-            model = Model( inputs = input, outputs = output )
-            # Complie model
+            preTrain_model = Model( inputs = input, outputs = output )
+            # Complie preTrain_model
             optimizer = tf.keras.optimizers.SGD(
                     learning_rate = config.lr, momentum = 0.9
                     )
-            model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
-            model.summary( )
+            preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+            preTrain_model.summary( )
         elif mode == 'Alexnet':
             input = Input( config.input_shape, name = 'data input' )
-            encoded_model = network( input )
-            full_connect = Dense( units = config.N_train_classes )( encoded_model )
+            feature_extractor = self.feature_extractor( input )
+            full_connect = Dense( units = config.N_train_classes )( feature_extractor )
             output = Softmax( )( full_connect )
-            model = Model( inputs = input, outputs = output )
-            # Complie model
+            preTrain_model = Model( inputs = input, outputs = output )
+            # Complie preTrain_model
             optimizer = tf.keras.optimizers.SGD(
                     learning_rate = config.lr, momentum = 0.9
                     )
-            model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
-            # model.summary( )
-        return model, network
+            preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+            # preTrain_model.summary( )
+        return preTrain_model, self.feature_extractor
     def labTrainData( self,x_all, y_all, source: str = 'user1to4' ):
         if source == 'user1to4':
             train_data = np.zeros( (5000, 200, 60, 3) )
@@ -278,13 +252,6 @@ class trainTestModel:
                 support_set.append( test_data[ index[ 0 ] ] )
                 query_set.append( test_data[ selected_samples[ 0 ] ] )
         return support_set, query_set,selected_Sign
-    def builTestModel( self ):
-        Support_input = Input( self.input_shape, name="Support_input" )
-        Query_input = Input( self.input_shape, name="Query_input" )
-        Support_embedding = self.trained_featureExtractor( Support_input )
-        Query_embedding = self.trained_featureExtractor(Query_input)
-        cosSim_layer = Dot( axes=1, normalize=True )([Support_embedding,Query_embedding])
-        self.embedding_model_test = Model( inputs=[ Support_input, Query_input  ], outputs=cosSim_layer )
     def Test( self, test_data, test_labels, mode:str = 'fix',isOneShotTask: bool = True):
         nway = 5
         N_test_sample = 1000
@@ -344,20 +311,21 @@ class trainTestModel:
             return lr
         else:
             return lr * tf.math.exp(-0.1)
+
 if __name__ == '__main__':
     # Declare objects
-    obj = signDataLoder( dataDir=config.train_dir )
+    dataLoadObj = signDataLoder( dataDir=config.train_dir )
     trainTestObj = trainTestModel()
     # Training params
     lrScheduler = tf.keras.callbacks.LearningRateScheduler( trainTestObj.scheduler )
     earlyStop = tf.keras.callbacks.EarlyStopping( monitor='val_loss', patience=20, restore_best_weights=True )
     # Sign recognition
-    x_all, y_all = obj.getFormatedData(source = 'user1to4')
+    x_all, y_all = dataLoadObj.getFormatedData(source = 'user1to4' )
     [train_data,train_labels,test_data,test_labels] = trainTestObj.labTrainData(x_all, y_all)
 
     train_labels = to_categorical(train_labels - 1,num_classes=int(np.max(train_labels)))
-    model, network = trainTestObj.builPretrainModel( mode = 'Alexnet' )
-    history = model.fit(train_data,train_labels,validation_split=0.2,
+    preTrain_model, _ = trainTestObj.builPretrainModel( mode = 'Alexnet' )
+    history = preTrain_model.fit(train_data,train_labels,validation_split=0.2,
                      epochs=1000,shuffle=True,
                         callbacks = [earlyStop,lrScheduler]
                     )
