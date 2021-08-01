@@ -4,6 +4,7 @@ from tensorflow.keras.layers import Input, Softmax, Dense, Reshape, Lambda,Dot,c
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.utils import to_categorical
 from Config import getConfig
+import numpy as np
 config = getConfig()
 class models:
     def __init__( self ):
@@ -58,11 +59,18 @@ class models:
 	# 		model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
 	# 		# model.summary( )
 	# 		return model, network
-    def buildTuneModel( self ):
-        feature_extractor = self.buildFeatureExtractor( mode = 'Alexnet')
-        fc = Dense( units = 25, name = "fine_tune_layer" )( feature_extractor.output )
-        output = Softmax( )( fc )
-        fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
+    def buildTuneModel( self ,isTest:bool = False,pretrained_feature_extractor = []):
+        if isTest:
+            feature_extractor = self.buildFeatureExtractor( mode = 'Alexnet')
+            fc = Dense( units = 25, name = "fine_tune_layer" )( feature_extractor.output )
+            output = Softmax( )( fc )
+            fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
+        if not isTest:
+            if len(pretrained_feature_extractor):
+                print ("Please provide a feature extractor for fine tuning")
+            fc = Dense( units = 25, name = "fine_tune_layer" )( pretrained_feature_extractor.output )
+            output = Softmax( )( fc )
+            fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
         fine_Tune_model.summary( )
         return fine_Tune_model
 

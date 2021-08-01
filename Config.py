@@ -14,8 +14,8 @@ class getConfig:
         self.N_train_classes = 125
         self.batch_size = 32
         self.input_shape = [200,60,3]
-        self.featureExtractor_path = './models/signFi_wholeModel_weight_AlexNet_training_acc_0.90_on_125cls_user1to4.h5'
-        self.tunedModel_path = './models/fc_fineTuned_one_shot.h5'
+        self.featureExtractor_path = './models/signFi_wholeModel_weight_AlexNet_training_acc_0.89_on_125cls_user1to4.h5'
+        self.tunedModel_path = './models/fc_fineTuned_one_shot_with_Zscore.h5'
         self.initGPU()
     def get_params(self):
         return {train_dir: self.train_dir,
@@ -33,15 +33,17 @@ class getConfig:
         pretrained model:
         * Trained on lab environment, 125 classes, user 1 to 4:
             Path: ./models/signFi_wholeModel_weight_AlexNet_training_acc_0.90_on_125cls_user1to4.h5
+            with Z-score:
+            './models/fc_fineTuned_one_shot_with_Zscore.h5' -> 87.8%
             * Fine Tuned Model, on user 5:
-            Path: './models/fc_fineTuned.h5'
+            Path: './models/fc_fineTuned_one_shot.h5'
         * Train on Lab environment, 250 classes, user 5
             ./models/signFi_featureExtractor_weight_AlexNet_training_acc_0.95_on_250cls.h5
         :return:
         '''
         dict = {'feature_extractor_lab125user1234':'./models/signFi_wholeModel_weight_AlexNet_training_acc_0'
                                                    '.90_on_125cls_user1to4.h5',
-                'fineTunedModel_lab125user1234_onUser5':'./models/fc_fineTuned.h5',
+                'fineTunedModel_lab125user1234_onUser5':'./models/fc_fineTuned_one_shot.h5',
                 'feature_extractor_lab250user5':'./models/signFi_featureExtractor_weight_AlexNet_training_acc_0' \
                                                 '.95_on_250cls.h5'
                 }

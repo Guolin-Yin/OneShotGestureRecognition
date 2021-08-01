@@ -1,4 +1,4 @@
-from gestureClassification import *
+from modelPreTraining import *
 from Preprocess.gestureDataLoader import signDataLoder
 from tensorflow.keras.models import Model
 from Config import getConfig

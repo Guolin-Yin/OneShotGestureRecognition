@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from gestureClassification import *
+from modelPreTraining import *
 from Preprocess.gestureDataLoader import signDataLoder
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Softmax, Dense, Reshape, Lambda,Dot,concatenate,ZeroPadding2D,Conv2D,\
@@ -13,18 +13,18 @@ from MODEL import models
 class fineTuningModel:
     def __init__( self,nshots ):
         self.modelObj = models( )
+        self.trainTestObj = PreTrainModel( )
         self.num_finetune_classes = 25
         self.trained_featureExtractor = self._getFeatureExtractor( )
-        self.trained_featureExtractor.trainable = False
+        self.trained_featureExtractor.trainable = True
         self.classifier = []
         self.input_shape = config.input_shape
-        self.trainTestObj = PreTrainModel( )
-        self.fine_Tune_model = self.modelObj.buildTuneModel()
         self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
         self.earlyStop = tf.keras.callbacks.EarlyStopping( monitor = 'val_loss', patience = 20, restore_best_weights =
         True )
         self.data = self._getSQData( nshots = nshots)
         self.fineTuned_model_path = config.tunedModel_path
+
     def _getSQData( self,nshots:int = 5 ):
         '''
         This function build for split support set and query set according to the number of shot
@@ -95,16 +95,18 @@ class fineTuningModel:
         :return:
         '''
         val_data = self.data['Query_data']
-        val_label = to_categorical( self.data[ 'Query_label' ] - np.min(self.data['Query_label' ]),num_classes = 25 )
+        val_label = to_categorical( self.data[ 'Query_label' ] - np.min(self.data['Query_label' ]),num_classes = self.num_finetune_classes )
         return [val_data,val_label]
     def loadFineTunedModel(self):
         '''
         This function build for load fine tuned model for testing
         :returns pre-trained feature extractor and fine tuned classifier
         '''
-        self.fine_Tune_model.load_weights(config.tunedModel_path)
-        feature_extractor = Model( inputs = self.fine_Tune_model.input, outputs = self.fine_Tune_model.get_layer( 'fine_tune_layer' ).output )
-        '''Classifier input: two feature vector
+        fine_Tune_model = self.modelObj.buildTuneModel( isTest = True )
+        fine_Tune_model.load_weights(config.tunedModel_path)
+        feature_extractor = Model( inputs = fine_Tune_model.input, outputs = fine_Tune_model.get_layer( 'fine_tune_layer' ).output )
+        '''
+        Classifier input: two feature vector
                       output: one probability
         '''
         cls_intput_Support = Input(25,name = 'Support_input')
@@ -114,16 +116,45 @@ class fineTuningModel:
         classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
         # feature_extractor, classifier = self._configModel(model = self.fine_Tune_model)
         return [feature_extractor, classifier]
+    def check(self):
+        softmax_func = tf.keras.layers.Softmax( )
+        query_sample = np.expand_dims(self.data['Query_data'][0],axis = 0)
+        feature_extractor_build = Model(inputs =self.fine_Tune_model.input,outputs = self.fine_Tune_model.get_layer(
+                'lambda_1').output)
+        feature_extractor_Query_embedding = feature_extractor_build.predict(query_sample)
+        trained_featureExtractor_prediction = self.trained_featureExtractor.predict(query_sample)
+        Support_data_embedding = feature_extractor_build.predict(self.data['Support_data'])
 
+        fine_Tune_layer = Model(inputs =self.fine_Tune_model.input,outputs = self.fine_Tune_model.get_layer(
+                'fine_tune_layer').output)
+        model_output = fine_Tune_layer.predict(query_sample)
+        right_output = np.dot(feature_extractor_Query_embedding,np.transpose(Support_data_embedding))
+
+        right_prob = softmax_func( right_output ).numpy( )
+        prob = self.fine_Tune_model.predict(query_sample)
     def tuning( self ):
-        # weights = trained_featureExtractor.predict(self.data['Support_data'])
+        init_weights = True
+        init_bias = False
+        self.fine_Tune_model = self.modelObj.buildTuneModel(
+                pretrained_feature_extractor = self.trained_featureExtractor,
+                isTest = False
+                )
+        if init_weights:
+            weights = np.transpose( self.trained_featureExtractor.predict( self.data[ 'Support_data' ] ) )
+            if init_bias:
+                p = self.fine_Tune_model.predict(self.data['Query_data'])
+                bias = np.tile(np.mean(-np.sum( p * np.log(p ),axis = 1 ) ),self.num_finetune_classes)
+            else:
+                bias = np.zeros(self.num_finetune_classes)
+            self.fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
+
         val_data, val_label = self._getValData( )
         optimizer = tf.keras.optimizers.SGD( learning_rate=config.lr, momentum=0.9 )
         self.fine_Tune_model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
         idx = np.random.permutation(len(self.data[ 'Support_data' ]))
         self.fine_Tune_model.fit(
                 self.data[ 'Support_data' ][ idx ], to_categorical(self.data[ 'Support_label' ][ idx ] - np.min(
-                                self.data['Support_label' ]),num_classes = self.num_finetune_classes
+                                self.data[ 'Support_label' ]),num_classes = self.num_finetune_classes
                         ),
                 epochs = 1000,
                 shuffle = True,

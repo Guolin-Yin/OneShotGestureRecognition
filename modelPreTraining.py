@@ -10,7 +10,7 @@ config = getConfig()
 class PreTrainModel:
     def __init__( self,mode:str = 'Alexnet' ):
         modelObj = models( )
-        self.feature_extractor = modelObj.buildFeatureExtractor( mode = 'Alexnet' )
+        self.feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
     def builPretrainModel( self,mode: str = '1D' ):
         '''
         This function build for create the pretrain model
@@ -58,7 +58,7 @@ class PreTrainModel:
                     learning_rate = config.lr, momentum = 0.9
                     )
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
-            # preTrain_model.summary( )
+            preTrain_model.summary( )
         return preTrain_model, self.feature_extractor
     def labTrainData( self,x_all, y_all, source: str = 'user1to4' ):
         if source == 'user1to4':
@@ -198,11 +198,12 @@ if __name__ == '__main__':
     [train_data,train_labels,test_data,test_labels] = trainTestObj.labTrainData(x_all, y_all)
 
     train_labels = to_categorical(train_labels - 1,num_classes=int(np.max(train_labels)))
-    preTrain_model, _ = trainTestObj.builPretrainModel( mode = 'Alexnet' )
-    history = preTrain_model.fit(train_data,train_labels,validation_split=0.2,
-                     epochs=1000,shuffle=True,
-                        callbacks = [earlyStop,lrScheduler]
-                    )
+    preTrain_model, feature_extractor = trainTestObj.builPretrainModel( mode = 'Alexnet' )
+    history = preTrain_model.fit(
+            train_data, train_labels, validation_split = 0.2,
+            epochs = 1000, shuffle = True,
+            callbacks = [ earlyStop, lrScheduler ]
+            )
     val_acc = history.history[ 'val_acc' ]
     save_path = f'./models/signFi_wholeModel_weight_AlexNet_training_acc_{val_acc[-1]:.2f}_on_{config.N_train_classes}cls_user1to4.h5'
-    network.save_weights(save_path)
+    feature_extractor.save_weights(save_path)
