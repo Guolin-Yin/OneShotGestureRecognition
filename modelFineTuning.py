@@ -15,17 +15,21 @@ class fineTuningModel:
         self.modelObj = models( )
         self.trainTestObj = PreTrainModel( )
         self.num_finetune_classes = 25
-        self.trained_featureExtractor = self._getFeatureExtractor( )
-        self.trained_featureExtractor.trainable = True
+        self.pretrained_featureExtractor = self._getFeatureExtractor( )
+        self.pretrained_featureExtractor.trainable = True
         self.classifier = []
         self.input_shape = config.input_shape
         self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
         self.earlyStop = tf.keras.callbacks.EarlyStopping( monitor = 'val_loss', patience = 20, restore_best_weights =
         True )
+        self.nshots = nshots
         self.data = self._getSQData( nshots = nshots)
+        if nshots == 1:
+            self.isOneShotTask = True
+        else:
+            self.isOneShotTask = False
         self.fineTuned_model_path = config.tunedModel_path
-
-    def _getSQData( self,nshots:int = 5 ):
+    def _getSQData( self,nshots:int ):
         '''
         This function build for split support set and query set according to the number of shot
         :param nshots:
@@ -63,7 +67,7 @@ class fineTuningModel:
         :return: feature extractor
         '''
         trained_featureExtractor = self.modelObj.buildFeatureExtractor( mode='Alexnet' )
-        trained_featureExtractor.load_weights(config.featureExtractor_path )
+        trained_featureExtractor.load_weights(config.pretrainedfeatureExtractor_path )
         return trained_featureExtractor
     def _getFineTuneTestData(self,query_set,nway):
         '''
@@ -76,7 +80,7 @@ class fineTuningModel:
         sample_index = random.randint( 0, nway - 1 )
         query_data = np.repeat( query_set[ sample_sign+sample_index ], [ nway ], axis = 0 )
         return [query_data,sample_index]
-    def _getNShotsEmbedding( self, Support_data):
+    def _getNShotsEmbedding( self,featureExtractor, Support_data):
         Sign_class = np.arange( 0, 25, 1 )
         Sign_samples = np.arange( 0, 125, 25 )
         five_shot_support_embedding = [ ]
@@ -85,7 +89,7 @@ class fineTuningModel:
             for j in Sign_samples:
                 five_shot_support_data.append( Support_data[ i + j ] )
             five_shot_support_embedding.append(
-                    np.mean( self.trained_featureExtractor.predict( np.asarray( five_shot_support_data ) ), axis = 0 )
+                    np.mean( featureExtractor.predict( np.asarray( five_shot_support_data ) ), axis = 0 )
                     )
         five_shot_support_embedding = np.asarray( five_shot_support_embedding )
         return five_shot_support_embedding
@@ -103,7 +107,7 @@ class fineTuningModel:
         :returns pre-trained feature extractor and fine tuned classifier
         '''
         fine_Tune_model = self.modelObj.buildTuneModel( isTest = True )
-        fine_Tune_model.load_weights(config.tunedModel_path)
+        fine_Tune_model.load_weights(self.fineTuned_model_path)
         feature_extractor = Model( inputs = fine_Tune_model.input, outputs = fine_Tune_model.get_layer( 'fine_tune_layer' ).output )
         '''
         Classifier input: two feature vector
@@ -116,31 +120,16 @@ class fineTuningModel:
         classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
         # feature_extractor, classifier = self._configModel(model = self.fine_Tune_model)
         return [feature_extractor, classifier]
-    def check(self):
-        softmax_func = tf.keras.layers.Softmax( )
-        query_sample = np.expand_dims(self.data['Query_data'][0],axis = 0)
-        feature_extractor_build = Model(inputs =self.fine_Tune_model.input,outputs = self.fine_Tune_model.get_layer(
-                'lambda_1').output)
-        feature_extractor_Query_embedding = feature_extractor_build.predict(query_sample)
-        trained_featureExtractor_prediction = self.trained_featureExtractor.predict(query_sample)
-        Support_data_embedding = feature_extractor_build.predict(self.data['Support_data'])
-
-        fine_Tune_layer = Model(inputs =self.fine_Tune_model.input,outputs = self.fine_Tune_model.get_layer(
-                'fine_tune_layer').output)
-        model_output = fine_Tune_layer.predict(query_sample)
-        right_output = np.dot(feature_extractor_Query_embedding,np.transpose(Support_data_embedding))
-
-        right_prob = softmax_func( right_output ).numpy( )
-        prob = self.fine_Tune_model.predict(query_sample)
-    def tuning( self ):
-        init_weights = True
-        init_bias = False
+    def tuning( self ,init_weights = True,init_bias = False):
         self.fine_Tune_model = self.modelObj.buildTuneModel(
-                pretrained_feature_extractor = self.trained_featureExtractor,
+                pretrained_feature_extractor = self.pretrained_featureExtractor,
                 isTest = False
                 )
         if init_weights:
-            weights = np.transpose( self.trained_featureExtractor.predict( self.data[ 'Support_data' ] ) )
+            if self.nshots == 1:
+                weights = np.transpose( self.pretrained_featureExtractor.predict( self.data[ 'Support_data' ] ) )
+            elif self.nshots == 5:
+                weights = np.transpose(self._getNShotsEmbedding( self.pretrained_featureExtractor,self.data[ 'Support_data' ] ) )
             if init_bias:
                 p = self.fine_Tune_model.predict(self.data['Query_data'])
                 bias = np.tile(np.mean(-np.sum( p * np.log(p ),axis = 1 ) ),self.num_finetune_classes)
@@ -162,25 +151,22 @@ class fineTuningModel:
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
         return self.fine_Tune_model
-    def test( self ,isOneShotTask:bool = True):
+    def test( self ):
         nway = 25
         N_test_sample = 1000
-        softmax_func = tf.keras.layers.Softmax( )
         correct_count = 0
         test_acc = []
         # load Support and Query dataset
         query_set, query_label = self._getValData( )
         Support_data = self.data[ 'Support_data' ]
-        if isOneShotTask:
+        feature_extractor, classifier = self.loadFineTunedModel( )
+        if self.isOneShotTask:
             '''Perform five shots learning with fine tuning'''
-            feature_extractor, classifier = self.loadFineTunedModel( )
             Support_set_embedding = feature_extractor.predict( Support_data )
             for _ in range(N_test_sample):
                 Query_data, sample_index = self._getFineTuneTestData( query_set = query_set, nway = nway)
                 Query_set_embedding = feature_extractor.predict( Query_data )
                 prob_classifier = classifier.predict([Support_set_embedding,Query_set_embedding])
-                # sim = cosine_similarity( Support_set_embedding, np.expand_dims(Query_set_embedding[0],axis = 0 ))
-                # prob = softmax_func( np.squeeze( sim, -1 ) ).numpy( )
                 if np.argmax( prob_classifier ) == sample_index:
                     correct_count += 1
                     print(correct_count)
@@ -191,15 +177,14 @@ class fineTuningModel:
             # optimizer = tf.keras.optimizers.SGD( learning_rate = config.lr, momentum = 0.9 )
             # self.fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             # self.fine_Tune_model.evaluate( query_set, query_label )
-        if not isOneShotTask:
+        if not self.isOneShotTask:
             '''perform 5 shots learning without fine tuning'''
-            five_shot_support_embedding = self._getNShotsEmbedding( Support_data )
+            Support_set_embedding = self._getNShotsEmbedding( feature_extractor,Support_data )
             for _ in range(N_test_sample):
                 Query_data, sample_index = self._getFineTuneTestData( query_set = query_set, nway = nway )
-                Query_set_embedding = self.trained_featureExtractor.predict(Query_data)
-                sim = cosine_similarity( five_shot_support_embedding, np.expand_dims( Query_set_embedding[ 0 ], axis = 0 ) )
-                prob = softmax_func( np.squeeze( sim, -1 ) ).numpy( )
-                if np.argmax( prob ) == sample_index:
+                Query_set_embedding = feature_extractor.predict( Query_data )
+                prob_classifier = classifier.predict( [ Support_set_embedding, Query_set_embedding ] )
+                if np.argmax( prob_classifier ) == sample_index:
                     correct_count += 1
                     print( correct_count )
             acc = (correct_count / N_test_sample) * 100.
@@ -211,8 +196,9 @@ if __name__ == '__main__':
     # print('start')
     config = getConfig( )
     fineTuningModelObj = fineTuningModel(nshots = 1)
-    # fine_Tune_model = fineTuningModelObj.tuning()
-    test_acc = fineTuningModelObj.test(isOneShotTask=True)
+    fine_Tune_model = fineTuningModelObj.tuning()
+    fine_Tune_model.save_weights('./models/fc_fineTuned_five_shot_with_Zscore.h5')
+    test_acc = fineTuningModelObj.test()
     print('Done')
 
 

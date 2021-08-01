@@ -59,18 +59,19 @@ class models:
 	# 		model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
 	# 		# model.summary( )
 	# 		return model, network
-    def buildTuneModel( self ,isTest:bool = False,pretrained_feature_extractor = []):
+    def buildTuneModel( self ,isTest:bool = False,pretrained_feature_extractor = None):
         if isTest:
             feature_extractor = self.buildFeatureExtractor( mode = 'Alexnet')
             fc = Dense( units = 25, name = "fine_tune_layer" )( feature_extractor.output )
             output = Softmax( )( fc )
             fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
         if not isTest:
-            if len(pretrained_feature_extractor):
-                print ("Please provide a feature extractor for fine tuning")
-            fc = Dense( units = 25, name = "fine_tune_layer" )( pretrained_feature_extractor.output )
-            output = Softmax( )( fc )
-            fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
+            try:
+                fc = Dense( units = 25, name = "fine_tune_layer" )( pretrained_feature_extractor.output )
+                output = Softmax( )( fc )
+                fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )
+            except AttributeError:
+                print("The feature extractor has not been passed!!!!!!!!!!!!!!")
         fine_Tune_model.summary( )
         return fine_Tune_model
 
