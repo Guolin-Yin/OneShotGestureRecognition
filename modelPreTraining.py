@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
 from MODEL import models
-config = getConfig()
+
 class PreTrainModel:
     def __init__( self,mode:str = 'Alexnet' ):
         modelObj = models( )
@@ -17,8 +17,6 @@ class PreTrainModel:
         :param mode: select backbone model
         :return: whole model for pre-training and feature extractor
         '''
-        embedding = models()
-        network = embedding.buildFeatureExtractor( mode='Alexnet' )
         if mode == '1D':
             input = Input( [ 1600, 7 ], name = 'data input' )
             feature_extractor = network( input )
@@ -47,36 +45,44 @@ class PreTrainModel:
                     )
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
-        elif mode == 'Alexnet':
+        elif 'Alexnet' in mode :
             input = Input( config.input_shape, name = 'data input' )
-            feature_extractor = self.feature_extractor( input )
+            feature_extractor = self.feature_extractor(input)
             full_connect = Dense( units = config.N_train_classes )( feature_extractor )
             output = Softmax( )( full_connect )
             preTrain_model = Model( inputs = input, outputs = output )
             # Complie preTrain_model
             optimizer = tf.keras.optimizers.SGD(
-                    learning_rate = config.lr, momentum = 0.9
+                    learning_rate = config.lr,
+                    momentum = 0.9
                     )
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
         return preTrain_model, self.feature_extractor
-    def labTrainData( self,x_all, y_all, source: str = 'user1to4' ):
-        if source == 'user1to4':
+    def _splitData( self,x_all, y_all, source: str = '4user' ):
+        '''
+        This function build for split sign data, 1 to 125 for training, 125 to 150 for one shot learning
+        :param x_all:
+        :param y_all:
+        :param source:
+        :return:
+        '''
+        if source == '4user':
             train_data = np.zeros( (5000, 200, 60, 3) )
             train_labels = np.zeros( (5000, 1), dtype = int )
-            test_data = np.zeros( (1000, 200, 60, 3) )
-            test_labels = np.zeros( (1000, 1), dtype = int )
+            unseen_sign_data = np.zeros( (1000, 200, 60, 3) )
+            unseen_sign_label = np.zeros( (1000, 1), dtype = int )
             count_tra = 0
             count_test = 0
             for i in np.arange( 0, 6000, 1500 ):
                 train_data[ count_tra:count_tra + 1250, :, :, : ] = x_all[ i:i + 1250, :, :, : ]
                 train_labels[ count_tra:count_tra + 1250, : ] = y_all[ i:i + 1250, : ]
-                test_data[ count_test:count_test + 250, :, :, : ] = x_all[ i + 1250:i + 1500, :, :, : ]
-                test_labels[ count_test:count_test + 250, : ] = y_all[ i + 1250:i + 1500, : ]
+                unseen_sign_data[ count_test:count_test + 250, :, :, : ] = x_all[ i + 1250:i + 1500, :, :, : ]
+                unseen_sign_label[ count_test:count_test + 250, : ] = y_all[ i + 1250:i + 1500, : ]
                 count_tra += 1250
                 count_test += 250
             idx = np.random.permutation( len( train_labels ) )
-            return [ train_data[ idx ], train_labels[ idx ], test_data, test_labels ]
+            return [ train_data[ idx ], train_labels[ idx ], unseen_sign_data, unseen_sign_label ]
         elif source == 'singleuser':
             x_all = x_all[ 0:1250 ]
             y_all = y_all[ 0:1250 ]
@@ -108,31 +114,6 @@ class PreTrainModel:
                 support_set.append( test_data[ index[ 0 ] ] )
                 query_set.append( test_data[ selected_samples[ 0 ] ] )
         return support_set, query_set
-    def Test( self, test_data, test_labels, mode:str = 'fix',isOneShotTask: bool = True):
-        '''
-        This method build for testing fix number of ways
-        :param test_data:
-        :param test_labels:
-        :param mode:
-        :param isOneShotTask:
-        :return:
-        '''
-        nway = 5
-        N_test_sample = 1000
-        test_acc = [ ]
-        softmax_func = tf.keras.layers.Softmax( )
-        for _ in range( N_test_sample ):
-            if isOneShotTask:
-                support_set, query_set, _ = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode=mode )
-                sample_index = random.randint( 0, nway - 1 )
-                query_sample = np.repeat(query_set[sample_index],[nway],axis = 0)
-                sim = self.embedding_model.predict( [ support_set, query_sample ] )
-                prob = softmax_func( np.squeeze( sim, -1 ) ).numpy( )
-                if np.argmax( prob ) == sample_index:
-                    correct_count += 1
-        acc = (correct_count / N_test_sample) * 100.
-        test_acc.append( acc )
-        print( "Accuracy %.2f" % acc )
     def signTest(self, test_data, test_labels, N_test_sample, embedding_model, isOneShotTask: bool = True, mode:str = 'cross_val' ):
         '''
         This function build for testing the model performance from two ways to 25 ways
@@ -152,17 +133,14 @@ class PreTrainModel:
             print( "Checking %d way accuracy...." % nway )
             correct_count = 0
             if isOneShotTask:
-                for _ in range( N_test_sample ):
-                    # Retrieving nway number of triplets and calculating embedding vector
+                for i in range( N_test_sample ):
                     support_set, query_set,_ = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode = mode)
-                    # support set, it has N different classes depending on the batch_size
-                    # nway_anchor has the same class with nway_positive at the same row
                     sample_index = random.randint( 0, nway - 1 )
-                    support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
-                    # support_set_embedding = normalize( support_set_embedding, axis=1, norm='max' )
+                    if mode == 'fix' and i == 0:
+                        support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
+                    elif mode == 'cross_val':
+                        support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
                     query_set_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
-                    # query_set_embedding = normalize( query_set_embedding, axis=1, norm='max' )
-                    # using cosine_similarity
                     sim = cosine_similarity( support_set_embedding, query_set_embedding )
                     prob = softmax_func( np.squeeze( sim, -1 ) ).numpy()
                     if np.argmax( prob ) == sample_index:
@@ -181,29 +159,57 @@ class PreTrainModel:
                 out[i,:,:] = x[i,:,:].transpose()
             return out
     def scheduler(self, epoch, lr):
-        if epoch < 100:
+        if epoch < 200:
             return lr
         else:
-            return lr * tf.math.exp(-0.1)
+            return lr * tf.math.exp(-0.5)
+def train_user_1to5():
+    config = getConfig( )
+    config.source = 'lab'
 
-if __name__ == '__main__':
     # Declare objects
     dataLoadObj = signDataLoder( dataDir=config.train_dir )
-    trainTestObj = PreTrainModel( )
+    preTrain_modelObj = PreTrainModel( )
     # Training params
-    lrScheduler = tf.keras.callbacks.LearningRateScheduler( trainTestObj.scheduler )
+    lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
     earlyStop = tf.keras.callbacks.EarlyStopping( monitor='val_loss', patience=20, restore_best_weights=True )
     # Sign recognition
-    x_all, y_all = dataLoadObj.getFormatedData(source = 'user1to4' )
-    [train_data,train_labels,test_data,test_labels] = trainTestObj.labTrainData(x_all, y_all)
+    x_all, y_all,_,_ = dataLoadObj.getFormatedData(source = config.source)
+    [train_data,train_labels,test_data,test_labels] = preTrain_modelObj._splitData( x_all, y_all )
 
     train_labels = to_categorical(train_labels - 1,num_classes=int(np.max(train_labels)))
-    preTrain_model, feature_extractor = trainTestObj.builPretrainModel( mode = 'Alexnet' )
+    preTrain_model, feature_extractor = preTrain_modelObj.builPretrainModel( mode = 'Alexnet' )
     history = preTrain_model.fit(
-            train_data, train_labels, validation_split = 0.2,
-            epochs = 1000, shuffle = True,
+            train_data, train_labels, validation_split = 0.1,
+            epochs = 1000,
             callbacks = [ earlyStop, lrScheduler ]
             )
     val_acc = history.history[ 'val_acc' ]
-    save_path = f'./models/signFi_wholeModel_weight_AlexNet_training_acc_{val_acc[-1]:.2f}_on_{config.N_train_classes}cls_user1to4.h5'
-    feature_extractor.save_weights(save_path)
+    config.setSavePath( val_acc = val_acc )
+    feature_extractor.save_weights(config.feature_extractor_save_path)
+if __name__ == '__main__':
+    config = getConfig( )
+    config.source = 'home'
+
+    # Declare objects
+    dataLoadObj = signDataLoder( dataDir = config.train_dir )
+    preTrain_modelObj = PreTrainModel( )
+    # Training params
+    lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
+    earlyStop = tf.keras.callbacks.EarlyStopping( monitor = 'val_loss', patience = 20, restore_best_weights = True )
+    # Sign recognition
+    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData( source = config.source )
+    # [ train_data, train_labels, test_data, test_labels ] = preTrain_modelObj._splitData( x_all, y_all )
+
+    train_labels = to_categorical( train_labels - 1, num_classes = int( np.max( train_labels ) ) )
+    preTrain_model, feature_extractor = preTrain_modelObj.builPretrainModel( mode = 'Alexnet' )
+    history = preTrain_model.fit(
+            train_data, train_labels, validation_split = 0.1,
+            epochs = 1000,
+            callbacks = [ earlyStop, lrScheduler ]
+            )
+    val_acc = history.history[ 'val_acc' ]
+    config.setSavePath( val_acc = val_acc )
+    config.feature_extractor_save_path = f'./models/feature_extractor_weight_Alexnet_home_250cls_val_acc_' \
+                                         f'{val_acc[-1]:0.2f}_with_Zscore.h5'
+    feature_extractor.save_weights( config.feature_extractor_save_path )

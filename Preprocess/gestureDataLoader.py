@@ -21,18 +21,16 @@ class gestureDataLoader:
         self.labels = np.asarray( [ ] )
         self.gesture_class = {}
         self._getInpuShape( )
-
         x = []
         for name in self.filename:
             x.append(int(re.findall( r'\d+\b', name )[1]))
         self.num_gesture_types = np.max(x)
         self._mapFilenameToClass( )
-    def _getInpuShape(self):
+    def _getInputShape(self):
         data = sio.loadmat( os.path.join(self.data_path,self.filename[0]) )[ 'csiAmplitude' ]
         self.InputShape = list(data.shape)
         self.num_subcarriers = self.InputShape[0]
         self.len_signals = self.InputShape[1]
-
     # def load( self, isTrain: bool, user:str ):
     #     buf = []
     #     for i in range(len(self.filename)):
@@ -252,6 +250,12 @@ class gestureDataLoader:
                     labels.append( tf.keras.utils.to_categorical( gestureMark, num_classes=config.N_train_classes ) )
         return np.asarray( data ), np.asarray( labels )
 class signDataLoder:
+    ''':returns
+        filename: [0] home-276 -> user 5, 2760 samples,csid_home and csiu_home
+        filename: [1] lab-150 -> user 1 to 5, 1500 samples/user
+        filename: [2] lab-276 -> user 5, 5520 samples,downlink*
+        filename: [3] lab-276 -> user 5, 5520 samples,uplink*
+    '''
     def __init__( self,dataDir ):
         self.dataDir = dataDir
         self.data = []
@@ -285,8 +289,30 @@ class signDataLoder:
         x_all = np.concatenate( (x_amp, x_phase), axis=2 )
         return x_all
     def getFormatedData(self,source:str='lab',isZscore:bool=True):
+        def getSplitData(x_all,y_all,n_samples_per_user:int,shuffle=True):
+            n_train_samples = 250 * n_samples_per_user
+            n_test_samples = (276 - 250) * n_samples_per_user
+            train_data = np.zeros( (n_train_samples, 200, 60, 3) )
+            train_labels = np.zeros( (n_train_samples, 1) ,dtype = int)
+            test_data = np.zeros( (n_test_samples, 200, 60, 3) )
+            test_labels = np.zeros( (n_test_samples, 1) ,dtype = int)
+            idx = np.where( y_all == 1 )[0]
+            tra_count = 0
+            tes_count = 0
+            for i in idx:
+                train_data[tra_count:tra_count+250,:,:,:] = x_all[i:i+250,:,:,:]
+                train_labels[tra_count:tra_count+250,:] = y_all[i:i+250,:]
+                test_data[tes_count:tes_count+26,:,:,:] = x_all[i+250:i+276,:,:,:]
+                test_labels[tes_count:tes_count+26,:] = y_all[i+250:i+276,:]
+                tra_count += 250
+                tes_count += 26
+            if shuffle:
+                idx = np.random.permutation( len( train_labels ) )
+                train_data = train_data[idx]
+                train_labels = train_labels[idx]
+            return [train_data, train_labels, test_data, test_labels]
         if source == 'lab':
-            print( 'lab environment user 5, 276 classes' )
+            print( 'lab environment user 5, 276 classes,5520 samples,downlink*' )
             x = self.data[ 2 ][ 'csid_lab' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
@@ -295,8 +321,11 @@ class signDataLoder:
                 x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 2 ][ 'label_lab' ]
+            train_data, train_labels, test_data, test_labels = getSplitData(x_all=x_all,y_all=y_all,
+                    n_samples_per_user=20)
+            return [ train_data, train_labels, test_data, test_labels ]
         elif source == 'home':
-            print('home environment user 5, 276 classes')
+            print('home environment user 5, 276 classes, 2760 samples')
             x = self.data[ 0 ][ 'csid_home' ]
             x_amp = np.abs( x )
             x_phase = np.angle( x )
@@ -305,6 +334,11 @@ class signDataLoder:
                 x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 0 ][ 'label_home' ]
+            train_data, train_labels, test_data, test_labels = getSplitData(
+                    x_all = x_all, y_all = y_all,
+                    n_samples_per_user = 10
+                    )
+            return [ train_data, train_labels, test_data, test_labels ]
         elif source == 'labUser5':
             print( 'lab environment user 5, 150 classes' )
             x = self.data[ 1 ][ 'csi5' ]
@@ -315,6 +349,7 @@ class signDataLoder:
                 x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
             y_all = self.data[ 1 ][ 'label' ][6000:7500]
+            return [ x_all, y_all ]
         elif source == 'user1to4':
             print(' lab environment, user 1 to 4, 150 classes')
             x_1 = self._getConcatenated(self.data[ 1 ][ 'csi1' ],isZscore)
@@ -323,7 +358,31 @@ class signDataLoder:
             x_4 = self._getConcatenated(self.data[ 1 ][ 'csi4' ],isZscore)
             x_all = np.concatenate( (x_1,x_2,x_3,x_4),axis = 0)
             y_all = self.data[ 1 ][ 'label' ][ 0:6000 ]
-        return [x_all,y_all]
+            return [ x_all, y_all ]
+        elif type(source) == list:
+            # if len( source ) < 4:
+            #     sys.exit( 'list of items not long enough' )
+            print(f'train on user {source[0]}-{source[1]}-{source[2]}-{source[3]}, test on user {source[4]}')
+            source = [source[0]-1, source[1]-1, source[2]-1, source[3]-1, source[4]-1]
+            x_1 = self._getConcatenated( self.data[ 1 ][ 'csi1' ], isZscore )
+            x_2 = self._getConcatenated( self.data[ 1 ][ 'csi2' ], isZscore )
+            x_3 = self._getConcatenated( self.data[ 1 ][ 'csi3' ], isZscore )
+            x_4 = self._getConcatenated( self.data[ 1 ][ 'csi4' ], isZscore )
+            x_5 = self._getConcatenated( self.data[ 1 ][ 'csi5' ], isZscore )
+            y_1 = self.data[ 1 ][ 'label' ][ 0:1500 ]
+            y_2 = self.data[ 1 ][ 'label' ][ 1500:3000 ]
+            y_3 = self.data[ 1 ][ 'label' ][ 3000:4500 ]
+            y_4 = self.data[ 1 ][ 'label' ][ 4500:6000 ]
+            y_5 = self.data[ 1 ][ 'label' ][ 6000:7500 ]
+            x = [x_1,x_2,x_3,x_4,x_5]
+            y = [y_1,y_2,y_3,y_4,y_5]
+            x_train = np.concatenate( (x[source[0]],x[source[1]],x[source[2]],x[source[3]]),axis = 0)
+            y_train = np.concatenate(
+                    (y[ source[ 0 ] ], y[ source[ 1 ] ], y[ source[ 2 ] ], y[ source[ 3 ] ]), axis = 0
+                    )
+            x_test = x[source[4]]
+            y_test = y[source[4]]
+            return [x_train,y_train,x_test,y_test]
 
     def getTrainTestSplit(self, data, labels, N_train_classes: int = 260, N_samples_per_class: int = 20,
                            shuffle_training: bool = True ):
@@ -360,4 +419,4 @@ class signDataLoder:
         return [ train_data, train_labels, test_data, test_labels ]
 if __name__ == '__main__':
     dataLoadObj = signDataLoder( dataDir=config.train_dir )
-    x_all, y_all = dataLoadObj.getFormatedData( source = 'user1to4' )
+    a = dataLoadObj.getFormatedData( source='home' )

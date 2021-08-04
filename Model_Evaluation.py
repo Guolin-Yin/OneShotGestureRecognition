@@ -12,8 +12,8 @@ def plot_barchart():
     N = 2
     id = np.arange(N)
     width = 0.35
-    oneshot_accuracy = [ 70.0, 86.5 ]
-    fiveshot_accuracy = [ 84.4, 99.0 ]
+    oneshot_accuracy = [ 70.0, 88.6 ]
+    fiveshot_accuracy = [ 84.4, 98.0 ]
     plt.bar( id, oneshot_accuracy, width, label = 'one shot results' )
     plt.bar( id+width, fiveshot_accuracy, width, label = 'five shot results' )
     plt.ylabel( "Accuracy" )
