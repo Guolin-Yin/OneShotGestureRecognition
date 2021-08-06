@@ -8,9 +8,12 @@ from Config import getConfig
 from MODEL import models
 
 class PreTrainModel:
-    def __init__( self,mode:str = 'Alexnet' ):
+    def __init__( self,config,mode:str = 'Alexnet', ifLoadWeights:bool = True):
         modelObj = models( )
         self.feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
+        if ifLoadWeights:
+            self.feature_extractor.load_weights(config.pretrainedfeatureExtractor_path)
+        self.feature_extractor.trainable = True
     def builPretrainModel( self,mode: str = '1D' ):
         '''
         This function build for create the pretrain model
@@ -159,10 +162,18 @@ class PreTrainModel:
                 out[i,:,:] = x[i,:,:].transpose()
             return out
     def scheduler(self, epoch, lr):
-        if epoch < 200:
+        if epoch < 190:
             return lr
-        else:
+        elif epoch == 191 and epoch  == 202:
             return lr * tf.math.exp(-0.5)
+        elif epoch > 250:
+            return lr * tf.math.exp(-0.5)
+        else:
+            return lr
+        # if (epoch % 100) == 0 and epoch > 10:
+        #     return lr*0.1
+        # else:
+        #     return lr
 def train_user_1to5():
     config = getConfig( )
     config.source = 'lab'
@@ -189,7 +200,7 @@ def train_user_1to5():
     feature_extractor.save_weights(config.feature_extractor_save_path)
 if __name__ == '__main__':
     config = getConfig( )
-    config.source = 'home'
+    config.source = 'lab'
 
     # Declare objects
     dataLoadObj = signDataLoder( dataDir = config.train_dir )
@@ -209,7 +220,6 @@ if __name__ == '__main__':
             callbacks = [ earlyStop, lrScheduler ]
             )
     val_acc = history.history[ 'val_acc' ]
-    config.setSavePath( val_acc = val_acc )
-    config.feature_extractor_save_path = f'./models/feature_extractor_weight_Alexnet_home_250cls_val_acc_' \
-                                         f'{val_acc[-1]:0.2f}_with_Zscore.h5'
-    feature_extractor.save_weights( config.feature_extractor_save_path )
+    # config.feature_extractor_save_path = f'./models/feature_extractor_weight_Alexnet_lab_250cls_val_acc_' \
+    #                                      f'{val_acc[-1]:0.2f}_with_Zscore_use_pretrained_feature_extractor_on_no_Zscore.h5'
+    # feature_extractor.save_weights( config.feature_extractor_save_path )

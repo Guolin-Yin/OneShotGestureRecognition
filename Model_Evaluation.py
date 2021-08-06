@@ -245,9 +245,27 @@ def CnnModelTesting():
     test_labels_2 = to_categorical( y_all[ 1250:1500 ] - 3, num_classes=int( np.max( y_all ) - 2 ) )
     test_labels = np.concatenate((test_labels_1,test_labels_2),axis = 0)
     model.evaluate(x_all,test_labels)
+def pltCrossDomain():
+    labToHome = [0.894,0.918,0.934,0.935,0.961,0.98]
+    HomeToLab = [0.611,0.734,0.814,0.888,0.904,0.955,0.968,0.977,0.988,0.997]
+    user1to4On5= [0.878,0.942,0.947,0.981,0.981]
+    ax = plt.figure().gca()
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    a1 = np.arange(1,6)
+    a2 = np.arange( 1, 11 )
+    a3 = np.arange(1,7)
+    ax.plot(a3,labToHome,linestyle='dashed', marker='o',label = 'Source domain: Lab, Target domain: Home')
+    ax.plot( a1, user1to4On5,linestyle='dashed', marker='o', label = 'Source domain: User 1 to 4, Target domain: User 5' )
+    ax.plot( a2, HomeToLab,linestyle='dashed', marker='o', label = 'Source domain: Home, Target domain: Lab' )
+    ax.legend()
+    ax.set_xlabel('Number of shots')
+    ax.set_title('Cross Domain performance')
+    ax.set_ylabel('Accuracy')
+
 if __name__ == '__main__':
-    plot_barchart()
+    # plot_barchart()
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
+    pltCrossDomain()
 

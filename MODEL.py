@@ -1,6 +1,7 @@
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Softmax, Dense, Reshape, Lambda,Dot,concatenate,ZeroPadding2D,Conv2D,\
-    MaxPooling2D,Flatten,Dropout
+    MaxPooling2D,Flatten,Dropout,BatchNormalization
+import tensorflow_addons as tfa
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras import regularizers
@@ -130,15 +131,16 @@ class models:
 	# 		model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
 	# 		# model.summary( )
 	# 		return model, network
-    def buildTuneModel( self ,isTest:bool = False,pretrained_feature_extractor = None):
+    def buildTuneModel( self ,config,isTest:bool = False,pretrained_feature_extractor = None):
         if isTest:
             feature_extractor = self.buildFeatureExtractor( mode = 'Alexnet')
-            fc = Dense( units = 25, name = "fine_tune_layer" )( feature_extractor.output )
+            fc = Dense( units = config.num_finetune_classes, name = "fine_tune_layer" )( feature_extractor.output )
             output = Softmax( )( fc )
             fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
         if not isTest:
             try:
-                fc = Dense( units = 25, name = "fine_tune_layer" )( pretrained_feature_extractor.output )
+                fc = Dense( units = config.num_finetune_classes, name = "fine_tune_layer" )(
+                        pretrained_feature_extractor.output )
                 output = Softmax( )( fc )
                 fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )
             except AttributeError:
