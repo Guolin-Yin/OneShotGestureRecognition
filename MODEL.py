@@ -139,8 +139,9 @@ class models:
             fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
         if not isTest:
             try:
-                fc = Dense( units = config.num_finetune_classes, name = "fine_tune_layer" )(
-                        pretrained_feature_extractor.output )
+                fc = Dense( units = config.num_finetune_classes,
+                        bias_regularizer = regularizers.l2( 5e-4 ),
+                        name = "fine_tune_layer" )(pretrained_feature_extractor.output )
                 output = Softmax( )( fc )
                 fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )
             except AttributeError:

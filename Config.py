@@ -4,9 +4,9 @@ class getConfig:
     def __init__(self):
         self.train_dir = 'D:/Matlab/SignFi/Dataset'
         self.eval_dir = None
-        self.lr = 1e-4
+        self.lr = 1e-2
         self.batch_size = 32
-        self.N_train_classes = 250
+        self.N_train_classes = None
         self.num_finetune_classes = None
         self.source = None
         self.input_shape = [200,60,3]

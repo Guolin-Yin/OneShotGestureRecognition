@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Input, Softmax
 from tensorflow.keras.models import Model
+from tensorflow.keras import regularizers
 from Preprocess.gestureDataLoader import *
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -8,11 +9,12 @@ from Config import getConfig
 from MODEL import models
 
 class PreTrainModel:
-    def __init__( self,config,mode:str = 'Alexnet', ifLoadWeights:bool = True):
+    def __init__( self,config,mode:str = 'Alexnet', ifLoadWeights:bool = False):
         modelObj = models( )
+        self.config = config
         self.feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
         if ifLoadWeights:
-            self.feature_extractor.load_weights(config.pretrainedfeatureExtractor_path)
+            self.feature_extractor.load_weights(self.config.pretrainedfeatureExtractor_path)
         self.feature_extractor.trainable = True
     def builPretrainModel( self,mode: str = '1D' ):
         '''
@@ -23,7 +25,7 @@ class PreTrainModel:
         if mode == '1D':
             input = Input( [ 1600, 7 ], name = 'data input' )
             feature_extractor = network( input )
-            output = Dense( units = config.N_train_classes, activation = 'softmax' )( feature_extractor )
+            output = Dense( units = self.config.N_train_classes, activation = 'softmax' )( feature_extractor )
             preTrain_model = Model( inputs = input, outputs = output )
             optimizer = tf.keras.optimizers.Adam(
                     lr = 0.001,
@@ -37,27 +39,30 @@ class PreTrainModel:
             preTrain_model.summary( )
         elif mode == '2D':
             # Define preTrain_model
-            input = Input( config.input_shape, name = 'data input' )
+            input = Input( self.config.input_shape, name = 'data input' )
             feature_extractor = network( input )
-            full_connect = Dense( units = config.N_train_classes )( feature_extractor )
+            full_connect = Dense( units = self.config.N_train_classes )( feature_extractor )
             output = Softmax( )( full_connect )
             preTrain_model = Model( inputs = input, outputs = output )
             # Complie preTrain_model
             optimizer = tf.keras.optimizers.SGD(
-                    learning_rate = config.lr, momentum = 0.9
+                    learning_rate = self.config.lr, momentum = 0.9
                     )
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
         elif 'Alexnet' in mode :
-            input = Input( config.input_shape, name = 'data input' )
+            input = Input( self.config.input_shape, name = 'data input' )
             feature_extractor = self.feature_extractor(input)
-            full_connect = Dense( units = config.N_train_classes )( feature_extractor )
+            full_connect = Dense(
+                    units = self.config.N_train_classes,
+                    bias_regularizer = regularizers.l2( 4e-4 ),
+                    )( feature_extractor )
             output = Softmax( )( full_connect )
             preTrain_model = Model( inputs = input, outputs = output )
             # Complie preTrain_model
             optimizer = tf.keras.optimizers.SGD(
-                    learning_rate = config.lr,
-                    momentum = 0.9
+                    learning_rate =self.config.lr,
+                    momentum = 0.99
                     )
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
@@ -162,18 +167,18 @@ class PreTrainModel:
                 out[i,:,:] = x[i,:,:].transpose()
             return out
     def scheduler(self, epoch, lr):
-        if epoch < 190:
-            return lr
-        elif epoch == 191 and epoch  == 202:
-            return lr * tf.math.exp(-0.5)
-        elif epoch > 250:
-            return lr * tf.math.exp(-0.5)
+        # if epoch < 250:
+        #     return lr
+        # else:
+        #     return lr * tf.math.exp(-0.5)
+        if epoch == 50:
+            return lr * 0.1
+        elif epoch == 100:
+            return lr * 0.1
+        elif epoch == 150:
+            return lr * 0.1
         else:
             return lr
-        # if (epoch % 100) == 0 and epoch > 10:
-        #     return lr*0.1
-        # else:
-        #     return lr
 def train_user_1to5():
     config = getConfig( )
     config.source = 'lab'
@@ -198,18 +203,21 @@ def train_user_1to5():
     val_acc = history.history[ 'val_acc' ]
     config.setSavePath( val_acc = val_acc )
     feature_extractor.save_weights(config.feature_extractor_save_path)
-if __name__ == '__main__':
+def train_lab():
     config = getConfig( )
     config.source = 'lab'
-
+    config.N_train_classes = 250
     # Declare objects
     dataLoadObj = signDataLoder( dataDir = config.train_dir )
-    preTrain_modelObj = PreTrainModel( )
+    preTrain_modelObj = PreTrainModel( config = config )
     # Training params
     lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
     earlyStop = tf.keras.callbacks.EarlyStopping( monitor = 'val_loss', patience = 20, restore_best_weights = True )
     # Sign recognition
-    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData( source = config.source )
+    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
+            source = config.source,
+            isZscore = False
+            )
     # [ train_data, train_labels, test_data, test_labels ] = preTrain_modelObj._splitData( x_all, y_all )
 
     train_labels = to_categorical( train_labels - 1, num_classes = int( np.max( train_labels ) ) )
@@ -220,6 +228,9 @@ if __name__ == '__main__':
             callbacks = [ earlyStop, lrScheduler ]
             )
     val_acc = history.history[ 'val_acc' ]
-    # config.feature_extractor_save_path = f'./models/feature_extractor_weight_Alexnet_lab_250cls_val_acc_' \
-    #                                      f'{val_acc[-1]:0.2f}_with_Zscore_use_pretrained_feature_extractor_on_no_Zscore.h5'
-    # feature_extractor.save_weights( config.feature_extractor_save_path )
+    return [preTrain_model, feature_extractor]
+if __name__ == '__main__':
+    preTrain_model, feature_extractor = train_lab()
+    config.feature_extractor_save_path = \
+        f'./models/preTrain_model_weight_Alexnet_lab_250cls_val_acc_0.956_no_Zscore_halfdataset.h5'
+    preTrain_model.save_weights( config.feature_extractor_save_path )

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from modelPreTraining import *
-from Preprocess.gestureDataLoader import signDataLoder
+from Preprocess.gestureDataLoader import signDataLoder,WidarDataloader
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Softmax, Dense, Reshape, Lambda,Dot,concatenate,ZeroPadding2D,Conv2D,\
     MaxPooling2D,Flatten,Dropout
@@ -10,9 +10,10 @@ from tensorflow.keras.utils import to_categorical
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
 from MODEL import models
+import matplotlib.pyplot as plt
 import random
 class fineTuningModel:
-    def __init__( self,nshots,isZscore,config ):
+    def __init__( self,config,nshots = None,isZscore = None, isiheritance = False ):
         self.nshots = nshots
         self.isZscore = isZscore
         self.modelObj = models( )
@@ -23,7 +24,8 @@ class fineTuningModel:
         =True)
         self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
         self.pretrained_featureExtractor.trainable = True
-        self.data = self._getSQData( nshots = nshots)
+        if not isiheritance:
+            self.data = self._getSQData( nshots = nshots)
         if nshots == 1:
             self.isOneShotTask = True
         else:
@@ -97,7 +99,6 @@ class fineTuningModel:
             support_data = np.repeat( query_set[ sample_sign[0] + sample_index ], [ nway ], axis = 0 )
             query_data = np.repeat( query_set[ sample_sign[1] + sample_index ], [ nway ], axis = 0 )
             return [ support_data,query_data, sample_index ]
-
     def _getNShotsEmbedding( self,featureExtractor, Support_data):
         Sign_class = np.arange( 0, self.config.num_finetune_classes, 1 )
         # Sign_samples = np.arange( 0, 125, 25 )
@@ -221,26 +222,144 @@ class fineTuningModel:
             test_acc.append( acc )
             print( "Accuracy %.2f" % acc )
         return test_acc
+class fineTuningWidar(fineTuningModel):
+    def __init__( self,config,nshots:int = None ):
+        super().__init__(config = config, isiheritance = True, )
+        self.WidarDataLoaderObj = WidarDataloader(dataDir = 'E:/Cross_dataset/20181115',selection = (6,1,1))
+        self.selected_gesture_samples_data,self.x,self.y = self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.y
+        self.nshots = nshots
+        self.nways = 6
 
+
+    def _getNShotsEmbedding( self,feature_extractor,Support_set ):
+        Support_set_embedding_all = feature_extractor.predict( Support_set )
+        Support_set_embedding = []
+        for i in range(self.nways):
+            # Support_set_embedding.append(Support_set_embedding_all[ i * self.nshots:i * self.nshots + self.nshots ])
+            Support_set_embedding.append(np.mean(Support_set_embedding_all[i*self.nshots:i*self.nshots+self.nshots],
+                    axis=0))
+        return np.asarray(Support_set_embedding)
+    def _getValData( self ):
+        '''
+        Get the validation data for fine tuning
+        :return:
+        '''
+        val_data = self.data['Query_data']
+        val_label = to_categorical(
+                self.data[ 'Query_label' ], num_classes =
+                config.num_finetune_classes
+                )
+        return [ val_data, val_label ]
+    def tuning( self,init_weights = True,init_bias = False ):
+        self.data = self.WidarDataLoaderObj.getSQDataForTest(nshots = self.nshots,mode = 'fix')
+        fine_Tune_model = self.modelObj.buildTuneModel(
+                pretrained_feature_extractor = self.pretrained_featureExtractor,
+                isTest = False, config = self.config
+                )
+        if init_weights:
+            if self.nshots == 1:
+                weights = np.transpose( self.pretrained_featureExtractor.predict( self.data[ 'Support_data' ] ) )
+            elif self.nshots > 1:
+                weights = np.transpose(
+                        self._getNShotsEmbedding( self.pretrained_featureExtractor, self.data[ 'Support_data' ] )
+                        )
+            if init_bias:
+                p = fine_Tune_model.predict( self.data[ 'Query_data' ] )
+                bias = np.tile( np.mean( -np.sum( p * np.log( p ), axis = 1 ) ), config.num_finetune_classes )
+            else:
+                bias = np.zeros( config.num_finetune_classes )
+            fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
+        val_data, val_label = self.data[ 'Val_data' ], to_categorical(
+                self.data[ 'Val_label' ], num_classes
+                = config.num_finetune_classes
+                )
+        optimizer = tf.keras.optimizers.Adam(
+                learning_rate = config.lr,
+                # momentum = 0.9,
+                epsilon = 1e-06,
+                )
+        # optimizer = tf.keras.optimizers.SGD(
+        #         learning_rate = config.lr,
+        #         momentum = 0.9,
+        #         )
+        fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+        idx = np.random.permutation( len( self.data[ 'Support_data' ] ) )
+        fine_Tune_model.fit(
+                self.data[ 'Support_data' ][ idx ], to_categorical(self.data[ 'Support_label' ][ idx ] , num_classes
+                = config.num_finetune_classes),
+                epochs = 1000,
+                # shuffle = True,
+                validation_data = (val_data, val_label),
+                callbacks = [ self.earlyStop, self.lrScheduler ]
+                )
+        return fine_Tune_model
+    def test( self ):
+        self.feature_extractor, self.classifier = self._loadFineTunedModel( applyFinetunedModel = False )
+        print(f'check for {self.nshots} shots '
+              f'accuracy......................................................................')
+        N_test_sample = 1000
+        correct_count = 0
+        test_acc = [ ]
+        n = 6
+        feature_extractor = self.feature_extractor
+        classifier = self.classifier
+        for i in range( N_test_sample ):
+            Support_set,Query_set = self.WidarDataLoaderObj.getSQDataForTest(nshots = self.nshots)
+            # Support_set_embedding = feature_extractor.predict( Support_set )
+            Support_set_embedding = self._getNShotsEmbedding(feature_extractor,Support_set = Support_set)
+            gesture_type_idx = random.randint( 0, n - 1 )
+            Query_sample = np.repeat( np.expand_dims( Query_set[ gesture_type_idx ], axis = 0 ), 6, axis = 0 )
+            Query_set_embedding = feature_extractor.predict( Query_sample )
+            prob_classifier = classifier.predict( [ Support_set_embedding, Query_set_embedding ] )
+            if np.argmax( prob_classifier ) == gesture_type_idx:
+                correct_count += 1
+            print( f'The number of correct: {correct_count}, The number of test count {i}' )
+        acc = (correct_count / N_test_sample) * 100.
+        test_acc.append( acc )
+        print( "Accuracy %.2f" % acc )
+        return test_acc
 if __name__ == '__main__':
-    # print('start')
     config = getConfig( )
-    config.source = 'lab'
-    config.num_finetune_classes = 26
-    config.pretrainedfeatureExtractor_path = \
-        './models/feature_extractor_weight_Alexnet_home_250cls_val_acc_0.97_with_Zscore.h5'
-    'signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
-    nshots = 10
+    config.num_finetune_classes = 6
+    config.lr = 1e-4
+    config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    fineTuningWidarObj = fineTuningWidar(config = config, nshots = 1)
 
-    fineTuningModelObj = fineTuningModel(nshots = nshots,isZscore = True,config = config)
-    # Tuning
-    fine_Tune_model = fineTuningModelObj.tuning(init_bias= False)
-    path = f'./models/fc_fineTuned_250Cls_homeTolab_{nshots}_shot_with_Zscore.h5'
-    fine_Tune_model.save_weights(path)
-    # Testing
-    config.tunedModel_path = path
-    test_acc = fineTuningModelObj.test(applyFinetunedModel = True)
-    print('Done')
+    fineTuningWidarObj.tuning(init_bias = False)
+
+
+
+
+
+    '''___________________________________________________________________________________________________'''
+'''
+[[35.699999999999996],
+ [38.800000000000004],
+ [40.400000000000006],
+ [39.6],
+ [39.6],
+ [39.2],
+ [42.6],
+ [42.3],
+ [42.699999999999996]]
+ '''
+    # # print('start')
+    # config = getConfig( )
+    # config.source = 'home'
+    # config.num_finetune_classes = 26
+    # config.pretrainedfeatureExtractor_path = \
+    #     './models/feature_extractor_weight_Alexnet_lab_250cls_val_acc_0.956_no_Zscore_halfdataset.h5'
+    # # 'signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    # nshots = 1
+    # fineTuningModelObj = fineTuningModel(nshots = nshots,isZscore = True,config = config)
+    # # # Tuning
+    # fine_Tune_model = fineTuningModelObj.tuning(init_bias= True)
+    # path = f'./models/fc_fineTuned_250Cls_labTohome_{nshots}_shot_with_Zscore_halfdataset.h5'
+    # fine_Tune_model.save_weights(path)
+    # # Testing
+    # config.tunedModel_path = path
+    # test_acc = fineTuningModelObj.test(applyFinetunedModel = True)
+    # print('Done')
 
 
 

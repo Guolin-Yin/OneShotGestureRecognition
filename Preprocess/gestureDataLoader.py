@@ -11,7 +11,7 @@ from Preprocess.SignalPreprocess import *
 import matplotlib.pyplot as plt
 from scipy import stats
 from Config import getConfig
-config = getConfig()
+
 class gestureDataLoader:
     def __init__(self,batch_size :int = 32,data_path:str = 'D:/OneShotGestureRecognition/20181115/'):
         self.data_path = data_path
@@ -20,12 +20,13 @@ class gestureDataLoader:
         self.csiAmplitude = np.array( [ ] )
         self.labels = np.asarray( [ ] )
         self.gesture_class = {}
-        self._getInpuShape( )
+
         x = []
         for name in self.filename:
             x.append(int(re.findall( r'\d+\b', name )[1]))
         self.num_gesture_types = np.max(x)
         self._mapFilenameToClass( )
+        self._getInputShape( )
     def _getInputShape(self):
         data = sio.loadmat( os.path.join(self.data_path,self.filename[0]) )[ 'csiAmplitude' ]
         self.InputShape = list(data.shape)
@@ -249,6 +250,106 @@ class gestureDataLoader:
                         gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) + 6 - 1
                     labels.append( tf.keras.utils.to_categorical( gestureMark, num_classes=config.N_train_classes ) )
         return np.asarray( data ), np.asarray( labels )
+class WidarDataloader(gestureDataLoader):
+    def __init__(self,dataDir,selection):
+        super().__init__(data_path = dataDir)
+        self.selected_gesture_samples_path = self.selectPositions( selection = selection )
+        self.selected_gesture_samples_data,self.x,self.y = self._mapClassToDataNLabels()
+    def selectPositions(self,selection : tuple):
+        location, orientation, Rx = selection
+        selected_gesture_samples_path = {}
+        for currentGesture in self.gesture_class:
+            all_path = self.gesture_class[currentGesture]
+            selected_path = []
+            for currentFileName in all_path:
+                '''
+                0: date
+                1: user ID
+                2: gesture type
+                3: location
+                4: orientation
+                5: repetition
+                6: Rx ID
+                '''
+                # location
+                if int( re.findall(r'\d+\b',currentFileName)[ 3 ] ) == location:
+                    if int( re.findall( r'\d+\b', currentFileName )[ 4 ] ) == orientation:
+                        if int( re.findall( r'\d+\b', currentFileName )[ -1 ] ) == Rx:
+                            selected_path.append(currentFileName)
+            selected_gesture_samples_path[ currentGesture ] = selected_path
+        return selected_gesture_samples_path
+    def _mapClassToDataNLabels( self ):
+        gesture = {}
+        x_all = []
+        y_all = []
+        # N_gestures = len( self.selected_gesture_samples_path )
+        # N_samples_per_gesture = len(self)
+        for currentGesture in self.selected_gesture_samples_path:
+            all_path = self.selected_gesture_samples_path[ currentGesture ]
+            data = []
+            labels = []
+            for currentPath in all_path:
+                data_amp = sio.loadmat(currentPath)['csiAmplitude']
+                data_phase = sio.loadmat(currentPath)['csiPhase']
+                data.append(np.concatenate( (data_amp, data_phase), axis = 1 ))
+                x_all.append(np.concatenate( (data_amp, data_phase), axis = 1 ))
+                labels.append(int( re.findall(r'\d+\b',currentPath)[ 2 ] ) - 1)
+                y_all.append(int( re.findall(r'\d+\b',currentPath)[ 2 ] ) - 1)
+            gesture[currentGesture] = np.asarray(data)
+        return gesture,np.asarray(x_all),np.expand_dims(np.asarray(y_all),axis=1)
+    def phaseSanitizer(self, rawPhase ):
+        rawPhase = np.delete( rawPhase, 27, 0 )
+        k = (rawPhase[ 26, : ] - rawPhase[ 27, : ]) / (54 - 1)
+        b = np.mean( rawPhase, axis = 0 )
+        m_i_1 = np.arange( -27, -0 ).reshape( 1, 27 )
+        m_i_2 = np.arange( 1, 28 ).reshape( 1, 27 )
+        m_i = np.concatenate( (m_i_2, m_i_1), axis = 1 ).reshape( 54, 1 )
+        lin = k * m_i + b
+        caliPhase = rawPhase - lin
+        return caliPhase
+    def getSQDataForTest( self,nshots: int,mode:str ):
+        gesture_type = list( self.selected_gesture_samples_data.keys( ) )
+        support_set = [ ]
+        query_set = [ ]
+        support_label = [ ]
+        query_label = [ ]
+        num_val = 20-nshots
+        Val_set = np.zeros( (6 * num_val, 200, 60, 3) )
+        Val_set_label = []
+        if mode == 'random':
+            for gesture in gesture_type:
+                sample_idx = np.random.choice( np.arange( 0, 20 ), nshots+1, replace = False )
+                [support_set.append( self.selected_gesture_samples_data[gesture][sample_idx[i]] ) for i in range(nshots)]
+                query_set.append( self.selected_gesture_samples_data[gesture][sample_idx[-1]] )
+            return np.asarray(support_set),np.asarray(query_set)
+        if mode == 'fix':
+            for count, gesture in enumerate(gesture_type):
+                sample_idx = np.random.choice( np.arange( nshots, 20 ),1, replace = False )
+                for i in range( nshots ):
+                    support_set.append( self.selected_gesture_samples_data[ gesture ][ i ] )
+                    support_label.append(count)
+                query_set.append( self.selected_gesture_samples_data[ gesture ][ sample_idx[0] ] )
+                query_label.append(count)
+                Val_set[count*num_val:count*num_val+num_val,:,:,:] = self.selected_gesture_samples_data[ gesture ][nshots:20]
+                [Val_set_label.append(count) for i in range(num_val)]
+            Support_data = np.asarray(support_set)
+            Support_label = np.expand_dims(np.asarray(support_label),axis=1)
+            Query_data = np.asarray(query_set)
+            Query_label = np.expand_dims(np.asarray(query_label),axis=1)
+            Val_data = Val_set
+            Val_label = np.expand_dims((Val_set_label),axis=1)
+
+            output = {  'Support_data':Support_data,
+                        'Support_label':Support_label,
+                        'Query_data':Query_data,
+                        'Query_label':Query_label,
+                        'Val_data':Val_data,
+                        'Val_label':Val_label
+                    }
+
+            return output
+    # def _getSQData( self ):
+    #     pass
 class signDataLoder:
     ''':returns
         filename: [0] home-276 -> user 5, 2760 samples,csid_home and csiu_home
@@ -319,10 +420,10 @@ class signDataLoder:
             if isZscore:
                 x_amp = stats.zscore( x_amp, axis = 1, ddof = 0 )
                 x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
-            x_all = np.concatenate( (x_amp, x_phase), axis=2 )
-            y_all = self.data[ 2 ][ 'label_lab' ]
+            x_all = np.concatenate( (x_amp, x_phase), axis=2 )[0:int(5520/2)]
+            y_all = self.data[ 2 ][ 'label_lab' ][0:int(5520/2)]
             train_data, train_labels, test_data, test_labels = getSplitData(x_all=x_all,y_all=y_all,
-                    n_samples_per_user=20)
+                    n_samples_per_user=10,shuffle=True)
             return [ train_data, train_labels, test_data, test_labels ]
         elif source == 'home':
             print('home environment user 5, 276 classes, 2760 samples')
@@ -418,5 +519,9 @@ class signDataLoder:
             train_labels = train_labels[ idx, : ]
         return [ train_data, train_labels, test_data, test_labels ]
 if __name__ == '__main__':
-    dataLoadObj = signDataLoder( dataDir=config.train_dir )
-    a = dataLoadObj.getFormatedData( source='home' )
+    config = getConfig( )
+    path = 'E:/Cross_dataset/20181115'
+    WidarDataloaderObj = WidarDataloader(dataDir = path,selection = (6,1,1))
+    s,q = WidarDataloaderObj.getSQDataForTest(nshots = 2, mode = 'fix')
+    # dataLoadObj = signDataLoder( dataDir=config.train_dir )
+    # a = dataLoadObj.getFormatedData( source='home' )
