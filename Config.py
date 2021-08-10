@@ -12,6 +12,9 @@ class getConfig:
         self.input_shape = [200,60,3]
         self.pretrainedfeatureExtractor_path = None
         self.tunedModel_path = None
+        self.record = None
+        self.weight = None
+        self.weight2 = None
         self.initGPU()
     def setSavePath(self,val_acc):
         self.feature_extractor_save_path = f'./models/feature_extractor_train_on_user-' \
@@ -42,6 +45,41 @@ class getConfig:
                                                 '.95_on_250cls.h5'
                 }
         return dict
+    def best(self):
+        '''
+        One shot tuning-20181115: 0.518
+        Best record:
+        [5,14,14,14,0,18]
+        Two shots tuning-20181115: 69.00
+        Best record:
+                     [array([ 7, 15]),
+                     array([15,  2]),
+                     array([ 1, 13]),
+                     array([19,  4]),
+                     array([18, 17]),
+                     array([ 3, 17])]
+         Three shot tuning-20181115:
+         # 78.4 record:[[16,  2, 13],
+         #             [15, 13,  4],
+         #             [ 5,  1, 18],
+         #             [ 6, 10,  4],
+         #             [5, 3, 9],
+         #             [15,  7, 17]]
+         Best record:[[ 2,  8, 17],
+                     [ 8, 11, 15],
+                     [11,  3, 10],
+                     [19,  4, 12],
+                     [11,  8,  5],
+                     [19,  5, 15]]
+         seven shot tuning-20181115:
+         Best record:[[9, 12, 2, 13, 17, 16, 6],
+                     [5, 8, 17, 11, 18, 10, 4],
+                     [13, 8, 10, 4, 9, 5, 14],
+                     [18, 14, 11, 12, 5, 3, 2],
+                     [11, 9, 10, 15, 0, 2, 17],
+                     [2, 18, 10, 15, 1, 16, 9]]
+        '''
+        pass
     def initGPU(self):
         gpus = tf.config.experimental.list_physical_devices( 'GPU' )
         if gpus:

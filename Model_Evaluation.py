@@ -261,11 +261,31 @@ def pltCrossDomain():
     ax.set_xlabel('Number of shots')
     ax.set_title('Cross Domain performance')
     ax.set_ylabel('Accuracy')
-
+def pltWidar():
+    widarNoTuning = [0.356,0.388,0.396,0.396,0.426,0.428,0.48]
+    widar = [0.518,0.69,0.71,0.77,0.84,0.84,0.85]
+    labToHome = [0.894,0.918,0.934,0.935,0.961,0.98,0.983]
+    HomeToLab = [ 0.611, 0.734, 0.814, 0.888, 0.904, 0.955, 0.968]
+    ax = plt.figure().gca()
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    a1 = np.arange(1,8)
+    a2 = np.arange( 1, 11 )
+    a3 = np.arange(1,8)
+    ax.plot(a1,labToHome,linestyle='dashed', marker='o',label = 'Cross Domain on SignFi dataset (source: Lab, Target: Home)')
+    ax.plot(
+            a1, HomeToLab, linestyle = 'dashed', marker = 'o',
+            label = 'Cross Domain on SignFi dataset (source: Home, Target: lab)'
+            )
+    ax.plot( a3, widar,linestyle='dashed', marker='o', label = 'Test on Widar dataset (With fine tuning)' )
+    ax.plot( a3, widarNoTuning,linestyle='dashed', marker='o', label = 'Test on Widar dataset (Without fine tuning)' )
+    ax.legend( )
+    ax.set_xlabel( 'Number of shots' )
+    ax.set_title( 'Cross Domain performance' )
+    ax.set_ylabel( 'Accuracy' )
 if __name__ == '__main__':
     # plot_barchart()
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
-    pltCrossDomain()
+    pltWidar()
 

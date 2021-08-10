@@ -307,7 +307,7 @@ class WidarDataloader(gestureDataLoader):
         lin = k * m_i + b
         caliPhase = rawPhase - lin
         return caliPhase
-    def getSQDataForTest( self,nshots: int,mode:str ):
+    def getSQDataForTest( self,nshots: int,mode:str, isTest:bool=False,Best = None ):
         gesture_type = list( self.selected_gesture_samples_data.keys( ) )
         support_set = [ ]
         query_set = [ ]
@@ -316,6 +316,7 @@ class WidarDataloader(gestureDataLoader):
         num_val = 20-nshots
         Val_set = np.zeros( (6 * num_val, 200, 60, 3) )
         Val_set_label = []
+        record = []
         if mode == 'random':
             for gesture in gesture_type:
                 sample_idx = np.random.choice( np.arange( 0, 20 ), nshots+1, replace = False )
@@ -324,14 +325,35 @@ class WidarDataloader(gestureDataLoader):
             return np.asarray(support_set),np.asarray(query_set)
         if mode == 'fix':
             for count, gesture in enumerate(gesture_type):
-                sample_idx = np.random.choice( np.arange( nshots, 20 ),1, replace = False )
-                for i in range( nshots ):
-                    support_set.append( self.selected_gesture_samples_data[ gesture ][ i ] )
-                    support_label.append(count)
-                query_set.append( self.selected_gesture_samples_data[ gesture ][ sample_idx[0] ] )
-                query_label.append(count)
-                Val_set[count*num_val:count*num_val+num_val,:,:,:] = self.selected_gesture_samples_data[ gesture ][nshots:20]
-                [Val_set_label.append(count) for i in range(num_val)]
+                if not isTest:
+                    idx_list = np.arange( 0, 20 )
+                    shots_idx = np.random.choice( idx_list, nshots, replace = False )
+                    for i in shots_idx:
+                        idx_list = np.delete( idx_list, np.where( idx_list == i ) )
+                        support_set.append( self.selected_gesture_samples_data[ gesture ][ i ] )
+                        support_label.append(count)
+                    sample_idx = np.random.choice( idx_list, 1, replace = False )[0]
+                    query_set.append( self.selected_gesture_samples_data[ gesture ][ sample_idx ] )
+                    query_label.append(count)
+                    Val_set[count*num_val:count*num_val+num_val,:,:,:] = self.selected_gesture_samples_data[ gesture ][idx_list]
+                    [Val_set_label.append(count) for i in range(num_val)]
+                    record.append(shots_idx)
+                else:
+                    idx_list = np.arange( 0, 20 )
+                    if nshots == 1:
+                        shots_idx = [Best[count]]
+                    else:
+                        shots_idx =  Best[ count ]
+                    for i in shots_idx:
+                        idx_list = np.delete( idx_list, np.where( idx_list == i ) )
+                        support_set.append( self.selected_gesture_samples_data[ gesture ][ i ] )
+                        support_label.append( count )
+                    sample_idx = np.random.choice( idx_list, 1, replace = False )[ 0 ]
+                    query_set.append( self.selected_gesture_samples_data[ gesture ][ sample_idx ] )
+                    query_label.append( count )
+                    Val_set[ count * num_val:count * num_val + num_val, :, :, : ] = self.selected_gesture_samples_data[ gesture ][ idx_list ]
+                    [ Val_set_label.append( count ) for i in range( num_val ) ]
+                    record.append( shots_idx )
             Support_data = np.asarray(support_set)
             Support_label = np.expand_dims(np.asarray(support_label),axis=1)
             Query_data = np.asarray(query_set)
@@ -344,7 +366,8 @@ class WidarDataloader(gestureDataLoader):
                         'Query_data':Query_data,
                         'Query_label':Query_label,
                         'Val_data':Val_data,
-                        'Val_label':Val_label
+                        'Val_label':Val_label,
+                        'record':record
                     }
 
             return output

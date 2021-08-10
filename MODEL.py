@@ -114,23 +114,9 @@ class models:
             ft = Flatten( )( dp )
             FC_1 = Dense( units = 4096, activation = 'relu',name = 'FC_1' )( ft )
             FC_2 = Dense( units = 4096, name = 'FC_2' )( FC_1 )
-            output = Lambda( lambda x: K.l2_normalize( x, axis = -1 ) )( FC_2 )
+            output = Lambda( lambda x: K.l2_normalize( x, axis = -1 ), name = 'lambda_2' )( FC_2 )
             feature_extractor = Model( inputs = input, outputs = output )
         return feature_extractor
-	# def builPretrainModel( self, mode:str ='Alexnet' ):
-	# 	if mode == 'Alexnet':
-	# 		input = Input( config.input_shape, name = 'data input' )
-	# 		encoded_model = network( input )
-	# 		full_connect = Dense( units = config.N_train_classes )( encoded_model )
-	# 		output = Softmax( )( full_connect )
-	# 		model = Model( inputs = input, outputs = output )
-	# 		# Complie model
-	# 		optimizer = tf.keras.optimizers.SGD(
-	# 				learning_rate = config.lr, momentum = 0.9
-	# 				)
-	# 		model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
-	# 		# model.summary( )
-	# 		return model, network
     def buildTuneModel( self ,config,isTest:bool = False,pretrained_feature_extractor = None):
         if isTest:
             feature_extractor = self.buildFeatureExtractor( mode = 'Alexnet')
@@ -140,7 +126,7 @@ class models:
         if not isTest:
             try:
                 fc = Dense( units = config.num_finetune_classes,
-                        bias_regularizer = regularizers.l2( 5e-4 ),
+                        bias_regularizer = regularizers.l2( 1e-3 ),
                         name = "fine_tune_layer" )(pretrained_feature_extractor.output )
                 output = Softmax( )( fc )
                 fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )
