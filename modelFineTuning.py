@@ -12,16 +12,131 @@ from Config import getConfig
 from MODEL import models
 import matplotlib.pyplot as plt
 import random
+from scipy.io import savemat
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+class pltConfusionMatrix():
+    def __init__( self ):
+        pass
+    def make_confusion_matrix(self,
+            cf,
+            group_names = None,
+            categories = 'auto',
+            count = True,
+            percent = True,
+            cbar = True,
+            xyticks = True,
+            xyplotlabels = True,
+            sum_stats = True,
+            figsize = None,
+            cmap = 'Blues',
+            title = None
+            ):
+        '''
+        This function will make a pretty plot of an sklearn Confusion Matrix cm using a Seaborn heatmap visualization.
+        Arguments
+        ---------
+        cf:            confusion matrix to be passed in
+        group_names:   List of strings that represent the labels row by row to be shown in each square.
+        categories:    List of strings containing the categories to be displayed on the x,y axis. Default is 'auto'
+        count:         If True, show the raw number in the confusion matrix. Default is True.
+        normalize:     If True, show the proportions for each category. Default is True.
+        cbar:          If True, show the color bar. The cbar values are based off the values in the confusion matrix.
+                       Default is True.
+        xyticks:       If True, show x and y ticks. Default is True.
+        xyplotlabels:  If True, show 'True Label' and 'Predicted Label' on the figure. Default is True.
+        sum_stats:     If True, display summary statistics below the figure. Default is True.
+        figsize:       Tuple representing the figure size. Default will be the matplotlib rcParams value.
+        cmap:          Colormap of the values displayed from matplotlib.pyplot.cm. Default is 'Blues'
+                       See http://matplotlib.org/examples/color/colormaps_reference.html
+
+        title:         Title for the heatmap. Default is None.
+        '''
+        # CODE TO GENERATE TEXT INSIDE EACH SQUARE
+        blanks = [ '' for i in range( cf.size ) ]
+
+        if group_names and len( group_names ) == cf.size:
+            group_labels = [ "{}\n".format( value ) for value in group_names ]
+        else:
+            group_labels = blanks
+
+        if count:
+            group_counts = [ "{0:0.0f}\n".format( value ) for value in cf.flatten( ) ]
+        else:
+            group_counts = blanks
+
+        if percent:
+            group_percentages = [ "{0:.2%}".format( value ) for value in cf.flatten( ) / np.sum( cf ) ]
+        else:
+            group_percentages = blanks
+
+        box_labels = [ f"{v1}{v2}{v3}".strip( ) for v1, v2, v3 in zip( group_labels, group_counts, group_percentages ) ]
+        box_labels = np.asarray( box_labels ).reshape( cf.shape[ 0 ], cf.shape[ 1 ] )
+
+        # CODE TO GENERATE SUMMARY STATISTICS & TEXT FOR SUMMARY STATS
+        if sum_stats:
+            # Accuracy is sum of diagonal divided by total observations
+            accuracy = np.trace( cf ) / float( np.sum( cf ) )
+
+            # if it is a binary confusion matrix, show some more stats
+            if len( cf ) == 2:
+                # Metrics for Binary Confusion Matrices
+                precision = cf[ 1, 1 ] / sum( cf[ :, 1 ] )
+                recall = cf[ 1, 1 ] / sum( cf[ 1, : ] )
+                f1_score = 2 * precision * recall / (precision + recall)
+                stats_text = "\n\nAccuracy={:0.3f}\nPrecision={:0.3f}\nRecall={:0.3f}\nF1 Score={:0.3f}".format(
+                        accuracy, precision, recall, f1_score
+                        )
+            else:
+                stats_text = "\n\nAccuracy={:0.3f}".format( accuracy )
+        else:
+            stats_text = ""
+
+        # SET FIGURE PARAMETERS ACCORDING TO OTHER ARGUMENTS
+        if figsize == None:
+            # Get default figure size if not set
+            figsize = plt.rcParams.get( 'figure.figsize' )
+
+        if xyticks == False:
+            # Do not show categories if xyticks is False
+            categories = False
+
+        # MAKE THE HEATMAP VISUALIZATION
+        plt.figure( figsize = figsize )
+        g = sns.heatmap(
+                cf, annot = box_labels, fmt = "", cmap = cmap, cbar = cbar, xticklabels = categories,
+                yticklabels = categories
+                )
+        g.set_yticklabels( g.get_yticklabels( ), rotation = 0, fontsize = 12 )
+        g.set_xticklabels( g.get_xticklabels( ), rotation = 0, fontsize = 12 )
+        if xyplotlabels:
+            plt.ylabel( 'True label',fontsize=15  )
+            plt.xlabel( 'Predicted label' + stats_text ,fontsize=15 )
+        else:
+            plt.xlabel( stats_text,fontsize=15 )
+
+        if title:
+            plt.title( title,fontsize = 20 )
+    def pltCFMatrix( self,y,y_pred,figsize,title ):
+        cf_matrix = confusion_matrix(y,y_pred)
+        categories = [ 'Push&Pull',
+                     'Sweep',
+                     'Clap',
+                     'Draw-O(Vertical)',
+                     'Draw-Zigzag(Vertical)',
+                     'Draw-N(Vertical)']
+        self.make_confusion_matrix(cf_matrix,categories = categories,figsize = figsize,title=title)
 class fineTuningModel:
     def __init__( self,config,nshots = None,isZscore = None, isiheritance = False ):
-        self.nshots = nshots
+        self.nshots = config.nshots
         self.isZscore = isZscore
         self.modelObj = models( )
         self.config = config
         self.trainTestObj = PreTrainModel(config = config )
         self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
-        self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 7, restore_best_weights
-        =True)
+        self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, restore_best_weights
+        =True, min_delta = 0.001/2,mode = 'min',verbose=1)
         self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
         self.pretrained_featureExtractor.trainable = True
         if not isiheritance:
@@ -227,11 +342,11 @@ class fineTuningModel:
             print( "Accuracy %.2f" % acc )
         return test_acc
 class fineTuningWidar(fineTuningModel):
-    def __init__( self,config,nshots:int = None ):
+    def __init__( self,config ):
         super().__init__(config = config, isiheritance = True, )
         self.WidarDataLoaderObj = WidarDataloader(dataDir = config.train_dir,selection = (6,1,1))
         self.selected_gesture_samples_data,self.x,self.y = self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.y
-        self.nshots = nshots
+        self.nshots = config.nshots
         self.nways = 6
         self.initializer = tf.keras.initializers.RandomUniform( minval = 0., maxval = 1. )
         self.fine_Tune_model = self.modelObj.buildTuneModel(
@@ -310,7 +425,6 @@ class fineTuningWidar(fineTuningModel):
     def _getoutput( self, feature_extractor ):
         return Model(inputs = feature_extractor.input,outputs = feature_extractor.get_layer('lambda_2').output)
     def test( self, applyFinetunedModel:bool,):
-
         self.feature_extractor, self.classifier = self._loadFineTunedModel(
                 applyFinetunedModel = applyFinetunedModel
                 )
@@ -319,6 +433,9 @@ class fineTuningWidar(fineTuningModel):
         N_test_sample = 1000
         correct_count = 0
         test_acc = [ ]
+        y_true = []
+        y_pred = []
+        label_true = []
         n = 6
         feature_extractor = self._getoutput(self.feature_extractor)
         classifier = self.classifier
@@ -326,10 +443,8 @@ class fineTuningWidar(fineTuningModel):
         for i in range( N_test_sample ):
             self.data = self.WidarDataLoaderObj.getSQDataForTest(
                     nshots = self.nshots, mode = 'fix',
-                    isTest = True, Best = config.record
+                    isTest = True, Best = self.config.record
                     )
-            # Support_set = self.data[ 'Support_data' ]
-            # Support_set_embedding = self._getNShotsEmbedding( feature_extractor, Support_set = Support_set )
             Support_set_embedding = matrix
             Query_set = self.data['Query_data']
             gesture_type_idx = random.randint( 0, n - 1 )
@@ -337,22 +452,27 @@ class fineTuningWidar(fineTuningModel):
             Query_set_embedding = feature_extractor.predict( Query_sample )
             # model = self._getoutput( feature_extractor )
             prob_classifier = classifier.predict( [ Support_set_embedding, Query_set_embedding ] )
+            y_true.append(gesture_type_idx)
+            label_true.append(self.data['Query_label'][gesture_type_idx][0])
+            y_pred.append( np.argmax(prob_classifier))
             if np.argmax( prob_classifier ) == gesture_type_idx:
                 correct_count += 1
             print( f'The number of correct: {correct_count}, The number of test count {i}' )
         acc = (correct_count / N_test_sample) * 100.
         test_acc.append( acc )
         print( "Accuracy %.2f" % acc )
-        return test_acc
+        return test_acc,[y_true,y_pred],label_true
 if __name__ == '__main__':
-    nshots = 4
+
     config = getConfig( )
+    config.nshots = 7
     config.train_dir = 'E:/Cross_dataset/20181115'
     config.num_finetune_classes = 6
     config.lr = 1e-4
     config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
-    config.tunedModel_path = f'./models/widar_fineTuned_model_20181115_{nshots}shots.h5'
-    fineTuningWidarObj = fineTuningWidar(config = config, nshots = nshots)
+    config.tunedModel_path = f'./models/widar_fineTuned_model_20181115_{config.nshots}shots.h5'
+
+    fineTuningWidarObj = fineTuningWidar(config = config)
     #
     val_acc = 0
     for i in range(100):
@@ -364,12 +484,17 @@ if __name__ == '__main__':
             best_record = record
             config.record = best_record
             print(best_record)
-            if val_acc >= 0.8500:
+            mdic = {'record':best_record,
+                    'val_acc':val_acc}
+            savemat( f"./Sample_index/sample_index_record_for_{config.nshots}_shots.mat", mdic )
+            if val_acc >= 0.9500:
                 print(f'reached expected val_acc {val_acc}')
                 break
     # config.record = [[7, 15],[15,  2],[1, 13],[19,  4],[18, 17],[ 3, 17]]
-    fineTuningWidarObj.test(applyFinetunedModel = True)
-
+    config.getSampleIdx( )
+    test_acc,[y_true,y_pred],label_true = fineTuningWidarObj.test(applyFinetunedModel = True)
+    plt_cf = pltConfusionMatrix( )
+    plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (12,12),title = 'Six shots with fine tuning' )
     # output = Softmax( )( feature_extractor.output )
     # testModel = Model( inputs = feature_extractor.input, outputs = output )
     # testModel.compile( loss = 'categorical_crossentropy', metrics = 'acc' )

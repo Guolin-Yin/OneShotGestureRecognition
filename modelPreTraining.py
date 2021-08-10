@@ -171,11 +171,11 @@ class PreTrainModel:
         #     return lr
         # else:
         #     return lr * tf.math.exp(-0.5)
-        if epoch == 50:
-            return lr * 0.1
-        elif epoch == 100:
-            return lr * 0.1
-        elif epoch == 150:
+        # if epoch == 50:
+        #     return lr * 0.1
+        # elif epoch == 100:
+        #     return lr * 0.1
+        if epoch == 150:
             return lr * 0.1
         else:
             return lr

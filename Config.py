@@ -1,7 +1,8 @@
 import numpy as np
 import tensorflow as tf
+from scipy.io import loadmat
 class getConfig:
-    def __init__(self):
+    def __init__(self,if_Restore_Samp_idx:bool = False):
         self.train_dir = 'D:/Matlab/SignFi/Dataset'
         self.eval_dir = None
         self.lr = 1e-2
@@ -13,8 +14,9 @@ class getConfig:
         self.pretrainedfeatureExtractor_path = None
         self.tunedModel_path = None
         self.record = None
-        self.weight = None
-        self.weight2 = None
+        self.nshots = None
+        if if_Restore_Samp_idx:
+            self.getSampleIdx()
         self.initGPU()
     def setSavePath(self,val_acc):
         self.feature_extractor_save_path = f'./models/feature_extractor_train_on_user-' \
@@ -45,7 +47,7 @@ class getConfig:
                                                 '.95_on_250cls.h5'
                 }
         return dict
-    def best(self):
+    def getSampleIdx(self):
         '''
         One shot tuning-20181115: 0.518
         Best record:
@@ -71,6 +73,20 @@ class getConfig:
                      [19,  4, 12],
                      [11,  8,  5],
                      [19,  5, 15]]
+        Four shot tuning-20181115:
+                     [array([15,  7,  3,  8]),
+                     array([ 7, 17,  6, 14]),
+                     array([10, 17,  7,  4]),
+                     array([ 9,  5, 14,  3]),
+                     array([ 6,  2, 19,  1]),
+                     array([15, 12,  1,  3])] -> tuning acc: 83.33%
+        Four shot tuning-20181115: 90%
+                     [array([18, 17,  7,  5, 12]),
+                     array([ 1,  7, 15, 17,  8]),
+                     array([ 5,  1, 17, 19,  9]),
+                     array([ 5,  4,  3, 15,  0]),
+                     array([ 2, 16,  8,  1,  3]),
+                     array([13, 17,  6, 15,  4])] -> 90.00%
          seven shot tuning-20181115:
          Best record:[[9, 12, 2, 13, 17, 16, 6],
                      [5, 8, 17, 11, 18, 10, 4],
@@ -79,7 +95,10 @@ class getConfig:
                      [11, 9, 10, 15, 0, 2, 17],
                      [2, 18, 10, 15, 1, 16, 9]]
         '''
-        pass
+        path = f"./Sample_index/sample_index_record_for_{self.nshots}_shots.mat"
+        self.record = loadmat(path)['record']
+        self.tuningAcc = loadmat(path)['val_acc']
+
     def initGPU(self):
         gpus = tf.config.experimental.list_physical_devices( 'GPU' )
         if gpus:
