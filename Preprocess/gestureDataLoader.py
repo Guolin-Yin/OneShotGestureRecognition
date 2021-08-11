@@ -340,10 +340,10 @@ class WidarDataloader(gestureDataLoader):
                     record.append(shots_idx)
                 else:
                     idx_list = np.arange( 0, 20 )
-                    if nshots == 1:
-                        shots_idx = [Best[count]]
-                    else:
-                        shots_idx =  Best[ count ]
+                    # if nshots == 1:
+                    #     shots_idx = [Best[count]]
+                    # else:
+                    shots_idx =  Best[ count ]
                     for i in shots_idx:
                         idx_list = np.delete( idx_list, np.where( idx_list == i ) )
                         support_set.append( self.selected_gesture_samples_data[ gesture ][ i ] )

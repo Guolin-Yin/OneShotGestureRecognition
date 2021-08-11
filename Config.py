@@ -54,19 +54,14 @@ class getConfig:
         [5,14,14,14,0,18]
         Two shots tuning-20181115: 69.00
         Best record:
-                     [array([ 7, 15]),
-                     array([15,  2]),
-                     array([ 1, 13]),
-                     array([19,  4]),
-                     array([18, 17]),
-                     array([ 3, 17])]
+                     [[ 7, 15],
+                     [15,  2],
+                     [ 1, 13],
+                    [19,  4],
+                     [18, 17],
+                     [ 3, 17]]
          Three shot tuning-20181115:
-         # 78.4 record:[[16,  2, 13],
-         #             [15, 13,  4],
-         #             [ 5,  1, 18],
-         #             [ 6, 10,  4],
-         #             [5, 3, 9],
-         #             [15,  7, 17]]
+
          Best record:[[ 2,  8, 17],
                      [ 8, 11, 15],
                      [11,  3, 10],
@@ -80,7 +75,7 @@ class getConfig:
                      array([ 9,  5, 14,  3]),
                      array([ 6,  2, 19,  1]),
                      array([15, 12,  1,  3])] -> tuning acc: 83.33%
-        Four shot tuning-20181115: 90%
+        Five shot tuning-20181115: 90%
                      [array([18, 17,  7,  5, 12]),
                      array([ 1,  7, 15, 17,  8]),
                      array([ 5,  1, 17, 19,  9]),
@@ -98,7 +93,9 @@ class getConfig:
         path = f"./Sample_index/sample_index_record_for_{self.nshots}_shots.mat"
         self.record = loadmat(path)['record']
         self.tuningAcc = loadmat(path)['val_acc']
-
+    def getFineTunedModelPath( self ):
+        acc = [51.8,69.3,83.4,85.2,90.0,87.7,87.7]
+        self.tunedModel_path = f'./models/widar_fineTuned_model_20181115_{self.nshots}shots_{acc[self.nshots-1]}%.h5'
     def initGPU(self):
         gpus = tf.config.experimental.list_physical_devices( 'GPU' )
         if gpus:

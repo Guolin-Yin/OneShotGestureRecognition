@@ -108,7 +108,7 @@ class pltConfusionMatrix():
                 cf, annot = box_labels, fmt = "", cmap = cmap, cbar = cbar, xticklabels = categories,
                 yticklabels = categories
                 )
-        g.set_yticklabels( g.get_yticklabels( ), rotation = 0, fontsize = 12 )
+        g.set_yticklabels( g.get_yticklabels( ), rotation = 45, fontsize = 12 )
         g.set_xticklabels( g.get_xticklabels( ), rotation = 0, fontsize = 12 )
         if xyplotlabels:
             plt.ylabel( 'True label',fontsize=15  )
@@ -430,7 +430,7 @@ class fineTuningWidar(fineTuningModel):
                 )
         print(f'check for {self.nshots} shots '
               f'accuracy......................................................................')
-        N_test_sample = 1000
+        N_test_sample = 1200
         correct_count = 0
         test_acc = [ ]
         y_true = []
@@ -447,7 +447,8 @@ class fineTuningWidar(fineTuningModel):
                     )
             Support_set_embedding = matrix
             Query_set = self.data['Query_data']
-            gesture_type_idx = random.randint( 0, n - 1 )
+            # gesture_type_idx = random.randint( 0, n - 1 )
+            gesture_type_idx = i%6
             Query_sample = np.repeat( np.expand_dims( Query_set[ gesture_type_idx ], axis = 0 ), 6, axis = 0 )
             Query_set_embedding = feature_extractor.predict( Query_sample )
             # model = self._getoutput( feature_extractor )
@@ -462,18 +463,8 @@ class fineTuningWidar(fineTuningModel):
         test_acc.append( acc )
         print( "Accuracy %.2f" % acc )
         return test_acc,[y_true,y_pred],label_true
-if __name__ == '__main__':
-
-    config = getConfig( )
-    config.nshots = 7
-    config.train_dir = 'E:/Cross_dataset/20181115'
-    config.num_finetune_classes = 6
-    config.lr = 1e-4
-    config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
-    config.tunedModel_path = f'./models/widar_fineTuned_model_20181115_{config.nshots}shots.h5'
-
+def searchBestSample(config):
     fineTuningWidarObj = fineTuningWidar(config = config)
-    #
     val_acc = 0
     for i in range(100):
         fine_Tune_model,record,history = fineTuningWidarObj.tuning(isLoopSearch = True, init_bias = False,
@@ -490,47 +481,23 @@ if __name__ == '__main__':
             if val_acc >= 0.9500:
                 print(f'reached expected val_acc {val_acc}')
                 break
-    # config.record = [[7, 15],[15,  2],[1, 13],[19,  4],[18, 17],[ 3, 17]]
     config.getSampleIdx( )
     test_acc,[y_true,y_pred],label_true = fineTuningWidarObj.test(applyFinetunedModel = True)
     plt_cf = pltConfusionMatrix( )
-    plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (12,12),title = 'Six shots with fine tuning' )
-    # output = Softmax( )( feature_extractor.output )
-    # testModel = Model( inputs = feature_extractor.input, outputs = output )
-    # testModel.compile( loss = 'categorical_crossentropy', metrics = 'acc' )
-    # testModel.evaluate( self.data[ 'Val_data' ], to_categorical( self.data[ 'Val_label' ], num_classes = 6 ) )
-
-
-
-    '''___________________________________________________________________________________________________'''
-'''
-[[35.699999999999996],
- [38.800000000000004],
- [40.400000000000006],
- [39.6],
- [39.6],
- [39.2],
- [42.6],
- [42.3],
- [42.699999999999996]]
- '''
-    # # print('start')
-    # config = getConfig( )
-    # config.source = 'home'
-    # config.num_finetune_classes = 26
-    # config.pretrainedfeatureExtractor_path = \
-    #     './models/feature_extractor_weight_Alexnet_lab_250cls_val_acc_0.956_no_Zscore_halfdataset.h5'
-    # # 'signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
-    # nshots = 1
-    # fineTuningModelObj = fineTuningModel(nshots = nshots,isZscore = True,config = config)
-    # # # Tuning
-    # fine_Tune_model = fineTuningModelObj.tuning(init_bias= True)
-    # path = f'./models/fc_fineTuned_250Cls_labTohome_{nshots}_shot_with_Zscore_halfdataset.h5'
-    # fine_Tune_model.save_weights(path)
-    # # Testing
-    # config.tunedModel_path = path
-    # test_acc = fineTuningModelObj.test(applyFinetunedModel = True)
-    # print('Done')
+    plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = f'{config.nshots} shots with fine '
+                                                                       f'tuning results' )
+def evaluation( config ):
+    config.getFineTunedModelPath( )
+    fineTuneModelEvalObj = fineTuningWidar( config = config )
+    fineTuneModelEvalObj.test(applyFinetunedModel =True)
+if __name__ == '__main__':
+    config = getConfig( )
+    config.nshots = 7
+    config.train_dir = 'E:/Cross_dataset/20181115'
+    config.num_finetune_classes = 6
+    config.lr = 1e-4
+    config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    searchBestSample(config)
 
 
 
