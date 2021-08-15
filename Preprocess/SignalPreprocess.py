@@ -8,6 +8,16 @@ from sklearn.decomposition import PCA
 
 import numpy as np
 import matplotlib.pyplot as plt
+class preprocessers:
+    def __init__(self):
+        pass
+    def phaseSanitizer( self, rawPhase ):
+        k = (rawPhase[ 29, : ] - rawPhase[ 0, : ]) / (28 - (-28))
+        b = np.mean( rawPhase, axis = 0 )
+        m_i = [-28,-26,-24,-22,-20,-18,-16,-14,-12,-10,-8,-6,-4,-2,1,1,3,5,7,9,11,13,15,17,19,21,23,25,27,28]
+        lin = k * m_i + b
+        caliPhase = rawPhase - lin
+        return caliPhase
 def get_median_dnData(data,size,mode):
     buf = []
     if mode == 'array':

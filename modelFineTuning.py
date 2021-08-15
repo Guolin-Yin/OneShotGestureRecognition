@@ -135,8 +135,8 @@ class fineTuningModel:
         self.config = config
         self.trainTestObj = PreTrainModel(config = config )
         self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
-        self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, restore_best_weights
-        =True, min_delta = 0.001/2,mode = 'min',verbose=1)
+        self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 50, restore_best_weights
+        =True, min_delta = 0.0001/2,mode = 'min',verbose=1)
         self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
         self.pretrained_featureExtractor.trainable = True
         if not isiheritance:
@@ -344,10 +344,10 @@ class fineTuningModel:
 class fineTuningWidar(fineTuningModel):
     def __init__( self,config ):
         super().__init__(config = config, isiheritance = True, )
-        self.WidarDataLoaderObj = WidarDataloader(dataDir = config.train_dir,selection = (6,1,1))
+        self.WidarDataLoaderObj = WidarDataloader(dataDir = config.train_dir,selection = config.domain_selection)
         self.selected_gesture_samples_data,self.x,self.y = self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.y
         self.nshots = config.nshots
-        self.nways = 6
+        self.nways = config.num_finetune_classes
         self.initializer = tf.keras.initializers.RandomUniform( minval = 0., maxval = 1. )
         self.fine_Tune_model = self.modelObj.buildTuneModel(
                 pretrained_feature_extractor = self.pretrained_featureExtractor,
@@ -377,7 +377,7 @@ class fineTuningWidar(fineTuningModel):
                         self._getNShotsEmbedding( self.pretrained_featureExtractor, self.data[ 'Support_data' ] )
                         )
             if init_bias:
-                p = fine_Tune_model.predict( self.data[ 'Query_data' ] )
+                p = self.fine_Tune_model.predict( self.data[ 'Query_data' ] )
                 bias = np.tile( np.mean( -np.sum( p * np.log( p ), axis = 1 ) ), config.num_finetune_classes )
             else:
                 bias = np.zeros( config.num_finetune_classes )
@@ -402,13 +402,13 @@ class fineTuningWidar(fineTuningModel):
         #         )
         # optimizer =  tf.keras.optimizers.RMSprop(
         #                                     learning_rate=config.lr,
-        #                                     rho=0.9, momentum=0.99,
-        #                                     epsilon=1e-07,
+        #                                     rho=0.99, momentum=0.9,
+        #                                     epsilon=1e-06,
         #                                     centered=False,
         #                                     name='RMSprop',
         #                                                     )
         optimizer = tf.keras.optimizers.Adamax(
-                                                 learning_rate=config.lr, beta_1=0.99, beta_2=0.99, epsilon=1e-06,
+                                                 learning_rate=config.lr, beta_1=0.90, beta_2=0.98, epsilon=1e-08,
                                                  name='Adamax'
                                              )
         self.fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
@@ -465,10 +465,15 @@ class fineTuningWidar(fineTuningModel):
         return test_acc,[y_true,y_pred],label_true
 def searchBestSample(config):
     fineTuningWidarObj = fineTuningWidar(config = config)
+    config.tunedModel_path = f'./models/widar_fineTuned_model_20181109_{config.nshots}shots_{config.domain_selection}.h5'
     val_acc = 0
+    acc_record = []
     for i in range(100):
         fine_Tune_model,record,history = fineTuningWidarObj.tuning(isLoopSearch = True, init_bias = False,
                 iteration = i)
+        print("=========================================================iteration: "
+              "%d=========================================================" % i)
+        acc_record.append(history.history[ 'val_acc' ][ -1 ])
         if val_acc < history.history['val_acc'][-1]:
             val_acc = history.history[ 'val_acc' ][ -1 ]
             fine_Tune_model.save_weights(config.tunedModel_path)
@@ -477,8 +482,9 @@ def searchBestSample(config):
             print(best_record)
             mdic = {'record':best_record,
                     'val_acc':val_acc}
-            savemat( f"./Sample_index/sample_index_record_for_{config.nshots}_shots.mat", mdic )
-            if val_acc >= 0.9500:
+            config.setMatSavePath(f"./Sample_index/sample_index_record_for_{config.nshots}_shots_{config.domain_selection}_20181109.mat")
+            savemat( config.matPath, mdic )
+            if val_acc >= 0.6500:
                 print(f'reached expected val_acc {val_acc}')
                 break
     config.getSampleIdx( )
@@ -486,18 +492,20 @@ def searchBestSample(config):
     plt_cf = pltConfusionMatrix( )
     plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = f'{config.nshots} shots with fine '
                                                                        f'tuning results' )
+    return acc_record
 def evaluation( config ):
     config.getFineTunedModelPath( )
     fineTuneModelEvalObj = fineTuningWidar( config = config )
     fineTuneModelEvalObj.test(applyFinetunedModel =True)
 if __name__ == '__main__':
     config = getConfig( )
-    config.nshots = 7
-    config.train_dir = 'E:/Cross_dataset/20181115'
+    config.nshots = 1
+    config.train_dir = 'E:/Cross_dataset/20181109/User1'
     config.num_finetune_classes = 6
     config.lr = 1e-4
+    config.domain_selection = (2,3,5)
     config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
-    searchBestSample(config)
+    acc_record = searchBestSample(config)
 
 
 

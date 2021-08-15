@@ -126,7 +126,7 @@ class models:
         if not isTest:
             try:
                 fc = Dense( units = config.num_finetune_classes,
-                        bias_regularizer = regularizers.l2( 1e-3 ),
+                        bias_regularizer = regularizers.l2( 1e-4 ),
                         name = "fine_tune_layer" )(pretrained_feature_extractor.output )
                 output = Softmax( )( fc )
                 fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )

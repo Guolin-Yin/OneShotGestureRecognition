@@ -282,10 +282,28 @@ def pltWidar():
     ax.set_xlabel( 'Number of shots' )
     ax.set_title( 'Cross Domain performance' )
     ax.set_ylabel( 'Accuracy' )
+def compareWidar():
+    domain_611 = [0.496,0.677,0.815,0.862,0.891,0.873,0.873]
+    domain_711 = [0.456,0.649,0.732,0.854,0.862,0.873,0.826]
+    ax = plt.figure().gca()
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    axis = np.arange( 1, 8 )
+    ax.plot(
+            axis, domain_611, linestyle = 'dashed', marker = 'o',
+            label = 'Test on Widar dataset location: 6, orientation: 1, Rx: 1'
+            )
+    ax.plot(
+            axis, domain_711, linestyle = 'dashed', marker = 'o',
+            label = 'Test on Widar dataset location: 7, orientation: 1, Rx: 1'
+            )
+    ax.legend( )
+    ax.set_xlabel( 'Number of shots' )
+    ax.set_title( 'Cross Domain performance' )
+    ax.set_ylabel( 'Accuracy' )
 if __name__ == '__main__':
     # plot_barchart()
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
-    pltWidar()
+    compareWidar()
 

@@ -175,8 +175,8 @@ class PreTrainModel:
         #     return lr * 0.1
         # elif epoch == 100:
         #     return lr * 0.1
-        if epoch == 150:
-            return lr * 0.1
+        if epoch > 150:
+            return lr * tf.math.exp(-0.5)
         else:
             return lr
 def train_user_1to5():

@@ -272,8 +272,8 @@ class WidarDataloader(gestureDataLoader):
                 6: Rx ID
                 '''
                 # location
-                if int( re.findall(r'\d+\b',currentFileName)[ 3 ] ) == location:
-                    if int( re.findall( r'\d+\b', currentFileName )[ 4 ] ) == orientation:
+                if int( re.findall(r'\d+\b',currentFileName)[ -4 ] ) == location:
+                    if int( re.findall( r'\d+\b', currentFileName )[-3 ] ) == orientation:
                         if int( re.findall( r'\d+\b', currentFileName )[ -1 ] ) == Rx:
                             selected_path.append(currentFileName)
             selected_gesture_samples_path[ currentGesture ] = selected_path
@@ -297,16 +297,6 @@ class WidarDataloader(gestureDataLoader):
                 y_all.append(int( re.findall(r'\d+\b',currentPath)[ 2 ] ) - 1)
             gesture[currentGesture] = np.asarray(data)
         return gesture,np.asarray(x_all),np.expand_dims(np.asarray(y_all),axis=1)
-    def phaseSanitizer(self, rawPhase ):
-        rawPhase = np.delete( rawPhase, 27, 0 )
-        k = (rawPhase[ 26, : ] - rawPhase[ 27, : ]) / (54 - 1)
-        b = np.mean( rawPhase, axis = 0 )
-        m_i_1 = np.arange( -27, -0 ).reshape( 1, 27 )
-        m_i_2 = np.arange( 1, 28 ).reshape( 1, 27 )
-        m_i = np.concatenate( (m_i_2, m_i_1), axis = 1 ).reshape( 54, 1 )
-        lin = k * m_i + b
-        caliPhase = rawPhase - lin
-        return caliPhase
     def getSQDataForTest( self,nshots: int,mode:str, isTest:bool=False,Best = None ):
         gesture_type = list( self.selected_gesture_samples_data.keys( ) )
         support_set = [ ]

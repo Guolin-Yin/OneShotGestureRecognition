@@ -15,6 +15,8 @@ class getConfig:
         self.tunedModel_path = None
         self.record = None
         self.nshots = None
+        self.domain_selection = None
+        self.nways = None
         if if_Restore_Samp_idx:
             self.getSampleIdx()
         self.initGPU()
@@ -47,6 +49,8 @@ class getConfig:
                                                 '.95_on_250cls.h5'
                 }
         return dict
+    def setMatSavePath(self, path):
+        self.matPath = path
     def getSampleIdx(self):
         '''
         One shot tuning-20181115: 0.518
@@ -90,12 +94,18 @@ class getConfig:
                      [11, 9, 10, 15, 0, 2, 17],
                      [2, 18, 10, 15, 1, 16, 9]]
         '''
-        path = f"./Sample_index/sample_index_record_for_{self.nshots}_shots.mat"
+        # path = f"./Sample_index/sample_index_record_for_{self.nshots}_shots_711_20181115.mat"
+        path = self.matPath
         self.record = loadmat(path)['record']
         self.tuningAcc = loadmat(path)['val_acc']
     def getFineTunedModelPath( self ):
-        acc = [51.8,69.3,83.4,85.2,90.0,87.7,87.7]
-        self.tunedModel_path = f'./models/widar_fineTuned_model_20181115_{self.nshots}shots_{acc[self.nshots-1]}%.h5'
+        if self.train_dir == 'E:/Cross_dataset/20181115':
+            if self.domain_selection == (6,1,1):
+                acc = [51.8,69.3,83.4,85.2,90.0,87.7,87.7]
+                self.tunedModel_path = f'./models/widar_fineTuned_model_20181115_{self.nshots}shots_{acc[self.nshots-1]}%.h5'
+            elif self.domain_selection == (7,1,1):
+                acc = []
+                self.tunedModel_path = f'./models/widar_fineTuned_model_20181115_{config.nshots}shots_711_{acc[self.nshots-1]}%.h5'
     def initGPU(self):
         gpus = tf.config.experimental.list_physical_devices( 'GPU' )
         if gpus:
