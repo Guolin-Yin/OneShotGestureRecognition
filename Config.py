@@ -17,6 +17,8 @@ class getConfig:
         self.nshots = None
         self.domain_selection = None
         self.nways = None
+        self.test_Domain = (2,3,3)
+        self.learning_Domain = [(2,1,3), (2,2,3), (2,3,3), (2,4,3), (2,5,3)]
         if if_Restore_Samp_idx:
             self.getSampleIdx()
         self.initGPU()

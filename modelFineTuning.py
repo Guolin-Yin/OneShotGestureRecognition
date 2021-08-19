@@ -344,7 +344,8 @@ class fineTuningModel:
 class fineTuningWidar(fineTuningModel):
     def __init__( self,config ):
         super().__init__(config = config, isiheritance = True, )
-        self.WidarDataLoaderObj = WidarDataloader(dataDir = config.train_dir,selection = config.domain_selection)
+        self.WidarDataLoaderObj = WidarDataloader(dataDir = config.train_dir,selection = config.domain_selection,
+                config = config)
         self.selected_gesture_samples_data,self.x,self.y = self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.y
         self.nshots = config.nshots
         self.nways = config.num_finetune_classes
@@ -363,9 +364,9 @@ class fineTuningWidar(fineTuningModel):
     def tuning( self,init_weights = True,init_bias = False, isLoopSearch:bool = False, iteration: int = None ):
         self.data = self.WidarDataLoaderObj.getSQDataForTest(
                 nshots = self.nshots, mode = 'fix', isTest = False,
+                # isMultiDomain = False,
                 # Best = config.record
                 )
-
         self.pretrained_featureExtractor.load_weights(self.config.pretrainedfeatureExtractor_path)
         # self.fine_Tune_model.get_layer('fine_tune_layer').set_weights
         # self.config.weight = fine_Tune_model.get_layer( 'FC_2' ).get_weights()[0]
@@ -465,7 +466,8 @@ class fineTuningWidar(fineTuningModel):
         return test_acc,[y_true,y_pred],label_true
 def searchBestSample(config):
     fineTuningWidarObj = fineTuningWidar(config = config)
-    config.tunedModel_path = f'./models/widar_fineTuned_model_20181109_{config.nshots}shots_{config.domain_selection}.h5'
+    config.tunedModel_path = f'./models/widar_fineTuned_model_20181109_{config.nshots}shots_' \
+                             f'{config.domain_selection}_with_preprocessing.h5'
     val_acc = 0
     acc_record = []
     for i in range(100):
@@ -474,23 +476,26 @@ def searchBestSample(config):
         print("=========================================================iteration: "
               "%d=========================================================" % i)
         acc_record.append(history.history[ 'val_acc' ][ -1 ])
+        print(f'current Record is:{record}')
         if val_acc < history.history['val_acc'][-1]:
             val_acc = history.history[ 'val_acc' ][ -1 ]
             fine_Tune_model.save_weights(config.tunedModel_path)
             best_record = record
             config.record = best_record
-            print(best_record)
+            print(f'Updated record is: {best_record}')
             mdic = {'record':best_record,
                     'val_acc':val_acc}
-            config.setMatSavePath(f"./Sample_index/sample_index_record_for_{config.nshots}_shots_{config.domain_selection}_20181109.mat")
+            config.setMatSavePath(f"./Sample_index/sample_index_record_for_{config.nshots}_shots_{config.domain_selection}_20181109_multiDomain.mat")
             savemat( config.matPath, mdic )
-            if val_acc >= 0.6500:
+            if val_acc >= 0.5500:
                 print(f'reached expected val_acc {val_acc}')
                 break
     config.getSampleIdx( )
     test_acc,[y_true,y_pred],label_true = fineTuningWidarObj.test(applyFinetunedModel = True)
     plt_cf = pltConfusionMatrix( )
-    plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = f'{config.nshots} shots with fine '
+    plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = f'{config.nshots} shots in domain'
+                                                                                   f'{config.domain_selection} '
+                                                                                   f'with fine '
                                                                        f'tuning results' )
     return acc_record
 def evaluation( config ):
@@ -503,8 +508,11 @@ if __name__ == '__main__':
     config.train_dir = 'E:/Cross_dataset/20181109/User1'
     config.num_finetune_classes = 6
     config.lr = 1e-4
-    config.domain_selection = (2,3,5)
-    config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    # domain_pocket = [(2,3,2),(2,2,3),(2,3,4),(2,3,5)]
+    config.pretrainedfeatureExtractor_path = \
+        './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    # for d in domain_pocket:
+    config.domain_selection = (2,2,3)
     acc_record = searchBestSample(config)
 
 

@@ -300,10 +300,27 @@ def compareWidar():
     ax.set_xlabel( 'Number of shots' )
     ax.set_title( 'Cross Domain performance' )
     ax.set_ylabel( 'Accuracy' )
+def compareLinkWidar():
+    N = 3
+    id = np.arange(N)
+    width = 0.35
+    Rx_1_2_3 =[34.17,53.58,58.58]
+    Rx_4_5_6 = [28.30,43.67,39.75 ]
+    plt.bar( id, Rx_1_2_3, width, label = 'Receiver 1, 2, 3' )
+    plt.bar( id+width, Rx_4_5_6, width, label = 'Receiver 4, 5, 6' )
+    plt.ylabel( "Accuracy" )
+    plt.title( "Testing on different Receiver, user location: 2" )
+    plt.legend()
+    plt.xticks( id + width / 2, ('Case 1', 'Case 2','Case 3') )
+    for index, data in enumerate( Rx_1_2_3 ):
+        plt.text( x = index-0.1, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
+    for index, data in enumerate( Rx_4_5_6 ):
+        plt.text( x = index+0.3, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
+    plt.show()
 if __name__ == '__main__':
     # plot_barchart()
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
-    compareWidar()
+    compareLinkWidar()
 
