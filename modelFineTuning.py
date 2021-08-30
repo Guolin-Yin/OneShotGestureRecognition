@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from modelPreTraining import *
-from Preprocess.gestureDataLoader import signDataLoder,WidarDataloader
+from Preprocess.gestureDataLoader import signDataLoader,WidarDataloader
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Softmax, Dense, Reshape, Lambda,Dot,concatenate,ZeroPadding2D,Conv2D,\
     MaxPooling2D,Flatten,Dropout
@@ -12,7 +12,7 @@ from Config import getConfig
 from MODEL import models
 import matplotlib.pyplot as plt
 import random
-from scipy.io import savemat
+from scipy.io import savemat,loadmat
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -135,7 +135,7 @@ class fineTuningModel:
         self.config = config
         self.trainTestObj = PreTrainModel(config = config )
         self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
-        self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 50, restore_best_weights
+        self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, restore_best_weights
         =True, min_delta = 0.0001/2,mode = 'min',verbose=1)
         self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
         self.pretrained_featureExtractor.trainable = True
@@ -151,7 +151,7 @@ class fineTuningModel:
         :param nshots:
         :return:
         '''
-        testSign = signDataLoder( dataDir = config.train_dir )
+        testSign = signDataLoader( dataDir = config.train_dir )
         fixed_query_set = False
         if type(config.source) == list or 'user' in config.source:
             _, _, x_test, y_test = testSign.getFormatedData( source = config.source,isZscore = self.isZscore )
@@ -342,18 +342,81 @@ class fineTuningModel:
             print( "Accuracy %.2f" % acc )
         return test_acc
 class fineTuningWidar(fineTuningModel):
-    def __init__( self,config ):
+    def __init__( self,config,isMultiDomain:bool = True ):
         super().__init__(config = config, isiheritance = True, )
-        self.WidarDataLoaderObj = WidarDataloader(dataDir = config.train_dir,selection = config.domain_selection,
-                config = config)
-        self.selected_gesture_samples_data,self.x,self.y = self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.y
+        # self.WidarDataLoaderObj = WidarDataloader(dataDir = config.train_dir,selection = config.domain_selection,
+        #         config = config)
+        # self.selected_gesture_samples_data,self.x,self.y = self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.y
+        self.config = config
         self.nshots = config.nshots
+        self.nshots_per_domain = config.nshots_per_domain
+        # self.nshots_per_domain = int(self.nshots/5)
         self.nways = config.num_finetune_classes
         self.initializer = tf.keras.initializers.RandomUniform( minval = 0., maxval = 1. )
         self.fine_Tune_model = self.modelObj.buildTuneModel(
                 pretrained_feature_extractor = self.pretrained_featureExtractor,
                 isTest = False, config = self.config
                 )
+        if isMultiDomain:
+            self.WidarDataLoaderObjMulti = WidarDataloader(
+                    dataDir = config.train_dir, selection = self.config.domain_selection, isMultiDomain = isMultiDomain,
+                    config = config
+                    )
+        else:
+            self.WidarDataLoaderObj = WidarDataloader(
+                    dataDir = config.train_dir, selection = self.config.domain_selection, isMultiDomain = isMultiDomain,
+                    config = config
+                    )
+    # def getMultiDomainData(self,isTest=False):
+    #     Support_data = []
+    #     Support_label =[]
+    #     Query_data=[]
+    #     Query_label=[]
+    #     Val_data=[]
+    #     Val_label=[]
+    #     record=[]
+    #     for i in range(1,6):
+    #         self.WidarDataLoaderObjMulti = WidarDataloader(
+    #                 dataDir = config.train_dir, selection = (2, i, 3),
+    #                 config = config
+    #                 )
+    #         if not isTest:
+    #             data = self.WidarDataLoaderObjMulti.getSQDataForTest(
+    #                     nshots = 1, mode = 'fix',
+    #                     isTest = isTest,
+    #                     # Best = config.record[ i - 1 ]
+    #                     )
+    #         else:
+    #             data = self.WidarDataLoaderObjMulti.getSQDataForTest(
+    #                     nshots = 1, mode = 'fix',
+    #                     isTest = isTest,
+    #                     Best = (config.record.reshape(5,6,1))[i-1]
+    #                     )
+    #         Support_data.append(data['Support_data'])
+    #         Support_label.append( data[ 'Support_label' ] )
+    #         Query_data.append( data[ 'Query_data' ] )
+    #         Query_label.append( data[ 'Query_label' ] )
+    #         Val_data.append( data[ 'Val_data' ] )
+    #         Val_label.append( data[ 'Val_label' ] )
+    #         record.append( data[ 'record' ])
+    #     Support_data_out = np.zeros((30,200,60,3))
+    #     Support_label_out = np.zeros((30,1),dtype= int)
+    #     idx = 0
+    #     for d in range(config.num_finetune_classes):
+    #         for j in range(len(Support_data)):
+    #             Support_data_out[ idx, :, :, : ] = Support_data[ j ][ d, :, :, : ]
+    #             Support_label_out[idx] = Support_label[ j ][ d ]
+    #             idx += 1
+    #     output = {
+    #             'Support_data' : Support_data_out,
+    #             'Support_label': Support_label_out,
+    #             'Query_data'   : np.concatenate(Query_data,axis = 0),
+    #             'Query_label'  : np.concatenate(Query_label,axis = 0),
+    #             'Val_data'     : np.concatenate(Val_data,axis = 0),
+    #             'Val_label'    : np.concatenate(Val_label,axis = 0),
+    #             'record'       : np.concatenate(record,axis = 0)
+    #             }
+    #     return output
     def _getNShotsEmbedding( self,feature_extractor,Support_set ):
         Support_set_embedding_all = feature_extractor.predict( Support_set )
         Support_set_embedding = []
@@ -361,15 +424,16 @@ class fineTuningWidar(fineTuningModel):
             Support_set_embedding.append(np.mean(Support_set_embedding_all[i*self.nshots:i*self.nshots+self.nshots],
                     axis=0))
         return np.asarray(Support_set_embedding)
-    def tuning( self,init_weights = True,init_bias = False, isLoopSearch:bool = False, iteration: int = None ):
-        self.data = self.WidarDataLoaderObj.getSQDataForTest(
-                nshots = self.nshots, mode = 'fix', isTest = False,
-                # isMultiDomain = False,
-                # Best = config.record
+    def tuning( self,init_weights = True,init_bias = False, isLoopSearch:bool = False, iteration: int = None,isTest:bool = False):
+        # self.data = self.WidarDataLoaderObj.getSQDataForTest(
+        #         nshots = self.nshots, mode = 'fix',
+        #         isTest = isTest,
+        #         Best = config.record
+        #         )
+        self.data = self.WidarDataLoaderObjMulti.getMultiDomainSQDataForTest(
+                nshots_per_domain = self.nshots_per_domain, isTest = False
                 )
         self.pretrained_featureExtractor.load_weights(self.config.pretrainedfeatureExtractor_path)
-        # self.fine_Tune_model.get_layer('fine_tune_layer').set_weights
-        # self.config.weight = fine_Tune_model.get_layer( 'FC_2' ).get_weights()[0]
         if init_weights:
             if self.nshots == 1:
                 weights = np.transpose( self.pretrained_featureExtractor.predict( self.data[ 'Support_data' ] ) )
@@ -409,7 +473,7 @@ class fineTuningWidar(fineTuningModel):
         #                                     name='RMSprop',
         #                                                     )
         optimizer = tf.keras.optimizers.Adamax(
-                                                 learning_rate=config.lr, beta_1=0.90, beta_2=0.98, epsilon=1e-08,
+                                                 learning_rate=config.lr, beta_1=0.95, beta_2=0.98, epsilon=1e-08,
                                                  name='Adamax'
                                              )
         self.fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
@@ -422,7 +486,7 @@ class fineTuningWidar(fineTuningModel):
                 validation_data = (val_data, val_label),
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
-        return self.fine_Tune_model,self.data['record'],history
+        return [self.fine_Tune_model,self.data['record'],history]
     def _getoutput( self, feature_extractor ):
         return Model(inputs = feature_extractor.input,outputs = feature_extractor.get_layer('lambda_2').output)
     def test( self, applyFinetunedModel:bool,):
@@ -442,9 +506,12 @@ class fineTuningWidar(fineTuningModel):
         classifier = self.classifier
         matrix = np.transpose(self.feature_extractor.get_layer('fine_tune_layer').get_weights()[0])
         for i in range( N_test_sample ):
-            self.data = self.WidarDataLoaderObj.getSQDataForTest(
-                    nshots = self.nshots, mode = 'fix',
-                    isTest = True, Best = self.config.record
+            # self.data = self.WidarDataLoaderObj.getSQDataForTest(
+            #         nshots = self.nshots, mode = 'fix',
+            #         isTest = True, Best = self.config.record
+            #         )
+            self.data = self.WidarDataLoaderObjMulti.getMultiDomainSQDataForTest(
+                    nshots_per_domain = self.nshots_per_domain, isTest = True, Best = config.record
                     )
             Support_set_embedding = matrix
             Query_set = self.data['Query_data']
@@ -465,18 +532,19 @@ class fineTuningWidar(fineTuningModel):
         print( "Accuracy %.2f" % acc )
         return test_acc,[y_true,y_pred],label_true
 def searchBestSample(config):
-    fineTuningWidarObj = fineTuningWidar(config = config)
-    config.tunedModel_path = f'./models/widar_fineTuned_model_20181109_{config.nshots}shots_' \
-                             f'{config.domain_selection}_with_preprocessing.h5'
+    fineTuningWidarObj = fineTuningWidar(config = config,isMultiDomain = True)
+    location,orientation,Rx = config.domain_selection
+    config.tunedModel_path = f'./models/MultiDomain_Widar/widar_fineTuned_model_20181109' \
+                             f'_{config.nshots}shots_MultiDomainOrientation' \
+                             f'_Rx{Rx}_multi.h5'
     val_acc = 0
     acc_record = []
-    for i in range(100):
-        fine_Tune_model,record,history = fineTuningWidarObj.tuning(isLoopSearch = True, init_bias = False,
+    for i in range(1):
+        fine_Tune_model,record,history = fineTuningWidarObj.tuning(isLoopSearch = True, init_bias = True,
                 iteration = i)
         print("=========================================================iteration: "
               "%d=========================================================" % i)
         acc_record.append(history.history[ 'val_acc' ][ -1 ])
-        print(f'current Record is:{record}')
         if val_acc < history.history['val_acc'][-1]:
             val_acc = history.history[ 'val_acc' ][ -1 ]
             fine_Tune_model.save_weights(config.tunedModel_path)
@@ -485,36 +553,48 @@ def searchBestSample(config):
             print(f'Updated record is: {best_record}')
             mdic = {'record':best_record,
                     'val_acc':val_acc}
-            config.setMatSavePath(f"./Sample_index/sample_index_record_for_{config.nshots}_shots_{config.domain_selection}_20181109_multiDomain.mat")
+            config.setMatSavePath(f"./Sample_index/MultiDomain_Widar/sample_index_record_for_{config.nshots}_shots"
+                                  f"Rx_{Rx}_20181109_multi.mat")
             savemat( config.matPath, mdic )
-            if val_acc >= 0.5500:
+            if val_acc >= 0.70:
                 print(f'reached expected val_acc {val_acc}')
                 break
     config.getSampleIdx( )
     test_acc,[y_true,y_pred],label_true = fineTuningWidarObj.test(applyFinetunedModel = True)
     plt_cf = pltConfusionMatrix( )
-    plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = f'{config.nshots} shots in domain'
-                                                                                   f'{config.domain_selection} '
-                                                                                   f'with fine '
-                                                                       f'tuning results' )
+    plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = f'{config.nshots}_shots '
+                                                                                   f'Rx_{Rx}_'
+                                                                                   f'with_fine_'
+                                                                       f'tuning_results' )
+    print(f'The average accuracy is {np.mean(acc_record)}')
     return acc_record
-def evaluation( config ):
-    config.getFineTunedModelPath( )
-    fineTuneModelEvalObj = fineTuningWidar( config = config )
+def evaluation( finetunedModel_Path, index_path, domain_selection,isMultiDomain ):
+    # config.getFineTunedModelPath( )
+    config.tunedModel_path = finetunedModel_Path
+    config.record = loadmat(index_path)['record']
+    config.domain_selection = domain_selection
+    fineTuneModelEvalObj = fineTuningWidar( config = config, isMultiDomain = isMultiDomain )
     fineTuneModelEvalObj.test(applyFinetunedModel =True)
 if __name__ == '__main__':
     config = getConfig( )
-    config.nshots = 1
+    config.nshots_per_domain = 7
+    config.nshots = int(5*5*1*config.nshots_per_domain)
     config.train_dir = 'E:/Cross_dataset/20181109/User1'
     config.num_finetune_classes = 6
-    config.lr = 1e-4
-    # domain_pocket = [(2,3,2),(2,2,3),(2,3,4),(2,3,5)]
+    config.lr = 1e-3
+    config.domain_selection = (2, 2, 3)
     config.pretrainedfeatureExtractor_path = \
         './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
-    # for d in domain_pocket:
-    config.domain_selection = (2,2,3)
     acc_record = searchBestSample(config)
 
+    '''Testing with specific domain selection'''
+    # evaluation(
+    #         finetunedModel_Path = 'D:\OneShotGestureRecognition\models\MultiDomain_Widar'
+    #                               '\widar_fineTuned_model_20181109_25shots_Rx1_with_multi.h5',
+    #         index_path = './Sample_index/MultiDomain_Widar/sample_index_record_for_25_shots_Rx1_20181109_multi.mat',
+    #         domain_selection = (2, 2, 2),
+    #         isMultiDomain = True
+    #         )
 
 
 

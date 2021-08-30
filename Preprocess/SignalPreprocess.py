@@ -5,11 +5,11 @@ from sklearn.preprocessing import StandardScaler
 from skimage.restoration import denoise_wavelet
 from scipy.ndimage import median_filter
 from sklearn.decomposition import PCA
+from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
 class Denoiser:
     def __init__(self,):
-
         pass
     def phaseSanitizer( self, rawPhase ):
         k = (rawPhase[ 29 ] - rawPhase[ 0 ]) / (28 - (-28))
@@ -19,6 +19,19 @@ class Denoiser:
         lin = k * m_i + b
         caliPhase = rawPhase - lin
         return caliPhase
+    def csiRatio( self, csi):
+        csi = csi - np.expand_dims(np.mean(csi, axis = 1),axis = 1)
+        ratio_1 = np.expand_dims(csi[ :, :, :, 0 ] / csi[ :, :, :, 1 ],axis=3)
+        ratio_2 = np.expand_dims(csi[ :, :, :, 1 ] / csi[ :, :, :, 2 ],axis=3)
+        ratio_3 = np.expand_dims(csi[ :, :, :, 0 ] / csi[ :, :, :, 2 ],axis=3)
+        csi_ratio = np.concatenate( (ratio_1, ratio_2, ratio_3), axis = 3 )
+        # csi_ratio = stats.zscore( csi_ratio, axis = 1 )
+        x_amp = stats.zscore(np.abs( csi_ratio ), axis = 1 )
+        # angle = stats.zscore(np.angle( csi_ratio ), axis = 1 )
+        angle = np.angle( csi_ratio )
+        x_phase = angle - np.expand_dims(angle[:,0,:,:],axis = 1)
+
+        return [x_amp,x_phase]
 def get_median_dnData(data,size,mode):
     buf = []
     if mode == 'array':
@@ -117,5 +130,5 @@ def get_preprocessed_data(data,reduction:bool,n_comp:int = 3):
         return np.asarray(pcad_data1)
     if reduction == False:
         return np.asarray(dn_Xd1)
-if __name__ == "__main":
+if __name__ == "__main__":
     d = Denoiser()

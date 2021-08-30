@@ -9,7 +9,7 @@ from Config import getConfig
 from MODEL import models
 
 class PreTrainModel:
-    def __init__( self,config,mode:str = 'Alexnet', ifLoadWeights:bool = False):
+    def __init__( self,config,mode:str = 'Alexnet3', ifLoadWeights:bool = False):
         modelObj = models( )
         self.config = config
         self.feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
@@ -60,9 +60,13 @@ class PreTrainModel:
             output = Softmax( )( full_connect )
             preTrain_model = Model( inputs = input, outputs = output )
             # Complie preTrain_model
-            optimizer = tf.keras.optimizers.SGD(
-                    learning_rate =self.config.lr,
-                    momentum = 0.99
+            # optimizer = tf.keras.optimizers.SGD(
+            #         learning_rate =self.config.lr,
+            #         momentum = 0.99
+            #         )
+            optimizer = tf.keras.optimizers.Adamax(
+                    learning_rate = self.config.lr, beta_1 = 0.95, beta_2 = 0.99, epsilon = 1e-09,
+                    name = 'Adamax'
                     )
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
@@ -175,8 +179,8 @@ class PreTrainModel:
         #     return lr * 0.1
         # elif epoch == 100:
         #     return lr * 0.1
-        if epoch > 150:
-            return lr * tf.math.exp(-0.5)
+        if epoch > 35:
+            return lr * tf.math.exp(-0.1)
         else:
             return lr
 def train_user_1to5():
@@ -184,7 +188,7 @@ def train_user_1to5():
     config.source = 'lab'
 
     # Declare objects
-    dataLoadObj = signDataLoder( dataDir=config.train_dir )
+    dataLoadObj = signDataLoader( dataDir=config.train_dir )
     preTrain_modelObj = PreTrainModel( )
     # Training params
     lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
@@ -206,9 +210,11 @@ def train_user_1to5():
 def train_lab():
     config = getConfig( )
     config.source = 'lab'
+    config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.N_train_classes = 250
+    config.lr = 3e-4
     # Declare objects
-    dataLoadObj = signDataLoder( dataDir = config.train_dir )
+    dataLoadObj = signDataLoader( dataDir = config.train_dir )
     preTrain_modelObj = PreTrainModel( config = config )
     # Training params
     lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
@@ -223,14 +229,34 @@ def train_lab():
     train_labels = to_categorical( train_labels - 1, num_classes = int( np.max( train_labels ) ) )
     preTrain_model, feature_extractor = preTrain_modelObj.builPretrainModel( mode = 'Alexnet' )
     history = preTrain_model.fit(
-            train_data, train_labels, validation_split = 0.1,
+            train_data, train_labels, validation_split = 0.05,
             epochs = 1000,
             callbacks = [ earlyStop, lrScheduler ]
             )
     val_acc = history.history[ 'val_acc' ]
     return [preTrain_model, feature_extractor]
-if __name__ == '__main__':
-    preTrain_model, feature_extractor = train_lab()
+def test():
+    config = getConfig( )
+    config.source = 'lab'
+    config.train_dir = 'D:\Matlab\SignFi\Dataset'
+    config.N_train_classes = 250
+    config.lr = 3e-4
     config.feature_extractor_save_path = \
-        f'./models/preTrain_model_weight_Alexnet_lab_250cls_val_acc_0.956_no_Zscore_halfdataset.h5'
-    preTrain_model.save_weights( config.feature_extractor_save_path )
+        f'./models/preTrain_model_weight_Alexnet_lab_250cls_CSI_ratio_val_acc_0.928_2.h5'
+    # Declare objects
+    dataLoadObj = signDataLoader( dataDir = config.train_dir )
+    preTrain_modelObj = PreTrainModel( config = config )
+    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
+            source = config.source,
+            isZscore = False
+            )
+    _, feature_extractor = preTrain_modelObj.builPretrainModel( mode = 'Alexnet' )
+    feature_extractor.load_weights(config.feature_extractor_save_path )
+    preTrain_modelObj.signTest(test_data, test_labels, 1000, feature_extractor)
+if __name__ == '__main__':
+    test()
+    # preTrain_model, feature_extractor = train_lab()
+    # config = getConfig( )
+    # config.feature_extractor_save_path = \
+    #     f'./models/preTrain_model_weight_Alexnet_lab_250cls_CSI_ratio_val_acc_0.928_2.h5'
+    # preTrain_model.save_weights( config.feature_extractor_save_path )

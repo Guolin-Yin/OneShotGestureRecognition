@@ -3,9 +3,9 @@ import tensorflow as tf
 from scipy.io import loadmat
 class getConfig:
     def __init__(self,if_Restore_Samp_idx:bool = False):
-        self.train_dir = 'D:/Matlab/SignFi/Dataset'
+        self.train_dir = None
         self.eval_dir = None
-        self.lr = 1e-2
+        self.lr = 1e-3
         self.batch_size = 32
         self.N_train_classes = None
         self.num_finetune_classes = None
@@ -15,6 +15,7 @@ class getConfig:
         self.tunedModel_path = None
         self.record = None
         self.nshots = None
+        self.nshots_per_domain = None
         self.domain_selection = None
         self.nways = None
         self.test_Domain = (2,3,3)

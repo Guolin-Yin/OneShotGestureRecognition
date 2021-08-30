@@ -113,7 +113,7 @@ class models:
             dp = Dropout( 0.5 )( Maxpool_3 )
             ft = Flatten( )( dp )
             FC_1 = Dense( units = 4096, activation = 'relu',name = 'FC_1' )( ft )
-            FC_2 = Dense( units = 4096, name = 'FC_2' )( FC_1 )
+            FC_2 = Dense( units = 2048, activation = 'relu',name = 'FC_2' )( FC_1 )
             output = Lambda( lambda x: K.l2_normalize( x, axis = -1 ), name = 'lambda_2' )( FC_2 )
             feature_extractor = Model( inputs = input, outputs = output )
         return feature_extractor

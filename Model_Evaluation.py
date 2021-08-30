@@ -1,5 +1,5 @@
 from modelPreTraining import *
-from Preprocess.gestureDataLoader import signDataLoder
+from Preprocess.gestureDataLoader import signDataLoader
 from tensorflow.keras.models import Model
 from Config import getConfig
 from matplotlib.ticker import MaxNLocator
@@ -212,11 +212,11 @@ def split(x_all,y_all):
     return [test_data_user1,test_labels_user1]
 def OneShotPerformanceTest(source:str = '276'):
     testOneshot = PreTrainModel( )
-    testSign = signDataLoder( dataDir=config.train_dir )
+    testSign = signDataLoader( dataDir=config.train_dir )
     if source == '276':
         _,trained_featureExtractor = defineModel( mode = 'Alexnet' )
         trained_featureExtractor.load_weights( 'D:\OneShotGestureRecognition\models\signFi_featureExtractor_weight_AlexNet_training_acc_0.95_on_250cls.h5' )
-        testSign = signDataLoder( dataDir=config.train_dir )
+        testSign = signDataLoader( dataDir=config.train_dir )
         x_all, y_all = testSign.getFormatedData( source='home' )
         # test_data, test_labels = split( x_all, y_all )
         test_data, test_labels, _, _ = testSign.getTrainTestSplit( data=x_all, labels=y_all,
@@ -239,7 +239,7 @@ def OneShotPerformanceTest(source:str = '276'):
 def CnnModelTesting():
     model, _ = defineModel( mode='Alexnet' )
     model.load_weights('./models/signFi_wholeModel_weight_AlexNet_training_acc_0.96_on_276cls.h5')
-    testSign = signDataLoder( dataDir=config.train_dir )
+    testSign = signDataLoader( dataDir=config.train_dir )
     x_all, y_all = testSign.getFormatedData( source='lab_other' )
     test_labels_1 = to_categorical(y_all[0:1250] - 1,num_classes=int(np.max(y_all)-2))
     test_labels_2 = to_categorical( y_all[ 1250:1500 ] - 3, num_classes=int( np.max( y_all ) - 2 ) )
@@ -317,10 +317,20 @@ def compareLinkWidar():
     for index, data in enumerate( Rx_4_5_6 ):
         plt.text( x = index+0.3, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
     plt.show()
+def kFactorNreceiver():
+    K = [17.70, 18.20,18.56,19.42,21.97,22.59]
+    acc = [58.58, 53.58, 46.3, 43.67,28.30,34.17 ]
+    ratio = [0.79,0.755,0.746,0.739,0.725,0.69]
+    acc = [34.17,53.58,58.58,46.3,28.30,43.67]
+    plt.plot(ratio,acc,linestyle='dashed', marker='o',)
+    plt.xlabel( ' Power ratio' )
+    plt.ylabel( 'Average accuracy')
+    plt.ylim( 0,100 )
+
 if __name__ == '__main__':
     # plot_barchart()
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
-    compareLinkWidar()
+    kFactorNreceiver()
 
