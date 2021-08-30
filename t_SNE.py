@@ -13,7 +13,6 @@ from sklearn.manifold import TSNE
 import pandas as pd
 def visualize_scatter( data_2d, label_ids, perplexity,n_iter,figsize = (10, 10) ):
 	plt.figure( figsize = figsize )
-
 	# plt.grid( )
 	# nb_classes = len( np.unique( label_ids ) )
 	# id_to_label_dict = ['Push&Pull','Sweep','Clap','Slide','Draw-Zigzag(Vertical)','Draw-N(Vertical)']
