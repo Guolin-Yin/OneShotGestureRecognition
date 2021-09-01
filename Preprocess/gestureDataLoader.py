@@ -14,7 +14,8 @@ from scipy import stats
 from Config import getConfig
 from Preprocess.SignalPreprocess import *
 from Preprocess.MMD import *
-
+from t_SNE import *
+from scipy.io import savemat,loadmat
 class gestureDataLoader:
     def __init__(self,batch_size :int = 32,data_path:str = 'D:/OneShotGestureRecognition/20181115/'):
         self.data_path = data_path
@@ -258,6 +259,7 @@ class WidarDataloader(gestureDataLoader):
         super().__init__(data_path = dataDir)
         self.config = config
         self.selection = selection
+        self.preprocessers = Denoiser( )
         if isMultiDomain:
             self.selected_multiorientation_gesture_samples_data = self._getMultiOrientationData( self.selection )
         else:
@@ -267,8 +269,8 @@ class WidarDataloader(gestureDataLoader):
     def _getMultiOrientationData(self,selection):
         _, _, Rx = selection
         selected_multiorientation_gesture_samples_data = {}
-        for receiver in [2]:
-            for location in [1,2,3,4,5]:
+        for receiver in [3]:
+            for location in [5]:
                 for orientation in [1,2,3,4,5]:
                     domain = (location,orientation,receiver)
                     path = self._selectPositions( domain )
@@ -317,8 +319,10 @@ class WidarDataloader(gestureDataLoader):
             # labels = []
             for currentPath in all_path:
                 data_amp = sio.loadmat( currentPath )[ 'csiAmplitude' ]
-                data_phase = sanitisePhases(sio.loadmat(currentPath)['csiPhase'])
-                # data_phase = sio.loadmat( currentPath )[ 'csiPhase' ]
+                # data_phase = sanitisePhases(sio.loadmat(currentPath)['csiPhase'])
+                data_phase = sio.loadmat( currentPath )[ 'csiPhase' ]
+                # data_amp, data_phase = self.preprocessers.csiRatio( isWidar = True, data_amp = data_amp, data_phase = \
+                #     data_phase)
                 if ampOnly:
                     real = data_amp * np.cos( data_phase )
                     imag = data_amp * np.sin( data_phase )
@@ -330,6 +334,8 @@ class WidarDataloader(gestureDataLoader):
                     data_phase = self._getZscoreData( data_phase )
                     data.append(np.concatenate( (data_amp, data_phase), axis = 1 ))
                     x_all.append(np.concatenate( (data_amp, data_phase), axis = 1 ))
+                    # data.append( data_phase )
+                    # x_all.append( data_phase )
                 # labels.append(int( re.findall(r'\d+\b',currentPath)[ 2 ] ) - 1)
                 y_all.append(int( re.findall(r'\d+\b',currentPath)[ 2 ] ) - 1)
             gesture[currentGesture] = np.asarray(data)
@@ -626,6 +632,7 @@ class signDataLoader:
             self.data.append( buf )
         return [self.data,fileName]
     def _getConcatenated( self, x ,isZscore:bool):
+        # x_amp,x_phase = self.preprocessers.csiRatio(csi = x)
         x_amp = np.abs( x )
         x_phase = np.angle( x )
         if isZscore:
@@ -666,13 +673,15 @@ class signDataLoader:
                 x_amp = stats.zscore( x_amp, axis = 1, ddof = 0 )
                 x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
             x_all = np.concatenate( (x_amp, x_phase), axis=2 )
+            # x_all = x_phase
             y_all = self.data[ 2 ][ 'label_lab' ]
             train_data, train_labels, test_data, test_labels = getSplitData(x_all=x_all,y_all=y_all,
-                    n_samples_per_user=20,shuffle=False)
+                    n_samples_per_user=20,shuffle=True)
             return [ train_data, train_labels, test_data, test_labels ]
         elif source == 'home':
             print('home environment user 5, 276 classes, 2760 samples')
             x = self.data[ 0 ][ 'csid_home' ]
+            # x_amp,x_phase = self.preprocessers.csiRatio(csi = x)
             x_amp = np.abs( x )
             x_phase = np.angle( x )
             if isZscore:
@@ -688,6 +697,7 @@ class signDataLoader:
         elif source == 'labUser5':
             print( 'lab environment user 5, 150 classes' )
             x = self.data[ 1 ][ 'csi5' ]
+            # x_amp,x_phase = self.preprocessers.csiRatio(csi = x)
             x_amp = np.abs( x )
             x_phase = np.angle( x )
             if isZscore:
@@ -729,7 +739,7 @@ class signDataLoader:
             x_test = x[source[4]]
             y_test = y[source[4]]
             return [x_train,y_train,x_test,y_test]
-    def getTrainTestSplit(self, data, labels, N_train_classes: int = 260, N_samples_per_class: int = 20,
+    def getTrainTestSplit(self, data, labels, N_train_classes: int , N_samples_per_class: int ,
                            shuffle_training: bool = True ):
         if N_train_classes == 276:
             train_data = data
@@ -766,7 +776,30 @@ if __name__ == '__main__':
     config = getConfig( )
     preprocessers = Denoiser( )
     # signDataLoader = signDataLoader(dataDir = 'D:\Matlab\SignFi\Dataset')
-    # data = signDataLoader.getFormatedData(source = 'user1to4')
+    # data_lab = signDataLoader.getFormatedData(source = 'lab')
+    # data_home = signDataLoader.getFormatedData( source = 'home' )
+    # data_lab = data_lab[2].reshape(520,-1)
+    # data_home = data_home[2].reshape(260,-1)
+    config.train_dir = 'E:/Cross_dataset/20181109/User1'
+    WidarDataloaderObj = WidarDataloader(config.train_dir,selection = (2,2,3))
+    data = WidarDataloaderObj.selected_gesture_samples_data
+    keys = list(data.keys( ) )
+    data_all = []
+    for n in range(len(keys)):
+        data_all.append(data[keys[n]])
+    data_all = np.concatenate((data_all),axis=0)
+    path = 'D:\OneShotGestureRecognition\Sample_index\sample_index_record_for_1_shots_domain_(2, 2, 3)_20181109.mat'
+    a = np.squeeze(loadmat(path)['record'])
+    label = []
+    for j in range(6):
+        for i in range(20):
+            if i == a[j]:
+                label.append(j+10)
+            else:
+                label.append(j)
+    label = np.asarray(label)
+    class_t_sne(data_all.reshape(len(data_all),-1),label,perplexity=10,n_iter = 2000)
+    # domain_t_sne((data_lab[0:114],data_home[0:114],data_widar),perplexity = 6,n_iter = 3000)
     # config.domain_selection = (2,2,3)
     # path = 'E:/Cross_dataset/20181109/User1'
     # WidarDataloaderObj = WidarDataloader(dataDir = path,selection = config.domain_selection,config = config,isMultiDomain =
@@ -776,36 +809,36 @@ if __name__ == '__main__':
     #         nshots_per_domain = 3, isTest = True, Best = output[
     #             'record' ]
     #         )
-    '''========================================================================='''
-    signDataObj = signDataLoader(dataDir = 'D:\Matlab\SignFi\Dataset' )
-    a = signDataObj.getFormatedData(source = 'lab')
-    # data = []
-    # for i in range(len(a[0])):
-    #     data.append(a[0][i].reshape(-1))
-    # data = np.asarray(data)
-    data_1 = torch.tensor( a[ 0 ].reshape( len( a[ 0 ] ), -1 ) )
-    a = signDataObj.getFormatedData( source = 'home' )
-    data_2 = torch.tensor( a[ 0 ].reshape( len( a[ 0 ] ), -1 ) )
-    batch_size = 100
-    mmd_val = []
-    for i in np.arange(0,2500,100):
-        mmd_val.append(mmd( data_1[i:i+batch_size], data_2[0:batch_size] ))
-    print( "MMD Loss:", np.mean(mmd_val) )
-
-
-    config.domain_selection = (2, 2, 3)
-    config.train_dir = 'E:/Cross_dataset/20181109/User1'
-    WidarDataLoaderObjMulti = WidarDataloader(
-            dataDir = config.train_dir, selection = config.domain_selection, isMultiDomain = False,
-            config = config
-            )
-    data = WidarDataLoaderObjMulti.getSQDataForTest(
-            nshots = 1, mode = 'fix',
-            isTest = False, Best = None
-            )
-    data_3 = torch.tensor(data['Val_data'].reshape(114,-1))
-    # print( "MMD Loss:", mmd( data_1[ 2*x:3*x ], data_3[ 0:x ] ) )
-    mmd_val = []
-    for i in np.arange(0,5000,100):
-        mmd_val.append(mmd( data_1[i:i+batch_size], data_3 ))
-    print( "MMD Loss:", np.mean(mmd_val) )
+    '''=====================================MMD===================================='''
+    # signDataObj = signDataLoader(dataDir = 'D:\Matlab\SignFi\Dataset' )
+    # a = signDataObj.getFormatedData(source = 'lab')
+    # # data = []
+    # # for i in range(len(a[0])):
+    # #     data.append(a[0][i].reshape(-1))
+    # # data = np.asarray(data)
+    # data_1 = torch.tensor( a[ 0 ].reshape( len( a[ 0 ] ), -1 ) )
+    # a = signDataObj.getFormatedData( source = 'home' )
+    # data_2 = torch.tensor( a[ 0 ].reshape( len( a[ 0 ] ), -1 ) )
+    # batch_size = 100
+    # mmd_val = []
+    # for i in np.arange(0,2500,100):
+    #     mmd_val.append(mmd( data_1[i:i+batch_size], data_2[0:batch_size] ))
+    # print( "MMD Loss:", np.mean(mmd_val) )
+    #
+    #
+    # config.domain_selection = (2, 2, 3)
+    # config.train_dir = 'E:/Cross_dataset/20181109/User1'
+    # WidarDataLoaderObjMulti = WidarDataloader(
+    #         dataDir = config.train_dir, selection = config.domain_selection, isMultiDomain = False,
+    #         config = config
+    #         )
+    # data = WidarDataLoaderObjMulti.getSQDataForTest(
+    #         nshots = 1, mode = 'fix',
+    #         isTest = False, Best = None
+    #         )
+    # data_3 = torch.tensor(data['Val_data'].reshape(114,-1))
+    # # print( "MMD Loss:", mmd( data_1[ 2*x:3*x ], data_3[ 0:x ] ) )
+    # mmd_val = []
+    # for i in np.arange(0,5000,100):
+    #     mmd_val.append(mmd( data_1[i:i+batch_size], data_3 ))
+    # print( "MMD Loss:", np.mean(mmd_val) )

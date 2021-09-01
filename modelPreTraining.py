@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
 from MODEL import models
-
+from t_SNE import *
 class PreTrainModel:
     def __init__( self,config,mode:str = 'Alexnet3', ifLoadWeights:bool = False):
         modelObj = models( )
@@ -108,19 +108,21 @@ class PreTrainModel:
         :param test_data: the Data for testing model
         :param test_labels: corresponding labels
         :param nway: the number of training classes
-        :param mode: 1. cross validation or fix the support set classes
+        :param mode: cross validation or fix the support set classes
         :return: support set : one sample, query set one sample
         '''
         signRange = np.arange( int( np.min( test_labels ) ), int( np.max( test_labels ) + 1 ), 1 )
         selected_Sign = np.random.choice( signRange, size=nway, replace=False )
         support_set = [ ]
         query_set = [ ]
-        for i in selected_Sign:
+        labels = [ ]
+        for i in [251,261,256,270,271]:
             index, _ = np.where( test_labels == i )
             if mode == 'cross_val':
                 selected_samples = np.random.choice( index, size=2, replace=False )
                 support_set.append( test_data[ selected_samples[ 0 ] ] )
                 query_set.append( test_data[ selected_samples[ 1 ] ] )
+                labels.append( i )
             elif mode == 'fix':
                 selected_samples = np.random.choice( index[1:], size=1, replace=False )
                 support_set.append( test_data[ index[ 0 ] ] )
@@ -137,8 +139,10 @@ class PreTrainModel:
         :param mode:
         :return:
         '''
-        nway_min = 2
-        nway_max = 25
+        # def select(label_range):
+        class_t_sne( predict, test_labels, perplexity = 7, n_iter = 3000 )
+        nway_min = 5
+        nway_max = 5
         test_acc = [ ]
         softmax_func = tf.keras.layers.Softmax( )
         for nway in range( nway_min, nway_max + 1 ):
@@ -146,7 +150,7 @@ class PreTrainModel:
             correct_count = 0
             if isOneShotTask:
                 for i in range( N_test_sample ):
-                    support_set, query_set,_ = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode = mode)
+                    support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway=5, mode = mode)
                     sample_index = random.randint( 0, nway - 1 )
                     if mode == 'fix' and i == 0:
                         support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
@@ -171,14 +175,6 @@ class PreTrainModel:
                 out[i,:,:] = x[i,:,:].transpose()
             return out
     def scheduler(self, epoch, lr):
-        # if epoch < 250:
-        #     return lr
-        # else:
-        #     return lr * tf.math.exp(-0.5)
-        # if epoch == 50:
-        #     return lr * 0.1
-        # elif epoch == 100:
-        #     return lr * 0.1
         if epoch > 35:
             return lr * tf.math.exp(-0.1)
         else:
@@ -222,7 +218,7 @@ def train_lab():
     # Sign recognition
     train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
             source = config.source,
-            isZscore = False
+            isZscore = True
             )
     # [ train_data, train_labels, test_data, test_labels ] = preTrain_modelObj._splitData( x_all, y_all )
 
@@ -235,28 +231,44 @@ def train_lab():
             )
     val_acc = history.history[ 'val_acc' ]
     return [preTrain_model, feature_extractor]
-def test():
+def test(path,mode):
     config = getConfig( )
     config.source = 'lab'
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.N_train_classes = 250
-    config.lr = 3e-4
-    config.feature_extractor_save_path = \
-        f'./models/preTrain_model_weight_Alexnet_lab_250cls_CSI_ratio_val_acc_0.928_2.h5'
+    # config.lr = 3e-4
+    config.pretrainedfeatureExtractor_path = path
     # Declare objects
+    modelObj = models( )
+
     dataLoadObj = signDataLoader( dataDir = config.train_dir )
     preTrain_modelObj = PreTrainModel( config = config )
     train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
             source = config.source,
             isZscore = False
             )
-    _, feature_extractor = preTrain_modelObj.builPretrainModel( mode = 'Alexnet' )
-    feature_extractor.load_weights(config.feature_extractor_save_path )
-    preTrain_modelObj.signTest(test_data, test_labels, 1000, feature_extractor)
+    feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
+    feature_extractor.load_weights(config.pretrainedfeatureExtractor_path )
+    test_acc = preTrain_modelObj.signTest(test_data, test_labels, 1000, feature_extractor)
+
+    predict_lab = feature_extractor.predict( test_data )
+    WidarDataloaderObj = WidarDataloader( 'E:/Cross_dataset/20181109/User1', selection = (2, 2, 3) )
+    data_widar = WidarDataloaderObj.getSQDataForTest( 1, mode = 'fix' )[ 'Val_data' ]
+    label_widar = WidarDataloaderObj.getSQDataForTest( 1, mode = 'fix' )[ 'Val_label' ]
+    predict_widar =  feature_extractor.predict(data_widar)
+    domain_t_sne( ( predict_lab,predict_home,predict_widar), perplexity = 7, n_iter = 2000 )
+    class_t_sne(predict_widar.reshape(len(predict_widar),-1),label_widar, perplexity = 7, n_iter = 2000)
+    # label_range = [ 251, 261, 256, 270, 271 ]
+    # idx = np.where( test_labels == label_range )[ 0 ]
+    return test_acc
 if __name__ == '__main__':
-    test()
     # preTrain_model, feature_extractor = train_lab()
-    # config = getConfig( )
-    # config.feature_extractor_save_path = \
-    #     f'./models/preTrain_model_weight_Alexnet_lab_250cls_CSI_ratio_val_acc_0.928_2.h5'
-    # preTrain_model.save_weights( config.feature_extractor_save_path )
+    config = getConfig( )
+    # config.pretrainedfeatureExtractor_path = \
+    #     f'./models/feature_extractor_weight_Alexnet_lab_250cls_val_acc_0.996_no_zscore.h5'
+    # feature_extractor.save_weights( config.pretrainedfeatureExtractor_path )
+    # test_acc = test('./models/Using_CSI_ratio_model/feature_extractor_weight_Alexnet_lab_250cls_val_acc_0.92_CSIRatio'
+    #                 '.h5',mode = "Alexnet3")
+
+    test_acc_2 = test( './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5',
+            mode = "Alexnet" )

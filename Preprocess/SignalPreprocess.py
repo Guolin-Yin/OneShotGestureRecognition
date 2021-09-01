@@ -19,17 +19,32 @@ class Denoiser:
         lin = k * m_i + b
         caliPhase = rawPhase - lin
         return caliPhase
-    def csiRatio( self, csi):
-        csi = csi - np.expand_dims(np.mean(csi, axis = 1),axis = 1)
-        ratio_1 = np.expand_dims(csi[ :, :, :, 0 ] / csi[ :, :, :, 1 ],axis=3)
-        ratio_2 = np.expand_dims(csi[ :, :, :, 1 ] / csi[ :, :, :, 2 ],axis=3)
-        ratio_3 = np.expand_dims(csi[ :, :, :, 0 ] / csi[ :, :, :, 2 ],axis=3)
-        csi_ratio = np.concatenate( (ratio_1, ratio_2, ratio_3), axis = 3 )
-        # csi_ratio = stats.zscore( csi_ratio, axis = 1 )
-        x_amp = stats.zscore(np.abs( csi_ratio ), axis = 1 )
-        # angle = stats.zscore(np.angle( csi_ratio ), axis = 1 )
-        angle = np.angle( csi_ratio )
-        x_phase = angle - np.expand_dims(angle[:,0,:,:],axis = 1)
+    def csiRatio( self, csi = None, isWidar:bool = False,data_amp = None,data_phase = None):
+        if isWidar:
+            real = data_amp * np.cos( data_phase )
+            imag = data_amp * np.sin( data_phase )
+            csi = real + 1j * imag
+            csi = csi - np.expand_dims( np.mean( csi, axis = 1 ), axis = 1 )
+            ratio_1 = np.expand_dims( csi[  :, :, 0 ] / csi[ :, :, 1 ], axis = 2 )
+            ratio_2 = np.expand_dims( csi[  :, :, 1 ] / csi[ :, :, 2 ], axis = 2 )
+            ratio_3 = np.expand_dims( csi[  :, :, 0 ] / csi[ :, :, 2 ], axis = 2 )
+            csi_ratio = np.concatenate( (ratio_1, ratio_2, ratio_3), axis = 2 )
+            # csi_ratio = stats.zscore( csi_ratio, axis = 1 )
+            x_amp = stats.zscore( np.abs( csi_ratio ), axis = 0 )
+            # angle = stats.zscore(np.angle( csi_ratio ), axis = 1 )
+            angle = np.angle( csi_ratio )
+            x_phase = angle - angle[ 0, :, : ]
+        else:
+            csi = csi - np.expand_dims(np.mean(csi, axis = 1),axis = 1)
+            ratio_1 = np.expand_dims(csi[ :, :, :, 0 ] / csi[ :, :, :, 1 ],axis=3)
+            ratio_2 = np.expand_dims(csi[ :, :, :, 1 ] / csi[ :, :, :, 2 ],axis=3)
+            ratio_3 = np.expand_dims(csi[ :, :, :, 0 ] / csi[ :, :, :, 2 ],axis=3)
+            csi_ratio = np.concatenate( (ratio_1, ratio_2, ratio_3), axis = 3 )
+            # csi_ratio = stats.zscore( csi_ratio, axis = 1 )
+            x_amp = stats.zscore(np.abs( csi_ratio ), axis = 1 )
+            # angle = stats.zscore(np.angle( csi_ratio ), axis = 1 )
+            angle = np.angle( csi_ratio )
+            x_phase = angle - np.expand_dims(angle[:,0,:,:],axis = 1)
 
         return [x_amp,x_phase]
 def get_median_dnData(data,size,mode):
