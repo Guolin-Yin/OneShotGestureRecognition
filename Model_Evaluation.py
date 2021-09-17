@@ -31,17 +31,17 @@ def pltResults(acc):
     ways2 = np.arange( 2, 26, 1 )
     ax = plt.figure().gca()
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.plot( ways2, acc[ 0 ], linestyle='dashed', marker='o', label='Train on user 1 to 4, test on user 5' )
-    ax.plot( ways2, acc[ 1 ], linestyle='dashed', marker='o', label='Train on user 1     , test on user 5' )
-    ax.plot( ways2, acc[ 2 ],linestyle='dashed', marker='o', label='Train on user 1 to 4, test on user 5 using softmax' )
-    ax.plot( ways2, acc[ 3 ], linestyle='dashed', marker='o',
-             label='Train on user 1 to 4, test on user 5 using softmax with fixed support set' )
+    ax.plot( ways, acc[ 0 ], linestyle='dashed', marker='o', label='one-shot learning on lab environment' )
+    ax.plot( ways, acc[ 1 ], linestyle='dashed', marker='o', label='one-shot learning on home environment' )
+    # ax.plot( ways2, acc[ 2 ],linestyle='dashed', marker='o', label='Train on user 1 to 4, test on user 5 using softmax' )
+    # ax.plot( ways2, acc[ 3 ], linestyle='dashed', marker='o',
+    #          label='Train on user 1 to 4, test on user 5 using softmax with fixed support set' )
     # ax.plot( ways, acc[ 1 ], linestyle='dashed', marker='o', label='test on different environment same user' )
     # ax.plot( ways, acc[ 2 ], linestyle='dashed', marker='o', label='test on different environment same user (New sign)' )
     # ax.plot( ways, acc[ 3 ], linestyle='dashed', marker='o', label='test on different environment different user ' )
     # ax.plot( ways2, acc[ 4 ], linestyle='dashed', marker='o', label='test on different environment different user (New sign)' )
     ax.set_ylim( 0, 102 )
-    ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
+    # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
     ax.set_xlabel( 'Number of new classes' )
     ax.set_ylabel( 'Accuracy' )
     ax.legend( )
@@ -198,7 +198,7 @@ def record():
       73.0,
       71.5 ]
 
-    pltResults( [ train_on_user1to4_test_on5,test_on_user1_unseen_sign,train_on_user1to4_test_on5_softmax,train_on_user1to4_test_on5_softmax_with_fixed_support ] )
+    pltResults( [test_on_lab,test_on_home] )
 def split(x_all,y_all):
     start = np.where( y_all == 254 )[ 0 ]
     # end = start + 25
@@ -246,36 +246,36 @@ def CnnModelTesting():
     test_labels = np.concatenate((test_labels_1,test_labels_2),axis = 0)
     model.evaluate(x_all,test_labels)
 def pltCrossDomain():
-    labToHome = [0.894,0.918,0.934,0.935,0.961,0.98]
-    HomeToLab = [0.611,0.734,0.814,0.888,0.904,0.955,0.968,0.977,0.988,0.997]
-    user1to4On5= [0.878,0.942,0.947,0.981,0.981]
+    labToHome = [0.875,0.918,0.934,0.935,0.961]
+    # HomeToLab = [0.611,0.734,0.814,0.888,0.904,0.955,0.968,0.977,0.988,0.997]
+    # user1to4On5= [0.878,0.942,0.947,0.981,0.981]
     ax = plt.figure().gca()
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    a1 = np.arange(1,6)
-    a2 = np.arange( 1, 11 )
-    a3 = np.arange(1,7)
+    # a1 = np.arange(1,6)
+    # a2 = np.arange( 1, 11 )
+    a3 = np.arange(1,6)
     ax.plot(a3,labToHome,linestyle='dashed', marker='o',label = 'Source domain: Lab, Target domain: Home')
-    ax.plot( a1, user1to4On5,linestyle='dashed', marker='o', label = 'Source domain: User 1 to 4, Target domain: User 5' )
-    ax.plot( a2, HomeToLab,linestyle='dashed', marker='o', label = 'Source domain: Home, Target domain: Lab' )
+    # ax.plot( a1, user1to4On5,linestyle='dashed', marker='o', label = 'Source domain: User 1 to 4, Target domain: User 5' )
+    # ax.plot( a2, HomeToLab,linestyle='dashed', marker='o', label = 'Source domain: Home, Target domain: Lab' )
     ax.legend()
     ax.set_xlabel('Number of shots')
     ax.set_title('Cross Domain performance')
     ax.set_ylabel('Accuracy')
 def pltWidar():
-    widarNoTuning = [0.356,0.388,0.396,0.396,0.426,0.428,0.48]
-    widar = [0.518,0.69,0.71,0.77,0.84,0.84,0.85]
-    labToHome = [0.894,0.918,0.934,0.935,0.961,0.98,0.983]
-    HomeToLab = [ 0.611, 0.734, 0.814, 0.888, 0.904, 0.955, 0.968]
+    widarNoTuning = [0.356,0.388,0.396,0.396,0.426]
+    widar = [0.518,0.693,0.834,0.852,0.906]
+    # labToHome = [0.894,0.918,0.934,0.935,0.961,0.98,0.983]
+    # HomeToLab = [ 0.611, 0.734, 0.814, 0.888, 0.904, 0.955, 0.968]
     ax = plt.figure().gca()
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    a1 = np.arange(1,8)
-    a2 = np.arange( 1, 11 )
-    a3 = np.arange(1,8)
-    ax.plot(a1,labToHome,linestyle='dashed', marker='o',label = 'Cross Domain on SignFi dataset (source: Lab, Target: Home)')
-    ax.plot(
-            a1, HomeToLab, linestyle = 'dashed', marker = 'o',
-            label = 'Cross Domain on SignFi dataset (source: Home, Target: lab)'
-            )
+    # a1 = np.arange(1,8)
+    # a2 = np.arange( 1, 11 )
+    a3 = np.arange(1,6)
+    # ax.plot(a1,labToHome,linestyle='dashed', marker='o',label = 'Cross Domain on SignFi dataset (source: Lab, Target: Home)')
+    # ax.plot(
+    #         a1, HomeToLab, linestyle = 'dashed', marker = 'o',
+    #         label = 'Cross Domain on SignFi dataset (source: Home, Target: lab)'
+    #         )
     ax.plot( a3, widar,linestyle='dashed', marker='o', label = 'Test on Widar dataset (With fine tuning)' )
     ax.plot( a3, widarNoTuning,linestyle='dashed', marker='o', label = 'Test on Widar dataset (Without fine tuning)' )
     ax.legend( )
@@ -332,5 +332,6 @@ if __name__ == '__main__':
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
-    kFactorNreceiver()
+    # kFactorNreceiver()
+    pltWidar()
 

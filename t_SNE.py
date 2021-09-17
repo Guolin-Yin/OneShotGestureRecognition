@@ -83,7 +83,6 @@ def visualize_scatter_classes( data_2d, label_ids, perplexity,n_iter,figsize = (
 	plt.title(f'perplexity is {perplexity}, number of iterations is {n_iter}', fontsize=18)
 	plt.xlabel("t-SNE_1", fontsize=15)
 	plt.ylabel( "t-SNE_2", fontsize = 15 )
-
 def domain_t_sne(data,n_components:int = 2,random_state = 0,perplexity:int = 6,n_iter:int = 5000):
 	# data = data.reshape(len(data),-1)
 	n = len(data)
