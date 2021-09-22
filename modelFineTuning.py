@@ -128,8 +128,8 @@ class pltConfusionMatrix():
                      'Draw-Zigzag(Vertical)',
                      'Draw-N(Vertical)']
         self.make_confusion_matrix(cf_matrix,categories = categories,figsize = figsize,title=title)
-class fineTuningModel:
-    def __init__( self,config,nshots = None,isZscore = None, isiheritance = False ):
+class fineTuningSignFi:
+    def __init__( self,config, isZscore = False, isiheritance = False ):
         self.nshots = config.nshots
         self.isZscore = isZscore
         self.modelObj = models( )
@@ -138,11 +138,9 @@ class fineTuningModel:
         self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
         self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, restore_best_weights
         =True, min_delta = 0.0001/2,mode = 'min',verbose=1)
-        self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
-        self.pretrained_featureExtractor.trainable = True
-        if not isiheritance:
-            self.data = self._getSQData( nshots = nshots)
-        if nshots == 1:
+        # self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+        # self.pretrained_featureExtractor.trainable = True
+        if self.nshots == 1:
             self.isOneShotTask = True
         else:
             self.isOneShotTask = False
@@ -184,14 +182,19 @@ class fineTuningModel:
                   'Query_data':Query_data,
                   'Query_label':Query_label}
         return output
-    def _getValData( self ):
+    def _getValData( self,Query_data,Query_label ):
         '''
         Get the validation data for fine tuning
         :return:
         '''
-        val_data = self.data['Query_data']
+        # val_data = self.data['Query_data']
+        # val_label = to_categorical(
+        #         self.data[ 'Query_label' ] - np.min( self.data[ 'Query_label' ] ), num_classes =
+        #         self.config.num_finetune_classes
+        #         )
+        val_data = Query_data
         val_label = to_categorical(
-                self.data[ 'Query_label' ] - np.min( self.data[ 'Query_label' ] ), num_classes =
+                Query_label - np.min( Query_label ), num_classes =
                 self.config.num_finetune_classes
                 )
         return [val_data,val_label]
@@ -203,7 +206,8 @@ class fineTuningModel:
         :return:
         '''
         if mode == 'fix':
-            sample_sign = np.random.choice(np.arange(0,len(query_set),self.config.num_finetune_classes),size = 1,replace = False)
+            sample_sign = np.random.choice(np.arange(0,len(query_set),self.config.num_finetune_classes),size = 1,
+                    replace = False)
             sample_index = random.randint( 0, nway - 1 )
             query_data = np.repeat( query_set[ sample_sign+sample_index ], [ nway ], axis = 0 )
             return [ query_data, sample_index ]
@@ -236,21 +240,23 @@ class fineTuningModel:
         trained_featureExtractor = self.modelObj.buildFeatureExtractor( mode='Alexnet' )
         trained_featureExtractor.load_weights(self.config.pretrainedfeatureExtractor_path )
         return trained_featureExtractor
-    def _loadFineTunedModel(self,applyFinetunedModel:bool = True):
+    def _loadFineTunedModel(self,applyFinetunedModel:bool = True, useWeightMatrix:bool = False):
         '''
         This function build for load fine tuned model for testing
         :returns pre-trained feature extractor and fine tuned classifier
         '''
-
+        './models/fine_tuning_signfi/fc_fineTuned_250Cls_labTohome_1_shot_without_Zscore.h5'
         if applyFinetunedModel:
             print( f'loading fine tuned model: {self.config.tunedModel_path}' )
             fine_Tune_model = self.modelObj.buildTuneModel( config = self.config,isTest = True )
             # fine_Tune_model = self.modelObj.buildFeatureExtractor()
             fine_Tune_model.load_weights(self.config.tunedModel_path)
-            feature_extractor = fine_Tune_model
-            # feature_extractor = Model(
-            #         inputs = fine_Tune_model.input, outputs = fine_Tune_model.get_layer( 'fine_tune_layer' ).output
-            #         )
+            if useWeightMatrix:
+                feature_extractor = fine_Tune_model
+            else:
+                feature_extractor = Model(
+                        inputs = fine_Tune_model.input, outputs = fine_Tune_model.get_layer( 'lambda_layer' ).output
+                        )
         elif not applyFinetunedModel:
             print( f'loading original pretrained feature extractor: {self.config.pretrainedfeatureExtractor_path}' )
             feature_extractor = self.pretrained_featureExtractor
@@ -268,6 +274,9 @@ class fineTuningModel:
         # feature_extractor, classifier = self._configModel(model = self.fine_Tune_model)
         return [feature_extractor, classifier]
     def tuning( self ,init_weights = True,init_bias = False):
+        self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+        self.pretrained_featureExtractor.trainable = True
+        self.data = self._getSQData( nshots = self.nshots )
         # self.pretrained_featureExtractor = _getPreTrainedFeatureExtractor()
         fine_Tune_model = self.modelObj.buildTuneModel(
                 pretrained_feature_extractor = self.pretrained_featureExtractor,
@@ -285,14 +294,13 @@ class fineTuningModel:
                 bias = np.zeros(self.config.num_finetune_classes)
             fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
 
-        val_data, val_label = self._getValData( )
+        val_data, val_label = self._getValData(self.data['Query_data'],self.data['Query_label'] )
         optimizer = tf.keras.optimizers.Adam(
                 learning_rate = self.config.lr,
-                # momentum = 0.9,
-                epsilon = 1e-07,
+                epsilon = 1e-06,
                 )
         # optimizer = tf.keras.optimizers.SGD(
-        #         learning_rate = config.lr,
+        #         learning_rate = self.config.lr,
         #         momentum = 0.9,
         #         )
         fine_Tune_model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
@@ -306,47 +314,60 @@ class fineTuningModel:
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
         return fine_Tune_model
-    def test( self, applyFinetunedModel:bool=True ):
-        # self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
-        # self.pretrained_featureExtractor.trainable = True
-        nway = self.config.num_finetune_classes
+    def _mapToNways(self,Support_data,query_set,query_label,nway):
+        query_label = np.argmax( query_label, axis = 1 )
+        label = np.unique(query_label)
+        selected_sign = np.unique(np.random.choice(label,size = nway,replace=False))
+        Support_data = Support_data[selected_sign,:,:,:]
+        # selected_data_idx = np.where(query_label == selected_sign)
+        index = np.random.choice(np.arange(0,len(query_set),self.config.num_finetune_classes),size = 1,
+                    replace = False)
+        query_data = query_set[index+selected_sign,:,:,:]
+        sample_index = random.randint( 0, nway - 1 )
+        Query_data = np.repeat(np.expand_dims(query_data[sample_index],axis=0),[nway],axis = 0)
+        return [ Support_data, Query_data,sample_index]
+    def test( self, nway,applyFinetunedModel:bool=True ):
+        self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+        self.pretrained_featureExtractor.trainable = False
+        self.data = self._getSQData( nshots = self.nshots )
         N_test_sample = 1000
-        correct_count = 0
-        test_acc = []
-        # load Support and Query dataset
-        query_set, query_label = self._getValData( )
-        Support_data = self.data[ 'Support_data' ]
         feature_extractor, classifier = self._loadFineTunedModel( applyFinetunedModel )
-        if self.isOneShotTask:
-            Support_set_embedding = feature_extractor.predict( Support_data )
-            for i in range(N_test_sample):
-                Query_data, sample_index = self._getDataToTesting( query_set = query_set, nway = nway )
-                Query_set_embedding = feature_extractor.predict( Query_data )
-                prob_classifier = classifier.predict([Support_set_embedding,Query_set_embedding])
-                if np.argmax( prob_classifier ) == sample_index:
-                    correct_count += 1
-                    print( f'The number of correct: {correct_count}, The number of test count {i}' )
-            acc = (correct_count / N_test_sample) * 100.
-            test_acc.append( acc )
-            print( "Accuracy %.2f" % acc )
-            # Test method 2:
-            # optimizer = tf.keras.optimizers.SGD( learning_rate = config.lr, momentum = 0.9 )
-            # self.fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
-            # self.fine_Tune_model.evaluate( query_set, query_label )
-        if not self.isOneShotTask:
-            Support_set_embedding = self._getNShotsEmbedding( feature_extractor,Support_data )
-            for i in range(N_test_sample):
-                Query_data, sample_index = self._getDataToTesting( query_set = query_set, nway = nway )
-                Query_set_embedding = feature_extractor.predict( Query_data )
-                prob_classifier = classifier.predict( [ Support_set_embedding, Query_set_embedding ] )
-                if np.argmax( prob_classifier ) == sample_index:
-                    correct_count += 1
-                    print( f'The number of correct: {correct_count}, The number of test count {i}' )
-            acc = (correct_count / N_test_sample) * 100.
-            test_acc.append( acc )
-            print( "Accuracy %.2f" % acc )
+        # load Support and Query dataset
+        query_set, query_label = self._getValData(self.data['Query_data'],self.data['Query_label'] )
+        Support_data = self.data[ 'Support_data' ]
+        test_acc = [ ]
+        for i in range( 2, 26 ):
+            nway = i
+            correct_count = 0
+            print( f'................................Checking {nway} ways accuracy................................' )
+            if self.isOneShotTask:
+                for i in range(N_test_sample):
+                    Selected_Support_data, Selected_Query_data, sample_index = self._mapToNways(Support_data,query_set,
+                            query_label,nway)
+                    Support_set_embedding = feature_extractor.predict( Selected_Support_data )
+                    # Query_data, sample_index = self._getDataToTesting( query_set = query_set, nway = nway )
+                    Query_set_embedding = feature_extractor.predict( Selected_Query_data )
+                    prob_classifier = classifier.predict([Support_set_embedding,Query_set_embedding])
+                    if np.argmax( prob_classifier ) == sample_index:
+                        correct_count += 1
+                        print( f'The number of correct: {correct_count}, The number of test count {i}' )
+                acc = (correct_count / N_test_sample) * 100.
+                test_acc.append( acc )
+                print( "Accuracy %.2f" % acc )
+            if not self.isOneShotTask:
+                Support_set_embedding = self._getNShotsEmbedding( feature_extractor,Support_data )
+                for i in range(N_test_sample):
+                    Query_data, sample_index = self._getDataToTesting( query_set = query_set, nway = nway )
+                    Query_set_embedding = feature_extractor.predict( Query_data )
+                    prob_classifier = classifier.predict( [ Support_set_embedding, Query_set_embedding ] )
+                    if np.argmax( prob_classifier ) == sample_index:
+                        correct_count += 1
+                        print( f'The number of correct: {correct_count}, The number of test count {i}' )
+                acc = (correct_count / N_test_sample) * 100.
+                test_acc.append( acc )
+                print( "Accuracy %.2f" % acc )
         return test_acc
-class fineTuningWidar(fineTuningModel):
+class fineTuningWidar(fineTuningSignFi ):
     def __init__( self,config,isMultiDomain:bool = False ):
         super().__init__(config = config, isiheritance = True, )
         self.WidarDataLoaderObj = WidarDataloader(config = config)
@@ -356,6 +377,8 @@ class fineTuningWidar(fineTuningModel):
         self.nshots_per_domain = config.nshots_per_domain
         # self.nshots_per_domain = int(self.nshots/5)
         self.nways = config.num_finetune_classes
+        self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+        self.pretrained_featureExtractor.trainable = True
         self.initializer = tf.keras.initializers.RandomUniform( minval = 0., maxval = 1. )
         self.fine_Tune_model = self.modelObj.buildTuneModel(
                 pretrained_feature_extractor = self.pretrained_featureExtractor,
@@ -493,9 +516,9 @@ class fineTuningWidar(fineTuningModel):
         return [self.fine_Tune_model,self.data['record'],history]
     def _getoutput( self, feature_extractor ):
         return Model(inputs = feature_extractor.input,outputs = feature_extractor.get_layer('lambda_layer').output)
-    def test( self, applyFinetunedModel:bool,isFineTunedModel:bool):
+    def test( self, applyFinetunedModel:bool):
         self.feature_extractor, self.classifier = self._loadFineTunedModel(
-                applyFinetunedModel = applyFinetunedModel
+                applyFinetunedModel = applyFinetunedModel,useWeightMatrix = True
                 )
         print(f'check for {self.nshots} shots '
               f'accuracy......................................................................')
@@ -521,7 +544,7 @@ class fineTuningWidar(fineTuningModel):
             # Support_set_embedding = matrix
             Query_set = self.data['Query_data']
             Support_set = self.data['Support_data']
-            if isFineTunedModel:
+            if applyFinetunedModel:
                 Support_set_embedding = np.transpose(
                         self.feature_extractor.get_layer( 'fine_tune_layer' ).get_weights( )[ 0 ]
                         )
@@ -581,7 +604,7 @@ def searchBestSample(config):
                 print(f'reached expected val_acc {val_acc}')
                 break
     config.getSampleIdx( )
-    test_acc,[y_true,y_pred],label_true = fineTuningWidarObj.test(applyFinetunedModel = True,isFineTunedModel = True)
+    test_acc,[y_true,y_pred],label_true = fineTuningWidarObj.test(applyFinetunedModel = True)
     plt_cf = pltConfusionMatrix( )
     title = f'{config.nshots}_shot_sRx_{Rx}_domain_{config.domain_selection}'
     plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = title )
@@ -589,27 +612,27 @@ def searchBestSample(config):
     plt.savefig(f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/results_figs/{config.nshots}shots_'
                 f'{config.domain_selection}_finetuned.png')
     return acc_record
-def evaluation( domain_selection,isMultiDomain ):
+def evaluation( domain_selection,nshots ):
     # config.getFineTunedModelPath( )
     # location, orientation, Rx = config.domain_selection
     config = getConfig( )
     config.domain_selection = domain_selection
-    config.nshots = 2
+    config.nshots = nshots
     config.pretrainedfeatureExtractor_path = \
             './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
     # config.setMatSavePath(
     #         f"./Sample_index/Publication_related/sample_index_record_for_2_shots_domain_(2, 2, 3)_20181109.mat"
     #         )
-    config.matPath = f"./Sample_index/Publication_related/sample_index_record_for_2_shots_domain_(2, 2, 3)_20181109.mat"
+    config.matPath = f"./Sample_index/Publication_related/sample_index_record_for_5_shots_domain_(2, 2, 3)_20181109.mat"
     config.getSampleIdx( )
-    config.train_dir = 'E:/Cross_dataset/20181109/User1'
+    config.train_dir = 'E:/Sensing_project/Cross_dataset/20181109/User1'
     # config.tunedModel_path = f'./models/fine_tuning_widar/widar_fineTuned_model_20181109_1shots_test_domain_(2, 2, 3).h5'
     config.tunedModel_path = './models/Publication_related/widar_fineTuned_model_20181109_2shots__domain(2, 2, 3)_.h5'
     config.record = loadmat(config.matPath)['record']
     config.domain_selection = domain_selection
     config.num_finetune_classes = 6
-    fineTuneModelEvalObj = fineTuningWidar( config = config, isMultiDomain = isMultiDomain )
-    test_acc,[y_true,y_pred],label_true = fineTuneModelEvalObj.test(applyFinetunedModel =True,isFineTunedModel = False)
+    fineTuneModelEvalObj = fineTuningWidar( config = config, isMultiDomain = False )
+    test_acc,[y_true,y_pred],label_true = fineTuneModelEvalObj.test(applyFinetunedModel =False)
     plt_cf = pltConfusionMatrix( )
     plt_cf.pltCFMatrix(
             y = label_true, y_pred = y_pred, figsize = (18, 15), title = f'{config.nshots}_shots '
@@ -657,19 +680,34 @@ def compareDomain():
     pred_233 = feature_extractor.predict( data233['Val_data'] )
     label_233 = data233[ 'Val_label' ]
     class_t_sne( pred_223, label_223,perplexity = 40, n_iter = 3000 )
-if __name__ == '__main__':
+def tuningSignFi():
     config = getConfig( )
+    config.source = [1,3,4,2,5]
+    config.nshots = 1
+    config.num_finetune_classes = 25
+    config.lr = 1e-5
+    config.train_dir = 'D:\Matlab\SignFi\Dataset'
+    config.tunedModel_path = f'./models/Publication_related/signFi_finetuned_model_{config.nshots}_shots_' \
+                             f'{config.num_finetune_classes}_ways_' \
+                             f'user{config.source[-1]}'
+    config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    config.tunedModel_path = './models/fine_tuning_signfi/fc_fineTuned_250Cls_labTohome_1_shot_with_Zscore_89.4%.h5'
+    tuningSignFiObj = fineTuningSignFi(config,isZscore = False)
+    fine_Tune_model = tuningSignFiObj.tuning(init_bias = True)
+    # fine_Tune_model.save_weights( config.tunedModel_path )
 
-    acc_record = searchBestSample(config)
+    # acc_all = tuningSignFiObj.test(nway = None, applyFinetunedModel = False)
+    #
+    # return acc_all
 
+if __name__ == '__main__':
+    # config = getConfig( )
+    # acc_record = searchBestSample(config)
     '''Testing with specific domain selection'''
     # evaluation(
     #         domain_selection = (2, 2, 3),
-    #         isMultiDomain = False
+    #         nshots = 5
     #         )
-    # compareDomain()
-
-
-
-
-
+    all_acc = tuningSignFi()
+    acc = np.squeeze(np.asarray(all_acc))
+    print(acc)

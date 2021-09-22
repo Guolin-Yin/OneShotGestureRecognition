@@ -605,7 +605,8 @@ class signDataLoader:
         filename: [2] lab-276 -> user 5, 5520 samples,downlink*
         filename: [3] lab-276 -> user 5, 5520 samples,uplink*
     '''
-    def __init__( self,dataDir ):
+    def __init__( self,dataDir,config = None ):
+        self.config = config
         self.dataDir = dataDir
         self.data = []
         self.data, self.filename = self.loadData()
@@ -641,8 +642,10 @@ class signDataLoader:
         return x_all
     def getFormatedData(self,source:str='lab',isZscore:bool=True):
         def getSplitData(x_all,y_all,n_samples_per_user:int,shuffle=True):
-            n_train_samples = 250 * n_samples_per_user
-            n_test_samples = (276 - 250) * n_samples_per_user
+            n_base_classes = self.config.N_train_classes
+            n_test_classes = 276 - n_base_classes
+            n_train_samples = n_base_classes * n_samples_per_user
+            n_test_samples = (276 - n_base_classes) * n_samples_per_user
             train_data = np.zeros( (n_train_samples, 200, 60, 3) )
             train_labels = np.zeros( (n_train_samples, 1) ,dtype = int)
             test_data = np.zeros( (n_test_samples, 200, 60, 3) )
@@ -651,12 +654,12 @@ class signDataLoader:
             tra_count = 0
             tes_count = 0
             for i in idx:
-                train_data[tra_count:tra_count+250,:,:,:] = x_all[i:i+250,:,:,:]
-                train_labels[tra_count:tra_count+250,:] = y_all[i:i+250,:]
-                test_data[tes_count:tes_count+26,:,:,:] = x_all[i+250:i+276,:,:,:]
-                test_labels[tes_count:tes_count+26,:] = y_all[i+250:i+276,:]
-                tra_count += 250
-                tes_count += 26
+                train_data[tra_count:tra_count + n_base_classes, :, :, : ] = x_all[ i:i + n_base_classes, :, :, : ]
+                train_labels[tra_count:tra_count + n_base_classes, : ] = y_all[ i:i + n_base_classes, : ]
+                test_data[tes_count:tes_count+n_test_classes,:,:,:] = x_all[ i + n_base_classes:i + 276, :, :, : ]
+                test_labels[tes_count:tes_count+n_test_classes,:] = y_all[ i + n_base_classes:i + 276, : ]
+                tra_count += n_base_classes
+                tes_count += n_test_classes
             if shuffle:
                 idx = np.random.permutation( len( train_labels ) )
                 train_data = train_data[idx]
@@ -693,7 +696,7 @@ class signDataLoader:
                     n_samples_per_user = 10,shuffle=False
                     )
             return [ train_data, train_labels, test_data, test_labels ]
-        elif source == 'labUser5':
+        elif source == 'labuser1':
             print( 'lab environment user 5, 150 classes' )
             x = self.data[ 1 ][ 'csi5' ]
             # x_amp,x_phase = self.preprocessers.csiRatio(csi = x)
@@ -772,8 +775,10 @@ class signDataLoader:
             train_labels = train_labels[ idx, : ]
         return [ train_data, train_labels, test_data, test_labels ]
 if __name__ == '__main__':
+    signObj = signDataLoader('D:\Matlab\SignFi\Dataset')
+
     # a = loadmat('E:\BaiduNetdiskDownload\Data_part_1\gesture')
-    mat = hdf5storage.loadmat( filepath )
+    # mat = hdf5storage.loadmat( filepath )
     # config = getConfig( )
     # preprocessers = Denoiser( )
     # WidarDataloader = WidarDataloader(dataDir = 'E:/Cross_dataset/20181109/User1', selection = (2,2,3))

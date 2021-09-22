@@ -4,7 +4,7 @@ from tensorflow.keras.models import Model
 from Config import getConfig
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
-
+import random
 # from methodTesting.plotResults import pltResults
 
 config = getConfig()
@@ -26,52 +26,78 @@ def plot_barchart():
     for index, data in enumerate( fiveshot_accuracy ):
         plt.text( x = index+0.3, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
     plt.show()
-def pltResults(acc):
-    ways = np.arange( 2, 27, 1 )
-    ways2 = np.arange( 2, 26, 1 )
-    ax = plt.figure().gca()
+def pltResults(acc,resultsLabel):
+
+    ax = plt.figure(figsize = (12,10)).gca()
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.plot( ways, acc[ 0 ], linestyle='dashed', marker='o', label='one-shot learning on lab environment' )
-    ax.plot( ways, acc[ 1 ], linestyle='dashed', marker='o', label='one-shot learning on home environment' )
-    # ax.plot( ways2, acc[ 2 ],linestyle='dashed', marker='o', label='Train on user 1 to 4, test on user 5 using softmax' )
-    # ax.plot( ways2, acc[ 3 ], linestyle='dashed', marker='o',
-    #          label='Train on user 1 to 4, test on user 5 using softmax with fixed support set' )
-    # ax.plot( ways, acc[ 1 ], linestyle='dashed', marker='o', label='test on different environment same user' )
-    # ax.plot( ways, acc[ 2 ], linestyle='dashed', marker='o', label='test on different environment same user (New sign)' )
-    # ax.plot( ways, acc[ 3 ], linestyle='dashed', marker='o', label='test on different environment different user ' )
-    # ax.plot( ways2, acc[ 4 ], linestyle='dashed', marker='o', label='test on different environment different user (New sign)' )
-    ax.set_ylim( 0, 102 )
+    for i in range(len(acc)):
+        ax.plot(
+                np.arange( 2, len( acc[ i ] ) + 2 ), acc[ i ], linestyle = 'dashed', marker = 'o',markersize=3,
+                label = resultsLabel[i]
+                )
+
+
+    ax.set_ylim( 5, 102 )
     # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
-    ax.set_xlabel( 'Number of new classes' )
-    ax.set_ylabel( 'Accuracy' )
-    ax.legend( )
+    ax.set_xlabel( 'Number of new classes', fontsize = 12)
+    ax.set_ylabel( 'Accuracy', fontsize = 12 )
+    ax.legend( fontsize=15 )
 def record():
-    test_on_lab = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0,100.0,100.0,99.9,100.0,99.8,100.0,100.0,99.9,100.0,99.7,99.6,99.8,99.6,100.0,99.9,99.9,99.9,100.0,100.0 ]
-    test_on_home = [ 99.2,
-                     98.8,
-                     97.7,
-                     96.39999999999999,
-                     96.39999999999999,
-                     95.8,
-                     96.0,
-                     95.0,
-                     92.9,
-                     93.7,
-                     92.9,
-                     92.4,
-                     92.2,
-                     90.9,
-                     91.9,
-                     91.8,
-                     88.7,
-                     89.0,
-                     87.9,
-                     87.0,
-                     89.1,
-                     87.9,
-                     88.9,
-                     87.6,
-                     87.0 ]
+    resultsLabel = []
+    # resultsLabel.append(' Test on lab environment (no fine tuning)')
+    # test_on_lab = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0, 99.8, 100.0, 100.0, 99.9,
+    #                 100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
+    # resultsLabel.append(' Test on home environment (no fine tuning)')
+    # test_on_home = [ 99.2, 98.8, 97.7, 96.39, 96.39, 95.8, 96.0, 95.0, 92.9, 93.7, 92.9, 92.4, 92.2, 90.9, 91.9, 91.8,
+    #                  88.7, 89.0, 87.9, 87.0, 89.1, 87.9, 88.9, 87.6, 87.0 ]
+    # resultsLabel.append( ' Test on home environment (with fine tuning)' )
+    # test_on_home_with_tuning = [99.6, 99.1, 99. , 98.6, 97. , 97.2, 96.5, 96.2, 96.6, 94.8, 94.2,
+    #    94.2, 93.9, 92.9, 93.5, 92.3, 91.7, 91.3, 92.7, 91.6, 91.5, 90.4,
+    #    89.9, 89.6, 89. ]
+    # resultsLabel.append( ' Test on lab_2 environment, user 1 (no fine tuning)' )
+    # test_on_lab_2_user_1 = [65.5, 52. , 42.5, 35.7, 31.7, 31.3, 25.1, 21.7, 20.5, 17.3, 18.1,
+    #    18.2, 16.2, 14.7, 16.4, 12.6, 13. , 10.8, 12.8, 11.9, 10.5,  9.5,
+    #     9.5,  9.9]
+    # resultsLabel.append( ' Test on lab_2 environment, user 1 (no fine tuning)' )
+    # test_on_lab_2_user_5 = [ 89.5, 84.7, 83.6, 79.3, 79.4, 77.7, 75.9, 75.9, 75.2, 72.8, 75.1,
+    #                          72.1, 70.9, 71.9, 71.7, 69.9, 71., 71.9, 70.7, 71.7, 69.9, 68.8,
+    #                          69., 69. ]
+    # resultsLabel.append( ' Test on lab_2 environment, user 2 (no fine tuning)' )
+    # test_on_lab_2_user_2 =[93.4, 89.3, 84.8, 81.8, 78.9, 75.4, 75.5, 74.3, 73.8, 74.7, 73.3,
+    #    72.4, 70.4, 68.6, 66.9, 68.9, 66.1, 68.5, 65.8, 66.8, 67.2, 69.2,
+    #    66.2, 66.6]
+    # resultsLabel.append( ' Test on lab_2 environment, user 3 (no fine tuning)' )
+    # test_on_lab_2_user_3 = [96.3, 93.7, 91.7, 91.4, 88.8, 87.5, 87.8, 86.7, 82.9, 84.5, 83.1,
+    #    82.4, 84.9, 83.4, 82.5, 81.4, 78.5, 80. , 79.6, 79.6, 76.7, 76.7,
+    #    78.1, 76.1]
+    # resultsLabel.append( ' Test on lab_2 environment, user 4 (no fine tuning)' )
+    # test_on_lab_2_user_4 = [ 98.8, 98.9, 98.1, 97.6, 96.7, 96.6, 95.9, 95.6, 95.2, 94.6, 92.1,
+    #   92.5, 92.2, 92.7, 91., 92.5, 92., 92.2, 91.8, 91.3, 91.5, 90.5,
+    #   91.1, 91.6 ]
+    # resultsLabel.append( ' In-domain performance (200 base classes)' )
+    # train_with_lab_200cls_76_testcls_26 = [99.8, 99.5, 99.7, 99.1, 98.5, 98. , 98.6, 98.7, 98.3, 97.8, 98.1,
+    #    97.2, 98.3, 96.7, 97.4, 95.9, 96.4, 97.1, 96.1, 95.9, 95.3, 95.7,
+    #    95.7, 96.1, 96.5]
+    resultsLabel.append( ' In-domain performance (250 base classes)' )
+    train_with_lab_250cls_26_testcls_26 = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0, 99.8, 100.0, 100.0, 99.9,
+                    100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
+
+    resultsLabel.append( ' In-domain performance (200 base classes)' )
+    train_with_lab_200cls_26_testcls_26 = [ 99.8, 99.3, 98.7, 98.8, 99.1, 98.7, 98.4, 98.6, 97.7, 98.2, 97.9,
+      97.8, 97.6, 97.9, 97.3, 97.5, 97.5, 97.7, 97., 95.7, 98.1, 96.8,
+      97.4, 97.5, 96.5 ]
+    resultsLabel.append( ' In-domain performance (150 base classes)' )
+    train_with_lab_150cls_26_testcls_26 = [99. , 98.4, 98. , 96.3, 95.5, 96.3, 95.1, 94.3, 94.3, 93.2, 93.5,
+       92.9, 92.5, 91.7, 92.3, 91. , 92.6, 92.4, 89.8, 89.9, 89.5, 89.6,
+       91.6, 90.9, 88.4]
+    resultsLabel.append( ' In-domain performance (100 base classes)' )
+    train_with_lab_100cls_26_testcls_26 = [98.4, 96.6, 95.8, 94.4, 94.3, 93.8, 93. , 92. , 92. , 88.1, 90. ,
+       90.2, 89.7, 88.2, 87.9, 85.8, 87.4, 86.8, 87.8, 85.7, 86. , 85.6,
+       87.5, 83.4, 86.1]
+    resultsLabel.append( ' In-domain performance (50 base classes)' )
+    train_with_lab_50cls_26_testcls_26 = [92.4, 85.9, 81.7, 78. , 74.4, 73.7, 73. , 69.1, 68.3, 66.2, 63. ,
+       63.2, 61.6, 58.4, 62.7, 59.8, 57.7, 59.3, 53.6, 56.2, 54.2, 52.7,
+       54.8, 52.3, 51.4]
     test_on_user1_trained_sign = [ 84.6,
                                    80.30000000000001,
                                    82.69999999999999,
@@ -197,8 +223,9 @@ def record():
       70.8,
       73.0,
       71.5 ]
-
-    pltResults( [test_on_lab,test_on_home] )
+    pltResults( [train_with_lab_250cls_26_testcls_26,train_with_lab_200cls_26_testcls_26,
+                 train_with_lab_150cls_26_testcls_26,train_with_lab_100cls_26_testcls_26,train_with_lab_50cls_26_testcls_26]
+           ,resultsLabel )
 def split(x_all,y_all):
     start = np.where( y_all == 254 )[ 0 ]
     # end = start + 25
@@ -333,5 +360,5 @@ if __name__ == '__main__':
     # record()
     # CnnModelTesting()
     # kFactorNreceiver()
-    pltWidar()
+    record()
 
