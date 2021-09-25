@@ -17,6 +17,7 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 from t_SNE import *
+# from modelPreTraining import PreTrainModel
 class pltConfusionMatrix():
     def __init__( self ):
         pass
@@ -150,7 +151,7 @@ class fineTuningSignFi:
         :param nshots:
         :return:
         '''
-        testSign = signDataLoader( dataDir = self.config.train_dir )
+        testSign = signDataLoader( config = self.config )
         fixed_query_set = False
         if type(self.config.source) == list or 'user' in self.config.source:
             _, _, x_test, y_test = testSign.getFormatedData( source = self.config.source,isZscore = self.isZscore )
@@ -164,15 +165,15 @@ class fineTuningSignFi:
         elif 'home' in self.config.source or 'lab' in self.config.source:
             if fixed_query_set:
                 _, _, x_test, y_test = testSign.getFormatedData( source = self.config.source, isZscore = self.isZscore )
-                num = nshots * self.config.num_finetune_classes
-                query_idx = 5 * self.config.num_finetune_classes
+                num = nshots * self.config.N_novel_classes
+                query_idx = 5 * self.config.N_novel_classes
                 Support_data = x_test[ 0:num, :, :, : ]
                 Support_label = y_test[ 0:num, : ]
                 Query_data = x_test[ query_idx:len( x_test ) + 1, :, :, : ]
                 Query_label = y_test[ query_idx:len( x_test ) + 1, : ]
             else:
                 _, _, x_test, y_test = testSign.getFormatedData( source = self.config.source,isZscore=self.isZscore )
-                num = nshots * 26
+                num = nshots * (np.max(y_test) + 1 - np.min(y_test))
                 Support_data = x_test[ 0:num, :, :, : ]
                 Support_label = y_test[ 0:num, : ]
                 Query_data = x_test[ num:len( x_test ) + 1, :, :, : ]
@@ -190,12 +191,12 @@ class fineTuningSignFi:
         # val_data = self.data['Query_data']
         # val_label = to_categorical(
         #         self.data[ 'Query_label' ] - np.min( self.data[ 'Query_label' ] ), num_classes =
-        #         self.config.num_finetune_classes
+        #         self.config.N_novel_classes
         #         )
         val_data = Query_data
         val_label = to_categorical(
                 Query_label - np.min( Query_label ), num_classes =
-                self.config.num_finetune_classes
+                self.config.N_novel_classes
                 )
         return [val_data,val_label]
     def _getDataToTesting(self,query_set,nway,mode:str = 'fix'):
@@ -206,23 +207,23 @@ class fineTuningSignFi:
         :return:
         '''
         if mode == 'fix':
-            sample_sign = np.random.choice(np.arange(0,len(query_set),self.config.num_finetune_classes),size = 1,
+            sample_sign = np.random.choice(np.arange(0,len(query_set),self.config.N_novel_classes ),size = 1,
                     replace = False)
             sample_index = random.randint( 0, nway - 1 )
             query_data = np.repeat( query_set[ sample_sign+sample_index ], [ nway ], axis = 0 )
             return [ query_data, sample_index ]
         elif mode == 'random':
             sample_sign = np.random.choice(
-                    np.arange( 0, len( query_set ), self.config.num_finetune_classes ), size = 2, replace = False
+                    np.arange( 0, len( query_set ), self.config.N_novel_classes ), size = 2, replace = False
                     )
             sample_index = random.randint( 0, nway - 1 )
             support_data = np.repeat( query_set[ sample_sign[0] + sample_index ], [ nway ], axis = 0 )
             query_data = np.repeat( query_set[ sample_sign[1] + sample_index ], [ nway ], axis = 0 )
             return [ support_data,query_data, sample_index ]
     def _getNShotsEmbedding( self,featureExtractor, Support_data):
-        Sign_class = np.arange( 0, self.config.num_finetune_classes, 1 )
+        Sign_class = np.arange( 0, self.config.N_novel_classes, 1 )
         # Sign_samples = np.arange( 0, 125, 25 )
-        Sign_samples = np.arange( 0, len(Support_data), self.config.num_finetune_classes )
+        Sign_samples = np.arange( 0, len(Support_data), self.config.N_novel_classes )
         n_shots_support_embedding = [ ]
         for i in Sign_class:
             n_shots_support_data = [ ]
@@ -259,7 +260,8 @@ class fineTuningSignFi:
                         )
         elif not applyFinetunedModel:
             print( f'loading original pretrained feature extractor: {self.config.pretrainedfeatureExtractor_path}' )
-            feature_extractor = self.pretrained_featureExtractor
+            feature_extractor = self.modelObj.buildFeatureExtractor(mode = 'Alexnet')
+            feature_extractor.load_weights(self.config.pretrainedfeatureExtractor_path)
         '''
         Classifier input: two feature vector
                       output: one probability
@@ -289,9 +291,9 @@ class fineTuningSignFi:
                 weights = np.transpose(self._getNShotsEmbedding( self.pretrained_featureExtractor,self.data[ 'Support_data' ] ) )
             if init_bias:
                 p = fine_Tune_model.predict(self.data['Query_data'])
-                bias = np.tile(np.mean(-np.sum( p * np.log(p ),axis = 1 ) ),self.config.num_finetune_classes)
+                bias = np.tile(np.mean(-np.sum( p * np.log(p ),axis = 1 ) ),self.config.N_novel_classes )
             else:
-                bias = np.zeros(self.config.num_finetune_classes)
+                bias = np.zeros(self.config.N_novel_classes )
             fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
 
         val_data, val_label = self._getValData(self.data['Query_data'],self.data['Query_label'] )
@@ -306,8 +308,8 @@ class fineTuningSignFi:
         fine_Tune_model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
         idx = np.random.permutation(len(self.data[ 'Support_data' ]))
         fine_Tune_model.fit(
-                self.data[ 'Support_data' ][ idx ], to_categorical(self.data[ 'Support_label' ][ idx ] - np.min(
-                                self.data[ 'Support_label' ]),num_classes = self.config.num_finetune_classes),
+                self.data[ 'Support_data' ][ idx ], to_categorical( self.data[ 'Support_label' ][ idx ] - np.min(
+                                self.data[ 'Support_label' ]),num_classes = self.config.N_novel_classes ),
                 epochs = 1000,
                 # shuffle = True,
                 validation_data = (val_data, val_label),
@@ -320,23 +322,24 @@ class fineTuningSignFi:
         selected_sign = np.unique(np.random.choice(label,size = nway,replace=False))
         Support_data = Support_data[selected_sign,:,:,:]
         # selected_data_idx = np.where(query_label == selected_sign)
-        index = np.random.choice(np.arange(0,len(query_set),self.config.num_finetune_classes),size = 1,
+        index = np.random.choice(np.arange(0,len(query_set),self.config.N_novel_classes ),size = 1,
                     replace = False)
         query_data = query_set[index+selected_sign,:,:,:]
         sample_index = random.randint( 0, nway - 1 )
         Query_data = np.repeat(np.expand_dims(query_data[sample_index],axis=0),[nway],axis = 0)
         return [ Support_data, Query_data,sample_index]
     def test( self, nway,applyFinetunedModel:bool=True ):
-        self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
-        self.pretrained_featureExtractor.trainable = False
+        # self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+        # self.pretrained_featureExtractor.trainable = False
         self.data = self._getSQData( nshots = self.nshots )
-        N_test_sample = 1000
+        N_test_sample = 100
         feature_extractor, classifier = self._loadFineTunedModel( applyFinetunedModel )
         # load Support and Query dataset
         query_set, query_label = self._getValData(self.data['Query_data'],self.data['Query_label'] )
         Support_data = self.data[ 'Support_data' ]
+        Support_label = self.data[ 'Support_label' ]
         test_acc = [ ]
-        for i in range( 2, 26 ):
+        for i in range( 70, 71 ):
             nway = i
             correct_count = 0
             print( f'................................Checking {nway} ways accuracy................................' )
@@ -376,7 +379,7 @@ class fineTuningWidar(fineTuningSignFi ):
         self.nshots = config.nshots
         self.nshots_per_domain = config.nshots_per_domain
         # self.nshots_per_domain = int(self.nshots/5)
-        self.nways = config.num_finetune_classes
+        self.nways = config.N_novel_classes
         self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
         self.pretrained_featureExtractor.trainable = True
         self.initializer = tf.keras.initializers.RandomUniform( minval = 0., maxval = 1. )
@@ -429,7 +432,7 @@ class fineTuningWidar(fineTuningSignFi ):
     #     Support_data_out = np.zeros((30,200,60,3))
     #     Support_label_out = np.zeros((30,1),dtype= int)
     #     idx = 0
-    #     for d in range(config.num_finetune_classes):
+    #     for d in range(config.N_novel_classes):
     #         for j in range(len(Support_data)):
     #             Support_data_out[ idx, :, :, : ] = Support_data[ j ][ d, :, :, : ]
     #             Support_label_out[idx] = Support_label[ j ][ d ]
@@ -470,14 +473,14 @@ class fineTuningWidar(fineTuningSignFi ):
                         )
             if init_bias:
                 p = self.fine_Tune_model.predict( self.data[ 'Query_data' ] )
-                bias = np.tile( np.mean( -np.sum( p * np.log( p ), axis = 1 ) ), self.config.num_finetune_classes )
+                bias = np.tile( np.mean( -np.sum( p * np.log( p ), axis = 1 ) ), self.config.N_novel_classes )
             else:
-                bias = np.zeros( self.config.num_finetune_classes )
+                bias = np.zeros( self.config.N_novel_classes )
             self.fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
             # self.config.weight = self.fine_Tune_model.get_layer( 'FC_1' ).get_weights( )
         val_data, val_label = self.data[ 'Val_data' ], to_categorical(
                 self.data[ 'Val_label' ], num_classes
-                = self.config.num_finetune_classes
+                = self.config.N_novel_classes
                 )
         optimizer = tf.keras.optimizers.Adam(
                 learning_rate = config.lr,
@@ -507,7 +510,7 @@ class fineTuningWidar(fineTuningSignFi ):
         idx = np.random.permutation( len( self.data[ 'Support_data' ] ) )
         history = self.fine_Tune_model.fit(
                 self.data[ 'Support_data' ][ idx ], to_categorical(self.data[ 'Support_label' ][ idx ] , num_classes
-                = self.config.num_finetune_classes),
+                = self.config.N_novel_classes ),
                 epochs = 1000,
                 # shuffle = True,
                 validation_data = (val_data, val_label),
@@ -571,7 +574,7 @@ def searchBestSample(config):
     config.nshots = 5
     config.train_dir = 'E:/Sensing_project/Cross_dataset/20181109/User1'
     # config.train_dir = 'E:/Cross_dataset/20181115'
-    config.num_finetune_classes = 6
+    config.N_novel_classes = 6
     config.lr = 1e-4
     config.domain_selection = (2, 2, 3)
     config.pretrainedfeatureExtractor_path = \
@@ -630,7 +633,7 @@ def evaluation( domain_selection,nshots ):
     config.tunedModel_path = './models/Publication_related/widar_fineTuned_model_20181109_2shots__domain(2, 2, 3)_.h5'
     config.record = loadmat(config.matPath)['record']
     config.domain_selection = domain_selection
-    config.num_finetune_classes = 6
+    config.N_novel_classes = 6
     fineTuneModelEvalObj = fineTuningWidar( config = config, isMultiDomain = False )
     test_acc,[y_true,y_pred],label_true = fineTuneModelEvalObj.test(applyFinetunedModel =False)
     plt_cf = pltConfusionMatrix( )
@@ -645,7 +648,7 @@ def compareDomain():
     config.nshots_per_domain = 2
     config.nshots = int( 5 * 1 * 1 * config.nshots_per_domain )
     config.train_dir = 'E:/Cross_dataset/20181109/User1'
-    config.num_finetune_classes = 6
+    config.N_novel_classes = 6
     config.lr = 1e-3
     config.domain_selection = (2, 2, 3)
     config.pretrainedfeatureExtractor_path = \
@@ -684,11 +687,11 @@ def tuningSignFi():
     config = getConfig( )
     config.source = [1,3,4,2,5]
     config.nshots = 1
-    config.num_finetune_classes = 25
+    config.N_novel_classes = 25
     config.lr = 1e-5
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.tunedModel_path = f'./models/Publication_related/signFi_finetuned_model_{config.nshots}_shots_' \
-                             f'{config.num_finetune_classes}_ways_' \
+                             f'{config.N_novel_classes}_ways_' \
                              f'user{config.source[-1]}'
     config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
     config.tunedModel_path = './models/fine_tuning_signfi/fc_fineTuned_250Cls_labTohome_1_shot_with_Zscore_89.4%.h5'
@@ -699,7 +702,42 @@ def tuningSignFi():
     # acc_all = tuningSignFiObj.test(nway = None, applyFinetunedModel = False)
     #
     # return acc_all
+def testingSignFi(path,mode,N_train_classes,environment:str):
+    # config = getConfig( )
+    # config.nshots = 1
+    # config.train_dir = 'D:\Matlab\SignFi\Dataset'
+    # config.source = 'lab'
+    # all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
+    # for i, path in enumerate( all_path ):
+    #     n = re.findall( r'\d+', all_path[ i ] )[ 2 ]
+    #     if int( n ) == 200:
+    #         config.N_train_classes = int( n )
+    #         config.N_novel_classes = 276 - config.N_train_classes
+    #         print( f'{n} in environment {config.source}' )
+    #         config.pretrainedfeatureExtractor_path = './models/pretrained_feature_extractors/' + path
+    # tuningSignFiObj = fineTuningSignFi( config, isZscore = False )
+    # acc_all = tuningSignFiObj.test( nway = None, applyFinetunedModel = False )
 
+    config = getConfig( )
+    modelObj = models( )
+
+    config.source = environment
+    config.train_dir = 'D:\Matlab\SignFi\Dataset'
+    config.N_train_classes = N_train_classes
+    # config.lr = 3e-4
+    config.pretrainedfeatureExtractor_path = path
+    # Declare objects
+    dataLoadObj = signDataLoader( config = config )
+    # preTrain_modelObj = PreTrainModel( config = config )
+    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
+            source = config.source,
+            isZscore = False
+            )
+    feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
+    feature_extractor.load_weights(config.pretrainedfeatureExtractor_path )
+    fineTuningSignFiObj = fineTuningSignFi( config )
+    test_acc = fineTuningSignFiObj.signTest(test_data, test_labels, 1000, feature_extractor)
+    return test_acc
 if __name__ == '__main__':
     # config = getConfig( )
     # acc_record = searchBestSample(config)
@@ -708,6 +746,17 @@ if __name__ == '__main__':
     #         domain_selection = (2, 2, 3),
     #         nshots = 5
     #         )
-    all_acc = tuningSignFi()
-    acc = np.squeeze(np.asarray(all_acc))
-    print(acc)
+    # all_acc = testingSignFi()
+    environment = 'lab'
+    all_acc = { }
+    all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
+    for i, path in enumerate( all_path ):
+        n = re.findall( r'\d+', all_path[ i ] )[ 2 ]
+        if int( n ) == 200:
+            print( f'{n} in environment {environment}' )
+            extractor_path = './models/pretrained_feature_extractors/' + path
+            acc = testingSignFi(
+                    path = extractor_path,
+                    mode = 'Alexnet', N_train_classes = int( n ), environment = environment
+                    )
+            all_acc[ f'{n}_{environment}' ] = np.asarray( acc )

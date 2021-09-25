@@ -42,7 +42,7 @@ if __name__ == '__main__':
 	config.nshots = 5
 	# config.train_dir = 'E:/Cross_dataset/20181109/User1'
 	config.train_dir = 'E:/test/20181109/User1'
-	config.num_finetune_classes = 6
+	config.N_novel_classes = 6
 	config.lr = 1e-4
 
 	# Rx = 5

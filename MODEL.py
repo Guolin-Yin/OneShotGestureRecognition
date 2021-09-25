@@ -120,12 +120,12 @@ class models:
     def buildTuneModel( self ,config,isTest:bool = False,pretrained_feature_extractor = None):
         if isTest:
             feature_extractor = self.buildFeatureExtractor( mode = 'Alexnet')
-            fc = Dense( units = config.num_finetune_classes, name = "fine_tune_layer" )( feature_extractor.output )
+            fc = Dense( units = config.N_novel_classes, name = "fine_tune_layer" )( feature_extractor.output )
             output = Softmax( )( fc )
             fine_Tune_model = Model( inputs = feature_extractor.input, outputs = output )
         if not isTest:
             try:
-                fc = Dense( units = config.num_finetune_classes,
+                fc = Dense( units = config.N_novel_classes,
                         bias_regularizer = regularizers.l2( 1e-4 ),
                         name = "fine_tune_layer" )(pretrained_feature_extractor.output )
                 output = Softmax( )( fc )

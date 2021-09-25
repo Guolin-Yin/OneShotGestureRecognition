@@ -8,7 +8,7 @@ class getConfig:
         self.lr = 1e-3
         self.batch_size = 32
         self.N_train_classes = None
-        self.num_finetune_classes = None
+        self.N_novel_classes = None
         self.source = None
         self.input_shape = [200,60,3]
         self.pretrainedfeatureExtractor_path = None

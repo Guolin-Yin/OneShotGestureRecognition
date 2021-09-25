@@ -605,9 +605,9 @@ class signDataLoader:
         filename: [2] lab-276 -> user 5, 5520 samples,downlink*
         filename: [3] lab-276 -> user 5, 5520 samples,uplink*
     '''
-    def __init__( self,dataDir,config = None ):
+    def __init__( self,dataDir = None,config = None ):
         self.config = config
-        self.dataDir = dataDir
+        self.dataDir = config.train_dir
         self.data = []
         self.data, self.filename = self.loadData()
         self.preprocessers = Denoiser( )
