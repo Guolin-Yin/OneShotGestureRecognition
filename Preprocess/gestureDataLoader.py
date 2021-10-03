@@ -1,3 +1,4 @@
+from methodTesting.t_SNE import *
 import os
 import random
 import numpy as np
@@ -14,9 +15,9 @@ from scipy import stats
 from Config import getConfig
 from Preprocess.SignalPreprocess import *
 from Preprocess.MMD import *
-from t_SNE import *
 from scipy.io import savemat,loadmat
 import hdf5storage
+
 class gestureDataLoader:
     def __init__(self,batch_size :int = 32,data_path:str = 'D:/OneShotGestureRecognition/20181115/'):
         self.data_path = data_path
@@ -80,7 +81,7 @@ class gestureDataLoader:
     #             if direction == selected_direction:
     #                 if rx == selected_receiver:
     #                     idx.append(i)
-    #                     labels.append(to_categorical(gestureType, N_train_classes = 9))
+    #                     labels.append(to_categorical(gestureType, N_base_classes = 9))
     #                     print(self.filename[i])
     #     selectedData = self.csiAmplitude[idx,:,:]
     #     return selectedData,labels
@@ -253,7 +254,7 @@ class gestureDataLoader:
                         gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) - 1
                     elif Dir in gesture_10:
                         gestureMark = int( re.findall( r'\d+\b', name )[ 1 ] ) + 6 - 1
-                    labels.append( tf.keras.utils.to_categorical( gestureMark, num_classes=config.N_train_classes ) )
+                    labels.append( tf.keras.utils.to_categorical( gestureMark, num_classes=config.N_base_classes ) )
         return np.asarray( data ), np.asarray( labels )
 class WidarDataloader(gestureDataLoader):
     def __init__(self,isMultiDomain:bool = False,config=None):
@@ -642,7 +643,7 @@ class signDataLoader:
         return x_all
     def getFormatedData(self,source:str='lab',isZscore:bool=True):
         def getSplitData(x_all,y_all,n_samples_per_user:int,shuffle=True):
-            n_base_classes = self.config.N_train_classes
+            n_base_classes = self.config.N_base_classes
             n_test_classes = 276 - n_base_classes
             n_train_samples = n_base_classes * n_samples_per_user
             n_test_samples = (276 - n_base_classes) * n_samples_per_user

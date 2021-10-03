@@ -250,7 +250,7 @@ class fineTuningSignFi:
         if applyFinetunedModel:
             print( f'loading fine tuned model: {self.config.tunedModel_path}' )
             fine_Tune_model = self.modelObj.buildTuneModel( config = self.config,isTest = True )
-            # fine_Tune_model = self.modelObj.buildFeatureExtractor()
+            # fine_Tune_model = self.advObj.buildFeatureExtractor()
             fine_Tune_model.load_weights(self.config.tunedModel_path)
             if useWeightMatrix:
                 feature_extractor = fine_Tune_model
@@ -339,7 +339,7 @@ class fineTuningSignFi:
         Support_data = self.data[ 'Support_data' ]
         Support_label = self.data[ 'Support_label' ]
         test_acc = [ ]
-        for i in range( 70, 71 ):
+        for i in range( 24,25 ):
             nway = i
             correct_count = 0
             print( f'................................Checking {nway} ways accuracy................................' )
@@ -685,22 +685,25 @@ def compareDomain():
     class_t_sne( pred_223, label_223,perplexity = 40, n_iter = 3000 )
 def tuningSignFi():
     config = getConfig( )
-    config.source = [1,3,4,2,5]
+    config.source = [1,5,2,3,4]
     config.nshots = 1
     config.N_novel_classes = 25
-    config.lr = 1e-5
+    config.N_base_classes = 125
+    config.lr = 4e-4
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.tunedModel_path = f'./models/Publication_related/signFi_finetuned_model_{config.nshots}_shots_' \
                              f'{config.N_novel_classes}_ways_' \
-                             f'user{config.source[-1]}'
-    config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
-    config.tunedModel_path = './models/fine_tuning_signfi/fc_fineTuned_250Cls_labTohome_1_shot_with_Zscore_89.4%.h5'
+                             f'user{config.source[-1]}.h5'
+    config.pretrainedfeatureExtractor_path = \
+        './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0' \
+        '.95_on_200cls.h5'
+
     tuningSignFiObj = fineTuningSignFi(config,isZscore = False)
-    fine_Tune_model = tuningSignFiObj.tuning(init_bias = True)
-    # fine_Tune_model.save_weights( config.tunedModel_path )
+    fine_Tune_model = tuningSignFiObj.tuning(init_bias = False)
+    return fine_Tune_model
 
     # acc_all = tuningSignFiObj.test(nway = None, applyFinetunedModel = False)
-    #
+
     # return acc_all
 def testingSignFi(path,mode,N_train_classes,environment:str):
     # config = getConfig( )
@@ -711,8 +714,8 @@ def testingSignFi(path,mode,N_train_classes,environment:str):
     # for i, path in enumerate( all_path ):
     #     n = re.findall( r'\d+', all_path[ i ] )[ 2 ]
     #     if int( n ) == 200:
-    #         config.N_train_classes = int( n )
-    #         config.N_novel_classes = 276 - config.N_train_classes
+    #         config.N_base_classes = int( n )
+    #         config.N_novel_classes = 276 - config.N_base_classes
     #         print( f'{n} in environment {config.source}' )
     #         config.pretrainedfeatureExtractor_path = './models/pretrained_feature_extractors/' + path
     # tuningSignFiObj = fineTuningSignFi( config, isZscore = False )
@@ -723,7 +726,7 @@ def testingSignFi(path,mode,N_train_classes,environment:str):
 
     config.source = environment
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
-    config.N_train_classes = N_train_classes
+    config.N_base_classes = N_train_classes
     # config.lr = 3e-4
     config.pretrainedfeatureExtractor_path = path
     # Declare objects
@@ -739,6 +742,8 @@ def testingSignFi(path,mode,N_train_classes,environment:str):
     test_acc = fineTuningSignFiObj.signTest(test_data, test_labels, 1000, feature_extractor)
     return test_acc
 if __name__ == '__main__':
+    fine_Tune_model = tuningSignFi()
+    # fine_Tune_model.save_weights( config.tunedModel_path )
     # config = getConfig( )
     # acc_record = searchBestSample(config)
     '''Testing with specific domain selection'''
@@ -747,16 +752,16 @@ if __name__ == '__main__':
     #         nshots = 5
     #         )
     # all_acc = testingSignFi()
-    environment = 'lab'
-    all_acc = { }
-    all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
-    for i, path in enumerate( all_path ):
-        n = re.findall( r'\d+', all_path[ i ] )[ 2 ]
-        if int( n ) == 200:
-            print( f'{n} in environment {environment}' )
-            extractor_path = './models/pretrained_feature_extractors/' + path
-            acc = testingSignFi(
-                    path = extractor_path,
-                    mode = 'Alexnet', N_train_classes = int( n ), environment = environment
-                    )
-            all_acc[ f'{n}_{environment}' ] = np.asarray( acc )
+    # environment = 'lab'
+    # all_acc = { }
+    # all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
+    # for i, path in enumerate( all_path ):
+    #     n = re.findall( r'\d+', all_path[ i ] )[ 2 ]
+    #     if int( n ) == 200:
+    #         print( f'{n} in environment {environment}' )
+    #         extractor_path = './models/pretrained_feature_extractors/' + path
+    #         acc = testingSignFi(
+    #                 path = extractor_path,
+    #                 mode = 'Alexnet', N_base_classes = int( n ), environment = environment
+    #                 )
+    #         all_acc[ f'{n}_{environment}' ] = np.asarray( acc )

@@ -1,10 +1,9 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer,Conv1D, Conv2D, Flatten, Dense,Dropout, Input, Lambda,MaxPooling2D,AveragePooling2D,\
-                                    concatenate,BatchNormalization,MaxPooling1D,ReLU,Softmax,ZeroPadding2D
+from tensorflow.keras.layers import Layer,Conv1D, Conv2D, Flatten, Dense,Dropout, Input, Lambda,MaxPooling2D, \
+	BatchNormalization,MaxPooling1D, Softmax,ZeroPadding2D
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.regularizers import l2
-from tensorflow.keras import regularizers
 import tensorflow.keras.backend as K
 import random
 from Preprocess.gestureDataLoader import gestureDataLoader
@@ -227,7 +226,7 @@ class SiamesWithTriplet:
             network.add( MaxPooling2D( pool_size=4, strides=4, padding='valid' ) )
             # network.add(Dropout(0.1))
             network.add( Flatten( ) )
-            network.add( Dense( units=config.N_train_classes, activity_regularizer=l2( 1e-3 ) ) )
+            network.add( Dense( units=config.N_base_classes, activity_regularizer=l2( 1e-3 ) ) )
             # network.add( Dense( units=552, ) )
             network.add( Softmax( ) )
             network.add( Lambda( lambda x: K.l2_normalize( x, axis=-1 ) ) )

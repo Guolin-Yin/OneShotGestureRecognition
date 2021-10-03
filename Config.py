@@ -3,11 +3,15 @@ import tensorflow as tf
 from scipy.io import loadmat
 class getConfig:
     def __init__(self,if_Restore_Samp_idx:bool = False):
+        self.epoch = 1000
+
         self.train_dir = None
         self.eval_dir = None
         self.lr = 1e-3
-        self.batch_size = 32
-        self.N_train_classes = None
+        self.batch_size = 128
+        # To split the dataset into training and testing
+        self.N_base_classes = None
+        # To define the fine tuning model
         self.N_novel_classes = None
         self.source = None
         self.input_shape = [200,60,3]
@@ -27,7 +31,7 @@ class getConfig:
     def setSavePath(self,val_acc):
         self.feature_extractor_save_path = f'./models/feature_extractor_train_on_user-' \
                                            f'{self.source[0]}-{self.source[ 1 ]}-{self.source[ 2 ]}-{self.source[ 3 ]}-on-' \
-                                           f'{self.N_train_classes}-classes-val_acc-{val_acc}.h5'
+                                           f'{self.N_base_classes}-classes-val_acc-{val_acc}.h5'
         self.fine_Tune_model_save_path = f'./models/fine_Tune_model_one_shot_on_user-{self.source[4]}.h5'
     def modelDictionary( self ):
         '''

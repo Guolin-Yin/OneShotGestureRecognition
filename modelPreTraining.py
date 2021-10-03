@@ -1,15 +1,114 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Input, Softmax
+from tensorflow.keras.layers import Dense, Input, Softmax,Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras import regularizers
 from Preprocess.gestureDataLoader import *
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
-from MODEL import models
-from t_SNE import *
+from LearningModel.MODEL import models
+# from t_SNE import *
 import os
 import re
+from tensorflow.keras.utils import to_categorical
+
+class FSLtest():
+    def __init__(self,config):
+        self.config = config
+        self.modelObj = models()
+    def _loadModel(self,applyFinetunedModel:bool = True, useWeightMatrix:bool = False):
+        '''
+        This function build for load fine tuned model for testing
+        :returns pre-trained feature extractor and fine tuned classifier
+        '''
+        './models/fine_tuning_signfi/fc_fineTuned_250Cls_labTohome_1_shot_without_Zscore.h5'
+        if applyFinetunedModel:
+            print( f'loading fine tuned model: {self.config.tunedModel_path}' )
+            fine_Tune_model = self.modelObj.buildTuneModel( config = self.config,isTest = True )
+            # fine_Tune_model = self.advObj.buildFeatureExtractor()
+            fine_Tune_model.load_weights(self.config.tunedModel_path)
+            if useWeightMatrix:
+                feature_extractor = fine_Tune_model
+            else:
+                feature_extractor = Model(
+                        inputs = fine_Tune_model.input, outputs = fine_Tune_model.get_layer( 'lambda_layer' ).output
+                        )
+        elif not applyFinetunedModel:
+            print( f'loading original pretrained feature extractor: {self.config.pretrainedfeatureExtractor_path}' )
+            feature_extractor = self.modelObj.buildFeatureExtractor(mode = 'Alexnet')
+            feature_extractor.load_weights(self.config.pretrainedfeatureExtractor_path)
+
+        return feature_extractor
+    def _getOneshotTaskData(self, test_data, test_labels, nway, mode:str = 'cross_val' ):
+        '''
+        This function build for n-way 1 shot task
+        :param test_data: the Data for testing model
+        :param test_labels: corresponding labels
+        :param nway: the number of training classes
+        :param mode: cross validation or fix the support set classes
+        :return: support set : one sample, query set one sample
+        '''
+        signRange = np.arange( int( np.min( test_labels ) ), int( np.max( test_labels ) + 1 ), 1 )
+        # signRange = np.arange( int( 251 ), int( np.max( test_labels ) + 1 ), 1 )
+        selected_Sign = np.random.choice( signRange, size=nway, replace=False )
+        support_set = [ ]
+        query_set = [ ]
+        labels = [ ]
+        for i in selected_Sign:
+            index, _ = np.where( test_labels == i )
+            if mode == 'cross_val':
+                selected_samples = np.random.choice( index, size=self.config.nshots+1, replace=False )
+                n_idx = len(selected_samples)
+                support_set.append( test_data[ selected_samples[ 0:n_idx-1 ] ] )
+                query_set.append( test_data[ selected_samples[ -1 ] ] )
+                labels.append( i )
+            elif mode == 'fix':
+                selected_samples = np.random.choice( index[1:], size=1, replace=False )
+                support_set.append( test_data[ index[ 0 ] ] )
+                query_set.append( test_data[ selected_samples[ 0 ] ] )
+        return np.concatenate( support_set,axis=0 ), query_set
+    def _getNShotsEmbedding( self, feature_extractor, support_set ):
+        N_shotsEmbedding = feature_extractor.predict( np.asarray( support_set ) )
+        cls_idx = np.arange( 0, len( N_shotsEmbedding ), self.config.nshots )
+        embeddings_out = [ ]
+        for i in cls_idx:
+            embeddings_out.append( np.mean( N_shotsEmbedding[ i:i + self.config.nshots ], axis = 0 ) )
+        return np.asarray( embeddings_out )
+    def signTest(self, test_data, test_labels, N_test_sample, embedding_model, mode:str = 'cross_val' ):
+
+        '''
+        This function build for testing the model performance from two ways to 25 ways
+        :param test_data:
+        :param test_labels:
+        :param N_test_sample:
+        :param embedding_model:
+        :param isOneShotTask:
+        :param mode:
+        :return:
+        '''
+        test_acc = [ ]
+        softmax_func = tf.keras.layers.Softmax( )
+        # for nway in np.concatenate((np.arange(2,10),np.arange(10,77,6)),axis=0):
+        for nway in [self.config.N_novel_classes]:
+            print( "Checking %d way accuracy...." % nway )
+            correct_count = 0
+            for i in range( N_test_sample ):
+                support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode = mode)
+                sample_index = random.randint( 0, nway - 1 )
+                if mode == 'fix' and i == 0:
+                    support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
+                elif mode == 'cross_val':
+                    # support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
+                    support_set_embedding = self._getNShotsEmbedding( embedding_model,np.asarray( support_set ) )
+                query_set_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
+                sim = cosine_similarity( support_set_embedding, query_set_embedding )
+                prob = softmax_func( np.squeeze( sim, -1 ) ).numpy()
+                if np.argmax( prob ) == sample_index:
+                    correct_count += 1
+            acc = (correct_count / N_test_sample) * 100.
+            test_acc.append( acc )
+            print( "Accuracy %.2f" % acc )
+        return test_acc
 class PreTrainModel:
     def __init__( self,config):
         self.config = config
@@ -45,34 +144,7 @@ class PreTrainModel:
             x_all = x_all[ idx, :, :, : ]
             y_all = y_all[ idx, : ]
         return [ x_all, y_all ]
-    def _getOneshotTaskData(self, test_data, test_labels, nway, mode:str = 'cross_val' ):
-        '''
-        This function build for n-way 1 shot task
-        :param test_data: the Data for testing model
-        :param test_labels: corresponding labels
-        :param nway: the number of training classes
-        :param mode: cross validation or fix the support set classes
-        :return: support set : one sample, query set one sample
-        '''
-        signRange = np.arange( int( np.min( test_labels ) ), int( np.max( test_labels ) + 1 ), 1 )
-        # signRange = np.arange( int( 251 ), int( np.max( test_labels ) + 1 ), 1 )
-        selected_Sign = np.random.choice( signRange, size=nway, replace=False )
-        support_set = [ ]
-        query_set = [ ]
-        labels = [ ]
-        for i in selected_Sign:
-            index, _ = np.where( test_labels == i )
-            if mode == 'cross_val':
-                selected_samples = np.random.choice( index, size=self.config.nshots+1, replace=False )
-                n_idx = len(selected_samples)
-                support_set.append( test_data[ selected_samples[ 0:n_idx-1 ] ] )
-                query_set.append( test_data[ selected_samples[ -1 ] ] )
-                labels.append( i )
-            elif mode == 'fix':
-                selected_samples = np.random.choice( index[1:], size=1, replace=False )
-                support_set.append( test_data[ index[ 0 ] ] )
-                query_set.append( test_data[ selected_samples[ 0 ] ] )
-        return np.concatenate( support_set,axis=0 ), query_set
+
     def builPretrainModel( self,mode):
         '''
         This function build for create the pretrain model
@@ -86,7 +158,7 @@ class PreTrainModel:
             input = Input( self.config.input_shape, name = 'data input' )
             feature_extractor = self.feature_extractor(input)
             full_connect = Dense(
-                    units = self.config.N_train_classes,
+                    units = self.config.N_base_classes,
                     bias_regularizer = regularizers.l2( 4e-4 ),
                     )( feature_extractor )
             output = Softmax( )( full_connect )
@@ -103,49 +175,7 @@ class PreTrainModel:
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
         return preTrain_model, self.feature_extractor
-    def signTest(self, test_data, test_labels, N_test_sample, embedding_model, mode:str = 'cross_val' ):
-        def _getNShotsEmbedding(feature_extractor,support_set):
-            N_shotsEmbedding = feature_extractor.predict(np.asarray(support_set))
-            cls_idx = np.arange(0,len(N_shotsEmbedding),self.config.nshots)
-            embeddings_out = []
-            for i in cls_idx:
-                embeddings_out.append(np.mean(N_shotsEmbedding[i:i+self.config.nshots],axis = 0))
-            return np.asarray(embeddings_out)
-        '''
-        This function build for testing the model performance from two ways to 25 ways
-        :param test_data:
-        :param test_labels:
-        :param N_test_sample:
-        :param embedding_model:
-        :param isOneShotTask:
-        :param mode:
-        :return:
-        '''
-        nway_min = 2
-        nway_max = 26
-        test_acc = [ ]
-        softmax_func = tf.keras.layers.Softmax( )
-        # for nway in np.concatenate((np.arange(2,10),np.arange(10,77,10)),axis=0):
-        for nway in [70]:
-            print( "Checking %d way accuracy...." % nway )
-            correct_count = 0
-            for i in range( N_test_sample ):
-                support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode = mode)
-                sample_index = random.randint( 0, nway - 1 )
-                if mode == 'fix' and i == 0:
-                    support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
-                elif mode == 'cross_val':
-                    # support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
-                    support_set_embedding = _getNShotsEmbedding( embedding_model,np.asarray( support_set ) )
-                query_set_embedding = embedding_model.predict( np.expand_dims( query_set[ sample_index ], axis=0 ) )
-                sim = cosine_similarity( support_set_embedding, query_set_embedding )
-                prob = softmax_func( np.squeeze( sim, -1 ) ).numpy()
-                if np.argmax( prob ) == sample_index:
-                    correct_count += 1
-            acc = (correct_count / N_test_sample) * 100.
-            test_acc.append( acc )
-            print( "Accuracy %.2f" % acc )
-        return test_acc
+
     # def reshapeData(self, x,mode:str = 'reshape'):
     #     if mode == 'reshape':
     #         x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
@@ -188,7 +218,7 @@ def train_lab(N_train_classes):
     config = getConfig( )
     config.source = 'lab'
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
-    config.N_train_classes = N_train_classes
+    config.N_base_classes = N_train_classes
     config.lr = 3e-4
     # Declare objects
     dataLoadObj = signDataLoader( dataDir = config.train_dir ,config = config,)
@@ -210,15 +240,17 @@ def train_lab(N_train_classes):
             )
     val_acc = history.history[ 'val_acc' ]
     return [preTrain_model, feature_extractor,val_acc,config]
-def test(FE_path,mode,N_train_classes,environment:str):
+def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None):
     config = getConfig( )
     modelObj = models( )
-    config.source = environment
+    config.N_novel_classes = 25
+    config.source = domain
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
-    config.N_train_classes = N_train_classes
-    config.nshots = 5
+    config.N_base_classes = N_train_classes
+    config.nshots = nshots
     # config.lr = 3e-4
     config.pretrainedfeatureExtractor_path = FE_path
+    config.tunedModel_path = FT_path
     # Declare objects
     dataLoadObj = signDataLoader( config = config )
     preTrain_modelObj = PreTrainModel( config = config )
@@ -226,9 +258,17 @@ def test(FE_path,mode,N_train_classes,environment:str):
             source = config.source,
             isZscore = False
             )
-    feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
-    feature_extractor.load_weights(config.pretrainedfeatureExtractor_path )
-    test_acc = preTrain_modelObj.signTest( test_data, test_labels, 100, feature_extractor )
+    if type(config.source) == list:
+        test_data = test_data[ 1250:1500 ]
+        test_labels = test_labels[ 1250:1500 ]
+    # feature_extractor = advObj.buildFeatureExtractor( mode = 'Alexnet' )
+    # feature_extractor.load_weights( config.pretrainedfeatureExtractor_path )
+    # FT_model = advObj.buildTuneModel( mode = 'Alexnet' )
+    # FT_model.load_weights(config.tunedModel_path)
+
+    FSLtestObj = FSLtest( config )
+    feature_extractor = FSLtestObj._loadModel( applyFinetunedModel = True, useWeightMatrix = False )
+    test_acc = FSLtestObj.signTest( test_data, test_labels, 100, feature_extractor )
 
     # predict_lab = feature_extractor.predict( test_data )
     # WidarDataloaderObj = WidarDataloader( 'E:/Cross_dataset/20181109/User1', selection = (2, 2, 3) )
@@ -241,6 +281,14 @@ def test(FE_path,mode,N_train_classes,environment:str):
     # idx = np.where( test_labels == label_range )[ 0 ]
     return test_acc
 if __name__ == '__main__':
+    # acc = RunTest(
+    #         N_train_classes = 200, domain = [ 1, 5, 2, 3, 4], nshots = 1,
+    #         FE_path = './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0'
+    #                   '.95_on_200cls.h5',
+    #         FT_path = './models/Publication_related/Fine_tuning/User_4/signFi_finetuned_model_1_shots_25_ways_user4.h5',
+    #         # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
+    #         )
+    train_lab(200)
     # preTrain_model, feature_extractor = train_lab()
     # config = getConfig( )
     # config.pretrainedfeatureExtractor_path = \
@@ -253,23 +301,30 @@ if __name__ == '__main__':
     #         mode = "Alexnet" )
 
     '''Training'''
-    # [preTrain_model, feature_extractor,val_acc,config] = train_lab(N_train_classes)
+    # [preTrain_model, feature_extractor,val_acc,config] = train_lab(N_base_classes)
     # extractor_path = f'./models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_{np.max(val_acc):.2f}_on' \
-    #                   f'_{config.N_train_classes}cls.h5'
+    #                   f'_{config.N_base_classes}cls.h5'
     # feature_extractor.save_weights( extractor_path )
     '''Testing'''
-    envirs = ['home','lab']
-    all_acc = { }
-    all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
-    for environment in envirs:
-        for i,path in enumerate(all_path):
-            n = re.findall( r'\d+', all_path[ i ] )[2]
-            if int(n) == 200:
-                print( f'{n} in environment {environment}' )
-                extractor_path = './models/pretrained_feature_extractors/' + path
-                acc = test(
-                        FE_path = extractor_path, mode = 'Alexnet', N_train_classes = int( n ),
-                        environment = environment
-                        )
-                all_acc[f'{n}_{environment}'] = np.asarray(acc)
+
+    # envirs = ['home','lab']
+    # for nshots in [1,2,3,4,5]:
+    #     envirs = [ [1,2,3,4,5],
+    #                [2,3,4,5,1],
+    #                [1,3,4,5,2],
+    #                [1,2,4,5,3],
+    #                [1,2,3,5,4]]
+    #     all_acc = { }
+    #     all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
+    #     for environment in envirs:
+    #         for i,path in enumerate(all_path):
+    #             n = re.findall( r'\d+', all_path[ i ] )[2]
+    #             if int(n) == 200:
+    #                 print( f'{n} in environment {environment}' )
+    #                 extractor_path = './models/pretrained_feature_extractors/' + path
+    #                 acc = RunTest(
+    #                         FE_path = extractor_path, mode = 'Alexnet', N_train_classes = int( n ),
+    #                         environment = environment,nshots = nshots
+    #                         )
+    #                 all_acc[f'{n}_user{environment[-1]}_{nshots}_shots'] = np.asarray(acc)
     # savemat('./models/result.mat',all_acc)

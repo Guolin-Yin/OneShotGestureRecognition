@@ -8,40 +8,8 @@ import random
 # from methodTesting.plotResults import pltResults
 
 config = getConfig()
-def plot_barchart():
-    N = 2
-    id = np.arange(N)
-    width = 0.35
-    oneshot_accuracy = [ 70.0, 88.6 ]
-    fiveshot_accuracy = [ 84.4, 98.0 ]
-    plt.bar( id, oneshot_accuracy, width, label = 'one shot results' )
-    plt.bar( id+width, fiveshot_accuracy, width, label = 'five shot results' )
-    plt.ylabel( "Accuracy" )
-    plt.title( "Train model on user 1 to 4, Test model on user 5" )
-    plt.legend()
-    plt.xticks( id + width / 2, ('Without fine tuning', 'With fine tuning') )
-    for index, data in enumerate( oneshot_accuracy ):
-        plt.text( x = index-0.1, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
-
-    for index, data in enumerate( fiveshot_accuracy ):
-        plt.text( x = index+0.3, y = data + 1, s = f"{data}%", fontdict = dict( fontsize = 10 ) )
-    plt.show()
-def pltResults(acc,resultsLabel):
-
-    ax = plt.figure(figsize = (12,10)).gca()
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    for i in range(len(acc)):
-        ax.plot(
-                np.arange( 2, len( acc[ i ] ) + 2 ), acc[ i ], linestyle = 'dashed', marker = 'o',markersize=3,
-                label = resultsLabel[i]
-                )
 
 
-    ax.set_ylim( 0, 102 )
-    # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
-    ax.set_xlabel( 'Number of new classes', fontsize = 28)
-    ax.set_ylabel( 'Accuracy', fontsize = 28 )
-    ax.legend( fontsize=22 )
 def split(x_all,y_all):
     start = np.where( y_all == 254 )[ 0 ]
     # end = start + 25
@@ -171,8 +139,30 @@ def kFactorNreceiver():
     plt.xlabel( ' Power ratio' )
     plt.ylabel( 'Average accuracy')
     plt.ylim( 0,100 )
+
+def pltResults( acc, resultsLabel ):
+
+    ax = plt.figure( figsize = (12, 10) ).gca( )
+    ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
+    markertype = [".","s","o","P","x","d",">"]
+    for i in range( len( acc ) ):
+        ax.plot(
+                np.arange( 2, len( acc[ i ] ) + 2 ),
+                # np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ),np.asarray([76])), axis = 0 ),
+                acc[ i ], linestyle = 'dashed', marker = markertype[i], markersize = 10,
+                label = resultsLabel[ i ]
+                )
+
+    ax.set_ylim( 0, 102 )
+    plt.xticks(fontsize = 28)
+    plt.yticks( fontsize = 28 )
+    # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
+    ax.set_xlabel( 'Number of new classes', fontsize = 28 )
+    ax.set_ylabel( 'Accuracy', fontsize = 28 )
+    ax.legend( fontsize = 22 )
 def record():
     resultsLabel = []
+
     # resultsLabel.append(' Test on lab environment (no fine tuning)')
     # test_on_lab = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0, 99.8, 100.0, 100.0, 99.9,
     #                 100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
@@ -187,47 +177,48 @@ def record():
     # test_on_lab_2_user_1 = [65.5, 52. , 42.5, 35.7, 31.7, 31.3, 25.1, 21.7, 20.5, 17.3, 18.1,
     #    18.2, 16.2, 14.7, 16.4, 12.6, 13. , 10.8, 12.8, 11.9, 10.5,  9.5,
     #     9.5,  9.9]
-    resultsLabel.append( ' Test on lab_2 environment, user 1 (no fine tuning)' )
-    test_on_lab_2_user_5 = [ 89.5, 84.7, 83.6, 79.3, 79.4, 77.7, 75.9, 75.9, 75.2, 72.8, 75.1,
-                             72.1, 70.9, 71.9, 71.7, 69.9, 71., 71.9, 70.7, 71.7, 69.9, 68.8,
-                             69., 69. ]
-    resultsLabel.append( ' Test on lab_2 environment, user 2 (no fine tuning)' )
-    test_on_lab_2_user_2 =[93.4, 89.3, 84.8, 81.8, 78.9, 75.4, 75.5, 74.3, 73.8, 74.7, 73.3,
-       72.4, 70.4, 68.6, 66.9, 68.9, 66.1, 68.5, 65.8, 66.8, 67.2, 69.2,
-       66.2, 66.6]
-    resultsLabel.append( ' Test on lab_2 environment, user 3 (no fine tuning)' )
-    test_on_lab_2_user_3 = [96.3, 93.7, 91.7, 91.4, 88.8, 87.5, 87.8, 86.7, 82.9, 84.5, 83.1,
-       82.4, 84.9, 83.4, 82.5, 81.4, 78.5, 80. , 79.6, 79.6, 76.7, 76.7,
-       78.1, 76.1]
-    resultsLabel.append( ' Test on lab_2 environment, user 4 (no fine tuning)' )
-    test_on_lab_2_user_4 = [ 98.8, 98.9, 98.1, 97.6, 96.7, 96.6, 95.9, 95.6, 95.2, 94.6, 92.1,
-      92.5, 92.2, 92.7, 91., 92.5, 92., 92.2, 91.8, 91.3, 91.5, 90.5,
-      91.1, 91.6 ]
+    '''=======================================FE 200================================================================='''
+    # resultsLabel.append( ' Test on lab_2 environment, user 1 (no fine tuning)' )
+    # test_on_lab_2_user_5 = [ 89.5, 84.7, 83.6, 79.3, 79.4, 77.7, 75.9, 75.9, 75.2, 72.8, 75.1,
+    #                          72.1, 70.9, 71.9, 71.7, 69.9, 71., 71.9, 70.7, 71.7, 69.9, 68.8,
+    #                          69., 69. ]
+    # resultsLabel.append( ' Test on lab_2 environment, user 2 (no fine tuning)' )
+    # test_on_lab_2_user_2 =[93.4, 89.3, 84.8, 81.8, 78.9, 75.4, 75.5, 74.3, 73.8, 74.7, 73.3,
+    #    72.4, 70.4, 68.6, 66.9, 68.9, 66.1, 68.5, 65.8, 66.8, 67.2, 69.2,
+    #    66.2, 66.6]
+    # resultsLabel.append( ' Test on lab_2 environment, user 3 (no fine tuning)' )
+    # test_on_lab_2_user_3 = [96.3, 93.7, 91.7, 91.4, 88.8, 87.5, 87.8, 86.7, 82.9, 84.5, 83.1,
+    #    82.4, 84.9, 83.4, 82.5, 81.4, 78.5, 80. , 79.6, 79.6, 76.7, 76.7,
+    #    78.1, 76.1]
+    # resultsLabel.append( ' Test on lab_2 environment, user 4 (no fine tuning)' )
+    # test_on_lab_2_user_4 = [ 98.8, 98.9, 98.1, 97.6, 96.7, 96.6, 95.9, 95.6, 95.2, 94.6, 92.1,
+    #   92.5, 92.2, 92.7, 91., 92.5, 92., 92.2, 91.8, 91.3, 91.5, 90.5,
+    #   91.1, 91.6 ]
 
     # resultsLabel.append( ' In-domain performance (200 base classes)' )
     # train_with_lab_200cls_76_testcls_26 = [99.8, 99.5, 99.7, 99.1, 98.5, 98. , 98.6, 98.7, 98.3, 97.8, 98.1,
     #    97.2, 98.3, 96.7, 97.4, 95.9, 96.4, 97.1, 96.1, 95.9, 95.3, 95.7,
     #    95.7, 96.1, 96.5]
-    # resultsLabel.append( ' In-domain performance (250 base classes)' )
-    # train_with_lab_250cls_26_testcls_26 = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0, 99.8, 100.0, 100.0, 99.9,
-    #                 100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
-    #
-    # resultsLabel.append( ' In-domain performance (200 base classes)' )
-    # train_with_lab_200cls_26_testcls_26 = [ 99.8, 99.3, 98.7, 98.8, 99.1, 98.7, 98.4, 98.6, 97.7, 98.2, 97.9,
-    #   97.8, 97.6, 97.9, 97.3, 97.5, 97.5, 97.7, 97., 95.7, 98.1, 96.8,
-    #   97.4, 97.5, 96.5 ]
-    # resultsLabel.append( ' In-domain performance (150 base classes)' )
-    # train_with_lab_150cls_26_testcls_26 = [99. , 98.4, 98. , 96.3, 95.5, 96.3, 95.1, 94.3, 94.3, 93.2, 93.5,
-    #    92.9, 92.5, 91.7, 92.3, 91. , 92.6, 92.4, 89.8, 89.9, 89.5, 89.6,
-    #    91.6, 90.9, 88.4]
-    # resultsLabel.append( ' In-domain performance (100 base classes)' )
-    # train_with_lab_100cls_26_testcls_26 = [98.4, 96.6, 95.8, 94.4, 94.3, 93.8, 93. , 92. , 92. , 88.1, 90. ,
-    #    90.2, 89.7, 88.2, 87.9, 85.8, 87.4, 86.8, 87.8, 85.7, 86. , 85.6,
-    #    87.5, 83.4, 86.1]
-    # resultsLabel.append( ' In-domain performance (50 base classes)' )
-    # train_with_lab_50cls_26_testcls_26 = [92.4, 85.9, 81.7, 78. , 74.4, 73.7, 73. , 69.1, 68.3, 66.2, 63. ,
-    #    63.2, 61.6, 58.4, 62.7, 59.8, 57.7, 59.3, 53.6, 56.2, 54.2, 52.7,
-    #    54.8, 52.3, 51.4]
+    resultsLabel.append( ' In-domain performance (250 base classes)' )
+    train_with_lab_250cls_26_testcls_26 = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0, 99.8, 100.0, 100.0, 99.9,
+                    100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
+
+    resultsLabel.append( ' In-domain performance (200 base classes)' )
+    train_with_lab_200cls_26_testcls_26 = [ 99.8, 99.3, 98.7, 98.8, 99.1, 98.7, 98.4, 98.6, 97.7, 98.2, 97.9,
+      97.8, 97.6, 97.9, 97.3, 97.5, 97.5, 97.7, 97., 95.7, 98.1, 96.8,
+      97.4, 97.5, 96.5 ]
+    resultsLabel.append( ' In-domain performance (150 base classes)' )
+    train_with_lab_150cls_26_testcls_26 = [99. , 98.4, 98. , 96.3, 95.5, 96.3, 95.1, 94.3, 94.3, 93.2, 93.5,
+       92.9, 92.5, 91.7, 92.3, 91. , 92.6, 92.4, 89.8, 89.9, 89.5, 89.6,
+       91.6, 90.9, 88.4]
+    resultsLabel.append( ' In-domain performance (100 base classes)' )
+    train_with_lab_100cls_26_testcls_26 = [98.4, 96.6, 95.8, 94.4, 94.3, 93.8, 93. , 92. , 92. , 88.1, 90. ,
+       90.2, 89.7, 88.2, 87.9, 85.8, 87.4, 86.8, 87.8, 85.7, 86. , 85.6,
+       87.5, 83.4, 86.1]
+    resultsLabel.append( ' In-domain performance (50 base classes)' )
+    train_with_lab_50cls_26_testcls_26 = [92.4, 85.9, 81.7, 78. , 74.4, 73.7, 73. , 69.1, 68.3, 66.2, 63. ,
+       63.2, 61.6, 58.4, 62.7, 59.8, 57.7, 59.3, 53.6, 56.2, 54.2, 52.7,
+       54.8, 52.3, 51.4]
     train_with_lab_50cls_26_testcls_26_test_home = [98. , 94.9, 92.6, 92.5, 88.6, 87.2, 86.8, 84.6, 84.7, 83.3, 83.5,
        80.1, 80.9, 79.6, 77.7, 75. , 76.6, 77. , 75.4, 73.2, 72. , 73.6,
        71.4, 73.6, 73. ]
@@ -261,12 +252,12 @@ def record():
                          99.9, 99.9, 99.9, 99.8, 100., 99.8, 99.9 ],
 
             }
-    test_70_cls_FE_200 = {
-            '200_home': [ 93.6, 91.1, 87.4, 82.3, 81.7, 81., 77.1, 76.5, 75.7, 68., 58.7,
-                          56.9, 54.1, 52.7, 47.4 ],
-            '200_lab' : [ 99.9, 99.6, 99.3, 98.7, 98.9, 98.3, 98., 98., 98.2, 95.2, 96.7,
-                          93.5, 93.8, 92.8, 92. ]
-            }
+    # test_70_cls_FE_200 = {
+    #         '200_home': [ 93.6, 91.1, 87.4, 82.3, 81.7, 81., 77.1, 76.5, 75.7, 68., 58.7,
+    #                       56.9, 54.1, 52.7, 47.4, 46.0 ],
+    #         '200_lab' : [ 99.9, 99.6, 99.3, 98.7, 98.9, 98.3, 98., 98., 98.2, 95.2, 96.7,
+    #                       93.5, 93.8, 92.8, 92., 91.0]
+    #         }
 
     test_on_user1_trained_sign = [ 84.6,80.3000,82.699,81.6,79.5,79.9,80.300,
                                    80.4,78.4,82.699,80.300,80.100,78.0,79.4,80.4,78.5,
@@ -287,20 +278,116 @@ def record():
        72. , 74.1, 74.3, 74.6, 71.5, 71.2, 72.3, 72.8, 70.5, 68.5, 70.8,
        73. , 71.5]
 
-    # compare_base_classes = [train_with_lab_250cls_26_testcls_26,train_with_lab_200cls_26_testcls_26,
-    #              train_with_lab_150cls_26_testcls_26,train_with_lab_100cls_26_testcls_26,train_with_lab_50cls_26_testcls_26]
+    compare_base_classes = [train_with_lab_250cls_26_testcls_26,train_with_lab_200cls_26_testcls_26,
+                 train_with_lab_150cls_26_testcls_26,train_with_lab_100cls_26_testcls_26,train_with_lab_50cls_26_testcls_26]
     # compare_environment = [test_on_lab,test_on_home,test_on_home_with_tuning]
-    compare_users = [ test_on_lab_2_user_5, test_on_lab_2_user_2, test_on_lab_2_user_3, test_on_lab_2_user_4,]
-    pltResults( compare_users
+    # compare_users = [ test_on_lab_2_user_5, test_on_lab_2_user_2, test_on_lab_2_user_3, test_on_lab_2_user_4,]
+    # compare_70_cls = [test_70_cls_FE_200['200_lab'],test_70_cls_FE_200['200_home']]
+    # resultsLabel.append('Testing on lab environment')
+    # resultsLabel.append( 'Testing on home environment' )
+    pltResults( compare_base_classes
            ,resultsLabel )
+def plot_barchart(result):
+    width = 0.17
 
+    if result == 'crossDomain':
+        N = 2
+        id = np.arange(N)
+        # oneshot_accuracy = [ 70.0, 88.6 ]
+        # fiveshot_accuracy = [ 84.4, 98.0 ]
+        oneshot_accuracy = [ 92, 46 ]
+        twoshot_accuracy = [ 95, 54]
+        threeshot_accuracy = [96,54]
+        fourshot_accuracy = [99,61]
+        fiveshot_accuracy= [100,62]
+        plt.figure( figsize = (12, 10) )
+        bar1 = plt.bar( id, oneshot_accuracy, width,align='center', alpha=0.4,label = '1-shots' )
+        bar2 = plt.bar( id+width, twoshot_accuracy, width,  alpha=0.4,label = '2-shots' )
+        bar3 = plt.bar( id+2*width, threeshot_accuracy, width, alpha=0.4,label = '3-shots' )
+        bar4 = plt.bar( id+3*width, fourshot_accuracy, width, alpha=0.4,label = '4-shots' )
+        bar5 = plt.bar( id+4*width, fiveshot_accuracy, width, alpha=0.4,label = '5-shots' )
+        plt.ylabel( "Accuracy" ,fontsize = 28)
+        plt.legend(fontsize = 22)
+        plt.yticks(fontsize = 28)
+        plt.xticks( id + 2*width , ('Lab', 'Home') ,fontsize = 28)
+        for rect in bar1 + bar2 + bar3 + bar4 + bar5:
+            height = rect.get_height( )
+            plt.text(
+                    rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom',
+                    fontsize = 17
+                    )
+    if result == 'crossDomainFT':
+        compareFT = [ 46,  ]
+        compareFT1 = [ 70,  ]
+        N = 1
+        id = np.arange( N )
+        plt.figure( figsize = (12, 10) )
+        p = 0.05
+        bar1 = plt.bar( id - p/2, compareFT, p, alpha = 0.4, label = 'without fine tuning')
+        bar2 = plt.bar( id + p/2, compareFT1, p, alpha = 0.4, label = 'with fine tuning' )
+        for rect in bar1+bar2:
+            height = rect.get_height( )
+            plt.text(
+                    rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center',
+                    va = 'bottom',
+                    fontsize = 17
+                    )
+        plt.ylabel( "Accuracy", fontsize = 28 )
+        plt.xlim(-0.1,0.1)
+        plt.legend( fontsize = 22 )
+        plt.yticks( fontsize = 28 )
+        plt.xticks( id  ,
+                (' '),
+                fontsize = 28 )
+    if result == 'crossUser':
+        oneshot_accuracy = [ 69, 66.6, 76.2, 91 ]
+        twoshot_accuracy = [ 77.2, 69.9, 80.9, 91 ]
+        threeshot_accuracy = [ 75.7, 72.6, 82.9, 93.2 ]
+        fourshot_accuracy = [ 77.3, 72.2, 84.4, 92.2 ]
+        fiveshot_accuracy = [ 77.6, 74.6, 85.6, 94 ]
+        plt.figure( figsize = (12, 10) )
+        bar1 = plt.bar( np.arange(len(oneshot_accuracy)), oneshot_accuracy, width,align='center', alpha=0.4,label = '1-shots' )
+        bar2 = plt.bar( np.arange(len(oneshot_accuracy))+width, twoshot_accuracy, width,  alpha=0.4,label = '2-shots' )
+        bar3 = plt.bar( np.arange(len(oneshot_accuracy))+2*width, threeshot_accuracy, width, alpha=0.4,label = '3-shots' )
+        bar4 = plt.bar( np.arange(len(oneshot_accuracy))+3*width, fourshot_accuracy, width, alpha=0.4,label = '4-shots' )
+        bar5 = plt.bar( np.arange(len(oneshot_accuracy))+4*width, fiveshot_accuracy, width, alpha=0.4,label = '5-shots' )
+        plt.ylabel( "Accuracy" ,fontsize = 28)
+        plt.legend(fontsize = 22)
+        plt.ylim(0, 120)
+        plt.yticks( fontsize = 28 )
+        plt.xticks( np.arange(len(oneshot_accuracy)) + 2*width , ('User s1', 'User s2','User s3','User s4') ,fontsize = 28)
 
+        for rect in bar1 + bar2 + bar3 + bar4 + bar5:
+            height = rect.get_height( )
+            plt.text( rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom' ,
+                    fontsize = 14)
+    if result == 'crossUserFT':
+        noFT = [ 69, 66.6, 76.2, 91 ]
+        FT = [ 77,75,91,98 ]
+
+        plt.figure( figsize = (12, 10) )
+        bar1 = plt.bar( np.arange(len(noFT))+1.5*width, noFT, width,align='center', alpha=0.4,label = 'without fine '
+                                                                                                    'tuning' )
+        bar2 = plt.bar( np.arange(len(FT))+2.5*width, FT, width,  alpha=0.4,label = 'with fine tuning' )
+
+        plt.ylabel( "Accuracy" ,fontsize = 28)
+        plt.legend(fontsize = 22)
+        plt.ylim(0, 120)
+        plt.yticks( fontsize = 28 )
+        plt.xticks( np.arange(len(FT)) + 2*width , ('User s1', 'User s2','User s3','User s4') ,
+                fontsize = 28)
+
+        for rect in bar1 + bar2:
+            height = rect.get_height( )
+            plt.text( rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom' ,
+                    fontsize = 14)
+    plt.show()
 if __name__ == '__main__':
     # plot_barchart()
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
     # kFactorNreceiver()
-    # record()
-    pltCrossDomain()
+    record()
+    # plot_barchart(result = 'crossDomain')
 
