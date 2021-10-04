@@ -55,7 +55,6 @@ class DANNtrain( object ):
 
 		self.optimizer = tf.keras.optimizers.Adamax( learning_rate = self.config.lr, beta_1 = 0.95, beta_2 = 0.99,
 				epsilon = 1e-09, name = 'Adamax')
-
 	def build_DANN( self ):
 		# input = Input(shape = config.input_shape)
 		#
@@ -164,7 +163,7 @@ class DANNtrain( object ):
 			# self.val_domain_cls_loss.reset_states( )
 			# self.val_act_cls_acc.reset_states( )
 			# self.val_domain_cls_acc.reset_states( )
-			if val_act_cls_acc >= 0.70:
+			if val_act_cls_loss <= 1:
 				break
 			if val_loss <= best_val_loss or val_act_cls_acc >= best_val_act_cls_acc:
 				self.dannModel.save( os.path.join( self.checkpoint_dir, str + ".h5" ) )
@@ -213,7 +212,7 @@ class DANNtrain( object ):
 					[ batch_act_source_data, batch_act_target_data ],
 					axis = 0
 					)
-			# batch_domain_cls_label = np.concatenate([batch_act_source_labels,batch_act_target_labels],axis = 0 )
+			batch_domain_cls_label = np.concatenate([batch_act_source_labels,batch_act_target_labels],axis = 0 )
 			# update and visualise the trainig
 			iter = (ep - 1) * train_iter_num + i
 			process = iter * 1.0 / (self.config.epoch * train_iter_num)
@@ -223,31 +222,21 @@ class DANNtrain( object ):
 			tf.keras.backend.set_value( self.optimizer.lr, learning_rate )
 			with tf.GradientTape( ) as tape:
 				# calculate the activity classification's output loss and accuracy
-				act_cls_feature = self.featureEncoder( batch_act_source_data, training = True)
+				act_cls_feature = self.featureEncoder( batch_domain_train_data, training = True)
 				act_cls_pred = self.actClsEncoder( act_cls_feature, training = True )
-				act_cls_loss = self.loss( batch_act_source_labels, act_cls_pred )
-				act_cls_acc = self.acc( batch_act_source_labels, act_cls_pred )
-
-				# calculate unlabel data loss
-				U_act_cls_feature = self.featureEncoder( batch_act_target_data, training = True )
-				U_act_cls_pred = self.actClsEncoder( U_act_cls_feature, training = True )
-				U_act_cls_loss = self.loss( U_act_cls_pred, U_act_cls_pred )
+				act_cls_loss = self.loss( batch_domain_cls_label, act_cls_pred )
+				act_cls_acc = self.acc( batch_domain_cls_label, act_cls_pred )
 
 				# calculate the output, loss and accuracy of the domain classifer
 				domain_cls_feature = self.featureEncoder( batch_domain_train_data )
 				domain_cls_pred = self.domainClsEncoder(
 						self.grl(domain_cls_feature,self.grl_lambd),
-						# GradientReversalLayer(
-						# 		# domain_cls_feature,
-						# 		# self.gel_lambd
-						# 		)( domain_cls_feature ),
 						training = True,
 						)
 				domain_cls_loss = self.loss( batch_domain_label, domain_cls_pred )
 				domain_cls_acc = self.acc( batch_domain_label, domain_cls_pred )
 
-				loss = tf.reduce_mean( act_cls_loss ) + tf.reduce_mean( domain_cls_loss ) + tf.reduce_mean(
-						U_act_cls_loss )
+				loss = tf.reduce_mean( act_cls_loss ) + tf.reduce_mean( domain_cls_loss )
 			# Optimasation process
 			vars = tape.watched_variables( )
 			grads = tape.gradient( loss, vars )
@@ -303,6 +292,7 @@ class DANNtrain( object ):
 
 			'''
 		return self.val_loss.result( ), self.val_act_cls_loss.result( ), self.val_domain_cls_loss.result( ), self.val_act_cls_acc.result( ), self.val_domain_cls_acc.result( )
+	# def trainCNN( self ):
 def getAdvData( dataLoadObj,isTraining=True):
 	source = ['lab','home']
 	domain_data = []
@@ -361,29 +351,27 @@ def getAdvDomainData(dataLoadObj,domain:str,iftest = False ):
 	data = np.concatenate( (train_data, test_data), axis = 0 )
 	label = np.concatenate( (train_labels, test_labels), axis = 0 )
 	if domain == 'lab':
-		selected_sign = np.arange( 1, 277 )
+		selected_sign = np.arange( 1, 150 )
 		data, label = getSelectedData([data,label],selected_sign)
 		train_data,train_labels = shuffle_aligned_list([data,label])
 		return [train_data, to_categorical(train_labels - 1,num_classes=276)]
 	elif domain == 'home':
+		# selected_sign = np.arange( 251, 277 )
+		selected_sign = np.random.choice( np.arange( 151, 277 ),126,replace = False )
+		data, label = getSelectedData( [ data, label ], selected_sign )
+		num = int( 0.1 * len( data ) )
 		if not iftest:
-			return [data,to_categorical(label - 1,num_classes= 276)]
-			# selected_sign = np.arange( 201, 277 )
-			# data, label = getSelectedData([data,label],selected_sign)
-			# num = int(0.1*len(data))
-			# train_data = data[0:num]
-			# train_label = label[0:num]
-			# val_data = data[num:len(data)]
-			# val_label = label[num:len(label)]
-			# train_data, train_label = shuffle_aligned_list( [ train_data, train_label ] )
-			# val_data, val_label = shuffle_aligned_list( [ val_data, val_label ] )
-			# return [train_data,to_categorical(train_label - 1,num_classes= 276)],[val_data,to_categorical(val_label - 1,
-			# 		num_classes= 276)]
+			train_data = data[0:num]
+			train_label = label[0:num]
+			train_data, train_label = shuffle_aligned_list( [ train_data, train_label ] )
+			return [train_data,to_categorical(train_label - 1,num_classes= 276)]
 		else:
-			selected_sign = np.arange(  201 ,277)
-			data, label = getSelectedData([data,label],selected_sign)
-			train_data, train_labels = shuffle_aligned_list( [ data, label ] )
-			return [ train_data, to_categorical( train_labels - 1, num_classes = 276 ) ]
+			# selected_sign = np.arange(  251 ,277)
+			# data, label = getSelectedData([data,label],selected_sign)
+			val_data = data[ num:len( data ) ]
+			val_label = label[ num:len( label ) ]
+			val_data, val_label = shuffle_aligned_list( [ val_data, val_label ] )
+			return [ val_data, to_categorical( val_label - 1, num_classes = 276 ) ]
 def train_adv():
 	config = getConfig( )
 	config.lr = 1e-4
@@ -462,8 +450,8 @@ if __name__ == '__main__':
 	val_target_datagen = batch_generator( val_target_domain, config.batch_size )
 	# test_gen = batch_generator(test_domain,config.batch_size)
 	# Training the model
-	train_source_batch_num = int( len( source_domain[0] ) // (config.batch_size // 2) )
-	train_target_batch_num = int( len( target_domain[0] ) // (config.batch_size // 2) )
+	train_source_batch_num = int( len( source_domain[0] ) // (config.batch_size )//2 )
+	train_target_batch_num = int( len( target_domain[0] ) // (config.batch_size)//2 )
 	train_iter_num = int( np.max( [ train_target_batch_num, train_source_batch_num ] ) )
 	val_iter_num = int( len( val_target_domain[0] ) // config.batch_size )
 	# test_iter_num = int( len( test_domain[ 0 ] ) // config.batch_size )

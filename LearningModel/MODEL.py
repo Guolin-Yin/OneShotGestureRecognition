@@ -10,7 +10,7 @@ import tensorflow as tf
 import numpy as np
 config = getConfig()
 def learning_rate_schedule(process,init_learning_rate = 0.01,alpha = 10.0 , beta = 0.75):
-    num = (process//20)
+    num = (process//50)
 
     return init_learning_rate*(0.1)**num
     # return init_learning_rate /(1.0 + alpha * process)**beta
@@ -76,27 +76,27 @@ class AdversarialNetwork():
                         ZeroPadding2D( padding = 2, name = 'Padding_layer_1' ),
                         Conv2D( filters = 256, kernel_size = 5, strides = 1, padding = 'valid', name = 'Conv_2' ),
                         MaxPooling2D( pool_size = 3, strides = 2, name = 'Maxpool_2' ),
-                        # ZeroPadding2D( padding = 1, name = 'Padding_leayer_2' ),
-                        # Conv2D(
-                        #         filters = 384, activation = 'relu', kernel_size = 3, strides = 1, padding = 'valid',
-                        #         name = 'Conv_3'
-                        #         ),
-                        # ZeroPadding2D( padding = 1, name = 'Padding_layer_3' ),
-                        # Conv2D(
-                        #         filters = 384, activation = 'relu', kernel_size = 3, strides = 1, padding = 'valid',
-                        #         name = 'Conv_4'
-                        #         ),
-                        # ZeroPadding2D( padding = 1, name = 'Padding_layer_4' ),
-                        # Conv2D(
-                        #         filters = 256, activation = 'relu', kernel_size = (4, 3), strides = 1,
-                        #         padding = 'valid',
-                        #         name = 'Conv_5'
-                        #         ),
-                        # MaxPooling2D( pool_size = 3, strides = 2, name = 'Maxpool_3' ),
-                        # # Dropout( 0.5 ),
+                        ZeroPadding2D( padding = 1, name = 'Padding_leayer_2' ),
+                        Conv2D(
+                                filters = 384, activation = 'relu', kernel_size = 3, strides = 1, padding = 'valid',
+                                name = 'Conv_3'
+                                ),
+                        ZeroPadding2D( padding = 1, name = 'Padding_layer_3' ),
+                        Conv2D(
+                                filters = 384, activation = 'relu', kernel_size = 3, strides = 1, padding = 'valid',
+                                name = 'Conv_4'
+                                ),
+                        ZeroPadding2D( padding = 1, name = 'Padding_layer_4' ),
+                        Conv2D(
+                                filters = 256, activation = 'relu', kernel_size = (4, 3), strides = 1,
+                                padding = 'valid',
+                                name = 'Conv_5'
+                                ),
+                        MaxPooling2D( pool_size = 3, strides = 2, name = 'Maxpool_3' ),
+                        Dropout( 0.5 ),
                         Flatten( ),
-                        # Dense( units = 4096, name = 'FC_1' ),
-                        Dense( units = 1024, name = 'FC_2' ),
+                        Dense( units = 4096, name = 'FC_1' ),
+                        Dense( units = 4096, name = 'FC_2' ),
                         Lambda( lambda x: K.l2_normalize( x, axis = -1 ), name = 'lambda_layer' )
                         ]
                 )

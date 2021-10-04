@@ -88,8 +88,8 @@ class FSLtest():
         '''
         test_acc = [ ]
         softmax_func = tf.keras.layers.Softmax( )
-        # for nway in np.concatenate((np.arange(2,10),np.arange(10,77,6)),axis=0):
-        for nway in [self.config.N_novel_classes]:
+        for nway in np.concatenate((np.arange(2,10),np.arange(10,77,10)),axis=0):
+        # for nway in [self.config.N_novel_classes]:
             print( "Checking %d way accuracy...." % nway )
             correct_count = 0
             for i in range( N_test_sample ):
@@ -243,7 +243,7 @@ def train_lab(N_train_classes):
 def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None):
     config = getConfig( )
     modelObj = models( )
-    config.N_novel_classes = 25
+    config.N_novel_classes = 76
     config.source = domain
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.N_base_classes = N_train_classes
@@ -281,14 +281,14 @@ def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None):
     # idx = np.where( test_labels == label_range )[ 0 ]
     return test_acc
 if __name__ == '__main__':
-    # acc = RunTest(
-    #         N_train_classes = 200, domain = [ 1, 5, 2, 3, 4], nshots = 1,
-    #         FE_path = './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0'
-    #                   '.95_on_200cls.h5',
-    #         FT_path = './models/Publication_related/Fine_tuning/User_4/signFi_finetuned_model_1_shots_25_ways_user4.h5',
-    #         # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
-    #         )
-    train_lab(200)
+    acc = RunTest(
+            N_train_classes = 200, domain = 'home', nshots = 1,
+            FE_path = './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0'
+                      '.95_on_200cls.h5',
+            FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_76_ways_domain_home',
+            # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
+            )
+    # train_lab(200)
     # preTrain_model, feature_extractor = train_lab()
     # config = getConfig( )
     # config.pretrainedfeatureExtractor_path = \

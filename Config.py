@@ -3,12 +3,11 @@ import tensorflow as tf
 from scipy.io import loadmat
 class getConfig:
     def __init__(self,if_Restore_Samp_idx:bool = False):
-        self.epoch = 1000
-
+        self.epoch =  150
         self.train_dir = None
         self.eval_dir = None
         self.lr = 1e-3
-        self.batch_size = 128
+        self.batch_size = 32
         # To split the dataset into training and testing
         self.N_base_classes = None
         # To define the fine tuning model

@@ -147,7 +147,8 @@ def pltResults( acc, resultsLabel ):
     markertype = [".","s","o","P","x","d",">"]
     for i in range( len( acc ) ):
         ax.plot(
-                np.arange( 2, len( acc[ i ] ) + 2 ),
+                # np.arange( 2, len( acc[ i ] ) + 2 ),
+                [10,20,30,40,50,60,70,76],
                 # np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ),np.asarray([76])), axis = 0 ),
                 acc[ i ], linestyle = 'dashed', marker = markertype[i], markersize = 10,
                 label = resultsLabel[ i ]
@@ -157,7 +158,7 @@ def pltResults( acc, resultsLabel ):
     plt.xticks(fontsize = 28)
     plt.yticks( fontsize = 28 )
     # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
-    ax.set_xlabel( 'Number of new classes', fontsize = 28 )
+    ax.set_xlabel( 'Number of classes', fontsize = 28 )
     ax.set_ylabel( 'Accuracy', fontsize = 28 )
     ax.legend( fontsize = 22 )
 def record():
@@ -285,8 +286,15 @@ def record():
     # compare_70_cls = [test_70_cls_FE_200['200_lab'],test_70_cls_FE_200['200_home']]
     # resultsLabel.append('Testing on lab environment')
     # resultsLabel.append( 'Testing on home environment' )
-    pltResults( compare_base_classes
-           ,resultsLabel )
+    '''200 base classes compare with adversarial network'''
+    adv = []
+    adv.append('Adversarial learning')
+    adv_training = [ 14.1,30,36,42,54.7,59.3,65.3,69.3]
+    adv.append( 'One-shot learning' )
+    one_shot_200 = [88,87,81,75,76,71,72,70]
+    p = [adv_training,one_shot_200]
+    pltResults( p
+           ,adv )
 def plot_barchart(result):
     width = 0.17
 
