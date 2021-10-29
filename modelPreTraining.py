@@ -238,7 +238,7 @@ def train_lab(N_train_classes):
 def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None,applyFinetunedModel=None):
     config = getConfig( )
     # modelObj = models( )
-    config.N_novel_classes = 25
+    config.N_novel_classes = 76
     config.source = domain
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.N_base_classes = N_train_classes
