@@ -9,14 +9,14 @@ from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.utils import to_categorical
 from sklearn.metrics.pairwise import cosine_similarity
 from Config import getConfig
-from MODEL import models
+# from MODEL import models
 import matplotlib.pyplot as plt
 import random
 from scipy.io import savemat,loadmat
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
-from t_SNE import *
+from methodTesting.t_SNE import *
 # from modelPreTraining import PreTrainModel
 class pltConfusionMatrix():
     def __init__( self ):
@@ -26,13 +26,13 @@ class pltConfusionMatrix():
             group_names = None,
             categories = 'auto',
             count = True,
-            percent = True,
+            percent = False,
             cbar = True,
             xyticks = True,
             xyplotlabels = True,
             sum_stats = True,
             figsize = None,
-            cmap = 'Blues',
+            cmap = 'Oranges',
             title = None
             ):
         '''
@@ -91,7 +91,8 @@ class pltConfusionMatrix():
                         accuracy, precision, recall, f1_score
                         )
             else:
-                stats_text = "\n\nAccuracy={:0.3f}".format( accuracy )
+                # stats_text = "\n\nAccuracy={:0.3f}".format( accuracy )
+                stats_text = ""
         else:
             stats_text = ""
 
@@ -108,26 +109,26 @@ class pltConfusionMatrix():
         plt.figure( figsize = figsize )
         g = sns.heatmap(
                 cf, annot = box_labels, fmt = "", cmap = cmap, cbar = cbar, xticklabels = categories,
-                yticklabels = categories
+                yticklabels = categories,annot_kws={"size": 18},
                 )
-        g.set_yticklabels( g.get_yticklabels( ), rotation = 45, fontsize = 12 )
-        g.set_xticklabels( g.get_xticklabels( ), rotation = 0, fontsize = 12 )
+        g.set_yticklabels( g.get_yticklabels( ), rotation = 45, fontsize = 22 )
+        g.set_xticklabels( g.get_xticklabels( ), rotation = 0, fontsize = 22 )
         if xyplotlabels:
-            plt.ylabel( 'True label',fontsize=15  )
-            plt.xlabel( 'Predicted label' + stats_text ,fontsize=15 )
+            plt.ylabel( 'True label',fontsize=22  )
+            plt.xlabel( 'Predicted label' + stats_text ,fontsize=22 )
         else:
-            plt.xlabel( stats_text,fontsize=15 )
+            plt.xlabel( stats_text,fontsize=22 )
 
-        if title:
-            plt.title( title,fontsize = 20 )
+        # if title:
+        #     plt.title( title,fontsize = 20 )
     def pltCFMatrix( self,y,y_pred,figsize,title ):
         cf_matrix = confusion_matrix(y,y_pred)
-        categories = [ 'Push&Pull',
+        categories = [ 'P&P',
                      'Sweep',
                      'Clap',
-                     'Draw-O(Vertical)',
-                     'Draw-Zigzag(Vertical)',
-                     'Draw-N(Vertical)']
+                     'O',
+                     'Zigzag',
+                     'N']
         self.make_confusion_matrix(cf_matrix,categories = categories,figsize = figsize,title=title)
 class fineTuningSignFi:
     def __init__( self,config, isZscore = False, isiheritance = False ):
@@ -525,7 +526,7 @@ class fineTuningWidar(fineTuningSignFi ):
                 )
         print(f'check for {self.nshots} shots '
               f'accuracy......................................................................')
-        N_test_sample = 1200
+        N_test_sample = 600
         correct_count = 0
         test_acc = [ ]
         y_true = []
@@ -630,15 +631,15 @@ def evaluation( domain_selection,nshots ):
     config.getSampleIdx( )
     config.train_dir = 'E:/Sensing_project/Cross_dataset/20181109/User1'
     # config.tunedModel_path = f'./models/fine_tuning_widar/widar_fineTuned_model_20181109_1shots_test_domain_(2, 2, 3).h5'
-    config.tunedModel_path = './models/Publication_related/widar_fineTuned_model_20181109_2shots__domain(2, 2, 3)_.h5'
+    config.tunedModel_path = './models/Publication_related/widar_fineTuned_model_20181109_5shots_domain(2, 2, 3)_0.88.h5'
     config.record = loadmat(config.matPath)['record']
     config.domain_selection = domain_selection
     config.N_novel_classes = 6
     fineTuneModelEvalObj = fineTuningWidar( config = config, isMultiDomain = False )
-    test_acc,[y_true,y_pred],label_true = fineTuneModelEvalObj.test(applyFinetunedModel =False)
+    test_acc,[y_true,y_pred],label_true = fineTuneModelEvalObj.test(applyFinetunedModel =True)
     plt_cf = pltConfusionMatrix( )
     plt_cf.pltCFMatrix(
-            y = label_true, y_pred = y_pred, figsize = (18, 15), title = f'{config.nshots}_shots '
+            y = label_true, y_pred = y_pred, figsize = (12, 10), title = f'{config.nshots}_shots '
                                                                          f'domain_{domain_selection}'
                                                                          f'with_fine_'
                                                                          f'tuning_results'
@@ -685,26 +686,24 @@ def compareDomain():
     class_t_sne( pred_223, label_223,perplexity = 40, n_iter = 3000 )
 def tuningSignFi():
     config = getConfig( )
-    config.source = [1,5,2,3,4]
+    config.source = [1,2,5,4,3]
     config.nshots = 1
     config.N_novel_classes = 25
     config.N_base_classes = 125
-    config.lr = 4e-4
+    # config.lr = 4e-4
+    # config.lr = 1e-3
+    # user 1 - 0.7e-3, 2,3 - 0.65e-3, 4 -
+    config.lr = 0.65e-3
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.tunedModel_path = f'./models/Publication_related/signFi_finetuned_model_{config.nshots}_shots_' \
-                             f'{config.N_novel_classes}_ways_' \
-                             f'user{config.source[-1]}.h5'
-    config.pretrainedfeatureExtractor_path = \
-        './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0' \
-        '.95_on_200cls.h5'
-
+                             f'{config.N_novel_classes}_ways_256_1280.h5'
+    # config.pretrainedfeatureExtractor_path = \
+    #     './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0' \
+    #     '.95_on_200cls.h5'
+    config.pretrainedfeatureExtractor_path = 'a.h5'
     tuningSignFiObj = fineTuningSignFi(config,isZscore = False)
     fine_Tune_model = tuningSignFiObj.tuning(init_bias = False)
     return fine_Tune_model
-
-    # acc_all = tuningSignFiObj.test(nway = None, applyFinetunedModel = False)
-
-    # return acc_all
 def testingSignFi(path,mode,N_train_classes,environment:str):
     # config = getConfig( )
     # config.nshots = 1
@@ -743,7 +742,7 @@ def testingSignFi(path,mode,N_train_classes,environment:str):
     return test_acc
 if __name__ == '__main__':
     fine_Tune_model = tuningSignFi()
-    # fine_Tune_model.save_weights( config.tunedModel_path )
+    fine_Tune_model.save_weights( 'a_tuned_signFi_user_3.h5')
     # config = getConfig( )
     # acc_record = searchBestSample(config)
     '''Testing with specific domain selection'''

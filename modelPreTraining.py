@@ -39,7 +39,7 @@ class FSLtest():
             feature_extractor.load_weights(self.config.pretrainedfeatureExtractor_path)
 
         return feature_extractor
-    def _getOneshotTaskData(self, test_data, test_labels, nway, mode:str = 'cross_val' ):
+    def _getOneshotTaskData(self, test_data, test_labels, nway,kshots, mode:str = 'cross_val' ):
         '''
         This function build for n-way 1 shot task
         :param test_data: the Data for testing model
@@ -57,7 +57,7 @@ class FSLtest():
         for i in selected_Sign:
             index, _ = np.where( test_labels == i )
             if mode == 'cross_val':
-                selected_samples = np.random.choice( index, size=self.config.nshots+1, replace=False )
+                selected_samples = np.random.choice( index, size=kshots+1, replace=False )
                 n_idx = len(selected_samples)
                 support_set.append( test_data[ selected_samples[ 0:n_idx-1 ] ] )
                 query_set.append( test_data[ selected_samples[ -1 ] ] )
@@ -88,12 +88,17 @@ class FSLtest():
         '''
         test_acc = [ ]
         softmax_func = tf.keras.layers.Softmax( )
-        for nway in np.concatenate((np.arange(2,10),np.arange(10,77,10)),axis=0):
-        # for nway in [self.config.N_novel_classes]:
+        # for nway in np.concatenate((np.arange(2,10),np.arange(10,77,10),np.asarray([76])),axis=0):
+        # for nway in np.arange(2,26,1):
+        for nway in [25]:
             print( "Checking %d way accuracy...." % nway )
             correct_count = 0
             for i in range( N_test_sample ):
-                support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode = mode)
+                # support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway=nway, mode = mode)
+                support_set, query_set = self._getOneshotTaskData( test_data, test_labels, nway = nway,
+                        kshots=self.config.nshots, mode = mode )
+                # _, query_set = self._getOneshotTaskData( test_data[1], test_labels[1], nway = nway,
+                #         kshots=1, mode = mode )
                 sample_index = random.randint( 0, nway - 1 )
                 if mode == 'fix' and i == 0:
                     support_set_embedding = embedding_model.predict( np.asarray( support_set ) )
@@ -144,7 +149,6 @@ class PreTrainModel:
             x_all = x_all[ idx, :, :, : ]
             y_all = y_all[ idx, : ]
         return [ x_all, y_all ]
-
     def builPretrainModel( self,mode):
         '''
         This function build for create the pretrain model
@@ -175,16 +179,6 @@ class PreTrainModel:
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
         return preTrain_model, self.feature_extractor
-
-    # def reshapeData(self, x,mode:str = 'reshape'):
-    #     if mode == 'reshape':
-    #         x = x.reshape( np.shape( x )[ 0 ], x.shape[ 2 ], x.shape[ 1 ] )
-    #         return x
-    #     if mode == 'transpose':
-    #         out = np.zeros((x.shape[0],x.shape[2],x.shape[1]))
-    #         for i in range(x.shape[0]):
-    #             out[i,:,:] = x[i,:,:].transpose()
-    #         return out
     def scheduler(self, epoch, lr):
         if epoch > 100:
             return lr * tf.math.exp(-0.1)
@@ -221,11 +215,11 @@ def train_lab(N_train_classes):
     config.N_base_classes = N_train_classes
     config.lr = 3e-4
     # Declare objects
-    dataLoadObj = signDataLoader( dataDir = config.train_dir ,config = config,)
+    dataLoadObj = signDataLoader( dataDir = config.train_dir,config = config,)
     preTrain_modelObj = PreTrainModel( config = config )
     # Training params
     lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
-    earlyStop = tf.keras.callbacks.EarlyStopping( monitor = 'val_loss', patience = 20, restore_best_weights = True )
+    earlyStop = tf.keras.callbacks.EarlyStopping( monitor = 'val_acc', patience = 20, restore_best_weights = True )
     # Sign recognition
     train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
             source = config.source,
@@ -234,16 +228,17 @@ def train_lab(N_train_classes):
     train_labels = to_categorical( train_labels - 1, num_classes = int( np.max( train_labels ) ) )
     preTrain_model, feature_extractor = preTrain_modelObj.builPretrainModel( mode = 'Alexnet' )
     history = preTrain_model.fit(
-            train_data, train_labels, validation_split = 0.05,
+            train_data, train_labels,
+            validation_split = 0.05,
             epochs = 1000,
             callbacks = [ earlyStop, lrScheduler ]
             )
     val_acc = history.history[ 'val_acc' ]
     return [preTrain_model, feature_extractor,val_acc,config]
-def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None):
+def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None,applyFinetunedModel=None):
     config = getConfig( )
-    modelObj = models( )
-    config.N_novel_classes = 76
+    # modelObj = models( )
+    config.N_novel_classes = 25
     config.source = domain
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.N_base_classes = N_train_classes
@@ -253,78 +248,39 @@ def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None):
     config.tunedModel_path = FT_path
     # Declare objects
     dataLoadObj = signDataLoader( config = config )
-    preTrain_modelObj = PreTrainModel( config = config )
-    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
+    # preTrain_modelObj = PreTrainModel( config = config )
+    # _, _, test_data, test_labels = dataLoadObj.getFormatedData(
+    #         source = config.source,
+    #         isZscore = False
+    #         )
+    # test_data = []
+    # test_labels = []
+    _, _, test_data, test_labels = dataLoadObj.getFormatedData(
             source = config.source,
             isZscore = False
             )
     if type(config.source) == list:
         test_data = test_data[ 1250:1500 ]
         test_labels = test_labels[ 1250:1500 ]
-    # feature_extractor = advObj.buildFeatureExtractor( mode = 'Alexnet' )
-    # feature_extractor.load_weights( config.pretrainedfeatureExtractor_path )
-    # FT_model = advObj.buildTuneModel( mode = 'Alexnet' )
-    # FT_model.load_weights(config.tunedModel_path)
-
     FSLtestObj = FSLtest( config )
-    feature_extractor = FSLtestObj._loadModel( applyFinetunedModel = True, useWeightMatrix = False )
-    test_acc = FSLtestObj.signTest( test_data, test_labels, 100, feature_extractor )
-
-    # predict_lab = feature_extractor.predict( test_data )
-    # WidarDataloaderObj = WidarDataloader( 'E:/Cross_dataset/20181109/User1', selection = (2, 2, 3) )
-    # data_widar = WidarDataloaderObj.getSQDataForTest( 1, mode = 'fix' )[ 'Val_data' ]
-    # label_widar = WidarDataloaderObj.getSQDataForTest( 1, mode = 'fix' )[ 'Val_label' ]
-    # predict_widar =  feature_extractor.predict(data_widar)
-    # domain_t_sne( ( predict_lab,predict_home,predict_widar), perplexity = 7, n_iter = 2000 )
-    # class_t_sne(predict_widar.reshape(len(predict_widar),-1),label_widar, perplexity = 7, n_iter = 2000)
-    # label_range = [ 251, 261, 256, 270, 271 ]
-    # idx = np.where( test_labels == label_range )[ 0 ]
+    feature_extractor = FSLtestObj._loadModel( applyFinetunedModel = applyFinetunedModel, useWeightMatrix = False )
+    test_acc = FSLtestObj.signTest( test_data, test_labels, 1000, feature_extractor )
     return test_acc
 if __name__ == '__main__':
+    '''Feature Extractor pre-Training'''
+    N_base_classes = 200
+    [ preTrain_model, feature_extractor, val_acc, config ] = train_lab( N_base_classes )
+    extractor_path = f'./models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_{np.max(val_acc):.2f}_on' \
+                      f'_{config.N_base_classes}cls_256_1280_units.h5'
+    # feature_extractor.save_weights( extractor_path )
+    extractor_path = 'a.h5'
+    feature_extractor.save('a.h5')
+    '''Testing'''
     acc = RunTest(
-            N_train_classes = 200, domain = 'home', nshots = 1,
-            FE_path = './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0'
-                      '.95_on_200cls.h5',
-            FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_76_ways_domain_home',
+            N_train_classes = 200, domain = 'lab', nshots = 1,
+            FE_path = 'a.h5',
+            FT_path = 'a_tuned_signFi_user_2.h5',
+            applyFinetunedModel = False
             # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
             )
-    # train_lab(200)
-    # preTrain_model, feature_extractor = train_lab()
-    # config = getConfig( )
-    # config.pretrainedfeatureExtractor_path = \
-    #     f'./models/feature_extractor_weight_Alexnet_lab_250cls_val_acc_0.996_no_zscore.h5'
-    # feature_extractor.save_weights( config.pretrainedfeatureExtractor_path )
-    # test_acc = test('./models/Using_CSI_ratio_model/feature_extractor_weight_Alexnet_lab_250cls_val_acc_0.92_CSIRatio'
-    #                 '.h5',mode = "Alexnet3")
 
-    # test_acc_2 = test( './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5',
-    #         mode = "Alexnet" )
-
-    '''Training'''
-    # [preTrain_model, feature_extractor,val_acc,config] = train_lab(N_base_classes)
-    # extractor_path = f'./models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_{np.max(val_acc):.2f}_on' \
-    #                   f'_{config.N_base_classes}cls.h5'
-    # feature_extractor.save_weights( extractor_path )
-    '''Testing'''
-
-    # envirs = ['home','lab']
-    # for nshots in [1,2,3,4,5]:
-    #     envirs = [ [1,2,3,4,5],
-    #                [2,3,4,5,1],
-    #                [1,3,4,5,2],
-    #                [1,2,4,5,3],
-    #                [1,2,3,5,4]]
-    #     all_acc = { }
-    #     all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
-    #     for environment in envirs:
-    #         for i,path in enumerate(all_path):
-    #             n = re.findall( r'\d+', all_path[ i ] )[2]
-    #             if int(n) == 200:
-    #                 print( f'{n} in environment {environment}' )
-    #                 extractor_path = './models/pretrained_feature_extractors/' + path
-    #                 acc = RunTest(
-    #                         FE_path = extractor_path, mode = 'Alexnet', N_train_classes = int( n ),
-    #                         environment = environment,nshots = nshots
-    #                         )
-    #                 all_acc[f'{n}_user{environment[-1]}_{nshots}_shots'] = np.asarray(acc)
-    # savemat('./models/result.mat',all_acc)

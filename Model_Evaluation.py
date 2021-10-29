@@ -79,7 +79,9 @@ def pltWidar():
     widar = [0.518,0.693,0.834,0.852,0.906]
     # labToHome = [0.894,0.918,0.934,0.935,0.961,0.98,0.983]
     # HomeToLab = [ 0.611, 0.734, 0.814, 0.888, 0.904, 0.955, 0.968]
-    ax = plt.figure().gca()
+    ax = plt.figure(figsize = (12, 10)).gca()
+    plt.xticks(fontsize = 28)
+    plt.yticks( fontsize = 28 )
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     # a1 = np.arange(1,8)
     # a2 = np.arange( 1, 11 )
@@ -89,12 +91,12 @@ def pltWidar():
     #         a1, HomeToLab, linestyle = 'dashed', marker = 'o',
     #         label = 'Cross Domain on SignFi dataset (source: Home, Target: lab)'
     #         )
-    ax.plot( a3, widar,linestyle='dashed', marker='o', label = 'Test on Widar dataset (With fine tuning)' )
-    ax.plot( a3, widarNoTuning,linestyle='dashed', marker='o', label = 'Test on Widar dataset (Without fine tuning)' )
-    ax.legend( )
-    ax.set_xlabel( 'Number of shots' )
-    ax.set_title( 'Cross Domain performance' )
-    ax.set_ylabel( 'Accuracy' )
+    ax.plot( a3, widar,linestyle='dashed', marker='o', label = 'With fine tuning' )
+    ax.plot( a3, widarNoTuning,linestyle='dashed', marker='o', label = 'Without fine tuning' )
+    ax.legend( fontsize = 22 )
+    ax.set_xlabel( 'Number of shots' ,fontsize = 28 )
+    # ax.set_title( 'Cross Domain performance' )
+    ax.set_ylabel( 'Accuracy',fontsize = 28  )
 def compareWidar():
     domain_611 = [0.496,0.677,0.815,0.862,0.891,0.873,0.873]
     domain_711 = [0.456,0.649,0.732,0.854,0.862,0.873,0.826]
@@ -139,8 +141,7 @@ def kFactorNreceiver():
     plt.xlabel( ' Power ratio' )
     plt.ylabel( 'Average accuracy')
     plt.ylim( 0,100 )
-
-def pltResults( acc, resultsLabel ):
+def pltResults( acc, resultsLabel,axis ):
 
     ax = plt.figure( figsize = (12, 10) ).gca( )
     ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
@@ -148,9 +149,10 @@ def pltResults( acc, resultsLabel ):
     for i in range( len( acc ) ):
         ax.plot(
                 # np.arange( 2, len( acc[ i ] ) + 2 ),
-                [10,20,30,40,50,60,70,76],
+                # [10,20,30,40,50,60,70,76],
+                axis,
                 # np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ),np.asarray([76])), axis = 0 ),
-                acc[ i ], linestyle = 'dashed', marker = markertype[i], markersize = 10,
+                acc[ i ], linestyle = 'dashed', marker = markertype[i], markersize = 15,
                 label = resultsLabel[ i ]
                 )
 
@@ -200,6 +202,7 @@ def record():
     # train_with_lab_200cls_76_testcls_26 = [99.8, 99.5, 99.7, 99.1, 98.5, 98. , 98.6, 98.7, 98.3, 97.8, 98.1,
     #    97.2, 98.3, 96.7, 97.4, 95.9, 96.4, 97.1, 96.1, 95.9, 95.3, 95.7,
     #    95.7, 96.1, 96.5]
+    '''COMPARE BASE CLASSES'''
     resultsLabel.append( ' In-domain performance (250 base classes)' )
     train_with_lab_250cls_26_testcls_26 = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0, 99.8, 100.0, 100.0, 99.9,
                     100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
@@ -220,6 +223,7 @@ def record():
     train_with_lab_50cls_26_testcls_26 = [92.4, 85.9, 81.7, 78. , 74.4, 73.7, 73. , 69.1, 68.3, 66.2, 63. ,
        63.2, 61.6, 58.4, 62.7, 59.8, 57.7, 59.3, 53.6, 56.2, 54.2, 52.7,
        54.8, 52.3, 51.4]
+
     train_with_lab_50cls_26_testcls_26_test_home = [98. , 94.9, 92.6, 92.5, 88.6, 87.2, 86.8, 84.6, 84.7, 83.3, 83.5,
        80.1, 80.9, 79.6, 77.7, 75. , 76.6, 77. , 75.4, 73.2, 72. , 73.6,
        71.4, 73.6, 73. ]
@@ -235,6 +239,7 @@ def record():
     train_with_lab_250cls_26_testcls_26_test_home = [ 99.1, 99.2, 97.6, 96.5, 97.1, 96.8, 95.9, 95.2, 94.7, 93.5, 93.2,
       92.9, 90.1, 91.8, 91.2, 90.4, 92., 88., 91.2, 86.9, 90., 85.3,
       83.7, 88.3, 87.3 ]
+    '''=============================================================================================================='''
     in_domain_test = {
             '50_lab': [ 91.3, 86.6, 80.6, 78.9, 73.6, 72.2, 70.7, 71., 67.6, 67., 65.,
                         62.8, 61.8, 58.7, 57.6, 59., 57.9, 55., 56.1, 56.1, 53.7, 53.3,
@@ -253,13 +258,17 @@ def record():
                          99.9, 99.9, 99.9, 99.8, 100., 99.8, 99.9 ],
 
             }
-    # test_70_cls_FE_200 = {
-    #         '200_home': [ 93.6, 91.1, 87.4, 82.3, 81.7, 81., 77.1, 76.5, 75.7, 68., 58.7,
-    #                       56.9, 54.1, 52.7, 47.4, 46.0 ],
-    #         '200_lab' : [ 99.9, 99.6, 99.3, 98.7, 98.9, 98.3, 98., 98., 98.2, 95.2, 96.7,
-    #                       93.5, 93.8, 92.8, 92., 91.0]
-    #         }
-
+    '''==============================================='''
+    test_70_cls_FE_200 = {
+            '200_home': [ 93.6, 91.1, 87.4, 82.3, 81.7, 81., 77.1, 76.5, 75.7, 68., 58.7,
+                          56.9, 54.1, 52.7, 47.4, 46.0 ],
+            '200_lab' : [ 99.9, 99.6, 99.3, 98.7, 98.9, 98.3, 98., 98., 98.2, 95.2, 96.7,
+                          93.5, 93.8, 92.8, 92., 91.0]
+            }
+    test_76_cls_FE_200_256_1280_lab = [99.9,99.8,99.8,98.7,98.8,98.7,98.5,97.8,97.8,96.8,95.4,95.8,95.,93.3,92.3,91.7]
+    test_76_cls_FE_200_256_1280_home = [95.2,93.4,88.7,87.8,86.1,84.7,82.5,81.8,80.2,72.5,63.7,64.5,61.3,59.1,
+                                         60.9,57.9]
+    '''==============================================='''
     test_on_user1_trained_sign = [ 84.6,80.3000,82.699,81.6,79.5,79.9,80.300,
                                    80.4,78.4,82.699,80.300,80.100,78.0,79.4,80.4,78.5,
                                    77.5,79.80,77.8,77.3,78.7,79.1,78.6,78.8,80.0 ]
@@ -293,11 +302,55 @@ def record():
     adv.append( 'One-shot learning' )
     one_shot_200 = [88,87,81,75,76,71,72,70]
     p = [adv_training,one_shot_200]
-    pltResults( p
-           ,adv )
+    pltResults( [test_76_cls_FE_200_256_1280_home]
+           ,['Test in home environment (cross-domain)'] )
 def plot_barchart(result):
     width = 0.17
+    if result == 'widar':
+        N = 5
+        id = np.arange( N )
+        widarNoTuning = np.asarray( [0.356, 0.388, 0.396, 0.396, 0.426] ) * 100
+        widar = np.asarray([ 0.518, 0.693, 0.834, 0.852, 0.906 ]) * 100
+        plt.figure( figsize = (12, 10) )
+        bar1 = plt.bar(
+                np.arange( len( widarNoTuning ) ) + 1.5 * width, widarNoTuning, width, align = 'center', alpha = 0.4,
+                label = 'without fine '
+                        'tuning'
+                )
+        bar2 = plt.bar( np.arange( len( widar ) ) + 2.5 * width, widar, width, alpha = 0.4, label = 'with fine tuning' )
 
+        plt.ylabel( "Accuracy", fontsize = 28 )
+        plt.legend( fontsize = 22 )
+        plt.ylim( 0, 120 )
+        plt.yticks( fontsize = 28 )
+        plt.xticks(
+                np.arange( len( widar ) ) + 2 * width, ('One-shot', 'Two-shot', 'Three-shot', 'Four-shot','Five-shot'),
+                fontsize = 26
+                )
+    if result == 'C_adv':
+        N = 1
+        id = np.arange( N )
+        adv = [4]
+        # cnn = [70,0.1]
+        oneshot = [46]
+        oneshot_FT = [70.9,]
+        plt.figure( figsize = (12, 10) )
+        p = 0.05
+        bar1 = plt.bar( id - p, adv, p, align = 'center', alpha = 0.4, label = 'Adversarial Learning' )
+        bar2 = plt.bar( id , oneshot, p, alpha = 0.4, label = 'OSL ' )
+        bar3 = plt.bar( id + p, oneshot_FT, p, alpha = 0.4, label = 'OSL with fine tuning' )
+        plt.ylabel( "Accuracy", fontsize = 28 )
+        plt.legend( fontsize = 22, loc = 'upper left' )
+        plt.yticks( fontsize = 28 )
+        plt.xticks( id + 2 * p, (' '),
+                fontsize = 28 )
+        plt.ylim( 0, 120 )
+        # for rect in bar1 + bar2 + bar3:
+        #     height = rect.get_height( )
+        #     plt.text(
+        #             rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom',
+        #             fontsize = 17
+        #             )
     if result == 'crossDomain':
         N = 2
         id = np.arange(N)
@@ -318,12 +371,13 @@ def plot_barchart(result):
         plt.legend(fontsize = 22)
         plt.yticks(fontsize = 28)
         plt.xticks( id + 2*width , ('Lab', 'Home') ,fontsize = 28)
-        for rect in bar1 + bar2 + bar3 + bar4 + bar5:
-            height = rect.get_height( )
-            plt.text(
-                    rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom',
-                    fontsize = 17
-                    )
+        plt.ylim( 0, 120 )
+        # for rect in bar1 + bar2 + bar3 + bar4 + bar5:
+        #     height = rect.get_height( )
+        #     plt.text(
+        #             rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom',
+        #             fontsize = 17
+        #             )
     if result == 'crossDomainFT':
         compareFT = [ 46,  ]
         compareFT1 = [ 70,  ]
@@ -333,13 +387,14 @@ def plot_barchart(result):
         p = 0.05
         bar1 = plt.bar( id - p/2, compareFT, p, alpha = 0.4, label = 'without fine tuning')
         bar2 = plt.bar( id + p/2, compareFT1, p, alpha = 0.4, label = 'with fine tuning' )
-        for rect in bar1+bar2:
-            height = rect.get_height( )
-            plt.text(
-                    rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center',
-                    va = 'bottom',
-                    fontsize = 17
-                    )
+        plt.ylim( 0, 120 )
+        # for rect in bar1+bar2:
+        #     height = rect.get_height( )
+        #     plt.text(
+        #             rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center',
+        #             va = 'bottom',
+        #             fontsize = 17
+        #             )
         plt.ylabel( "Accuracy", fontsize = 28 )
         plt.xlim(-0.1,0.1)
         plt.legend( fontsize = 22 )
@@ -365,10 +420,10 @@ def plot_barchart(result):
         plt.yticks( fontsize = 28 )
         plt.xticks( np.arange(len(oneshot_accuracy)) + 2*width , ('User s1', 'User s2','User s3','User s4') ,fontsize = 28)
 
-        for rect in bar1 + bar2 + bar3 + bar4 + bar5:
-            height = rect.get_height( )
-            plt.text( rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom' ,
-                    fontsize = 14)
+        # for rect in bar1 + bar2 + bar3 + bar4 + bar5:
+        #     height = rect.get_height( )
+        #     plt.text( rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom' ,
+        #             fontsize = 14)
     if result == 'crossUserFT':
         noFT = [ 69, 66.6, 76.2, 91 ]
         FT = [ 77,75,91,98 ]
@@ -384,18 +439,168 @@ def plot_barchart(result):
         plt.yticks( fontsize = 28 )
         plt.xticks( np.arange(len(FT)) + 2*width , ('User s1', 'User s2','User s3','User s4') ,
                 fontsize = 28)
-
-        for rect in bar1 + bar2:
-            height = rect.get_height( )
-            plt.text( rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom' ,
-                    fontsize = 14)
+        plt.ylim( 0, 120 )
+        # for rect in bar1 + bar2:
+        #     height = rect.get_height( )
+        #     plt.text( rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom' ,
+        #             fontsize = 14)
     plt.show()
+
+def recordNew(result):
+    if result == 'crossUser':
+        resultsLabel = []
+        resultsLabel.append( ' Test on lab_2 environment, user 1 (no fine tuning)' )
+        test_on_lab_2_user_1 = [ 95.6, 93.2, 89., 87.2, 83.6, 85.4, 83.6, 78.8, 80.2, 79.2, 79.2, 75.8, 72.8, 79.,
+                                 76.4, 76.4, 72.2, 75.6, 74.8, 79.4, 74.2, 72., 73.4, 72. ]
+        resultsLabel.append( ' Test on lab_2 environment, user 2 (no fine tuning)' )
+        test_on_lab_2_user_2 = [ 94., 91., 86.5, 86.6, 83.5, 82., 79.2, 78.5, 77.7, 73.8, 73.4,
+                                 74.3, 74.2, 72.4, 73.1, 73.1, 71.2, 75., 71.6, 66.1, 68.5, 70.3,
+                                 69.4, 70. ]
+        resultsLabel.append( ' Test on lab_2 environment, user 3 (no fine tuning)' )
+        test_on_lab_2_user_3 = [ 97.1, 95.5, 92.6, 91.4, 90.1, 88., 88.3, 88.6, 86.3, 84.9, 86.2,
+                                 85.9, 83.1, 85.5, 81.5, 84.5, 80.7, 82.1, 84.6, 79., 81.2, 81.3,
+                                 77.1, 80.4 ]
+        resultsLabel.append( ' Test on lab_2 environment, user 4 (no fine tuning)' )
+        test_on_lab_2_user_4 = [ 99.5, 99.1, 98.8, 98.1, 97.3, 96.2, 96.3, 96.6, 96., 95.2, 95.9,
+                                 95.6, 95.4, 94.5, 93.7, 94.3, 93.9, 94.6, 92.4, 92.1, 91.7, 93.8,
+                                 92.8, 92.4 ]
+        pltResults(
+                [ test_on_lab_2_user_1, test_on_lab_2_user_2, test_on_lab_2_user_3, test_on_lab_2_user_4 ],
+                resultsLabel,
+                np.arange( 2, 26 )
+                )
+    if result == 'environment':
+        test_76_cls_FE_200_256_1280_lab = [99.9,99.8,99.8,98.7,98.8,98.7,98.5,97.8,97.8,96.8,95.4,95.8,95.,93.3,92.3,91.7]
+        test_76_cls_FE_200_256_1280_home = [95.2,93.4,88.7,87.8,86.1,84.7,82.5,81.8,80.2,72.5,63.7,64.5,61.3,59.1,
+                                             60.9,57.9]
+        pltResults(
+                [ test_76_cls_FE_200_256_1280_home ]
+                , [ 'Test in home environment (cross-domain)' ],
+                np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ), np.asarray( [ 76 ] )), axis = 0 )
+                )
+def barChartNew(result):
+    width = 0.17
+    if result == 'crossDomain':
+
+        N = 2
+        id = np.arange( N )
+        oneshot_accuracy = [  91.7, 57.9 ]
+        twoshot_accuracy = [ 95.4, 62.5 ]
+        threeshot_accuracy = [ 96.9, 68.7 ]
+        fourshot_accuracy = [ 98, 69.9 ]
+        fiveshot_accuracy = [ 98.3, 71.5 ]
+        plt.figure( figsize = (12, 10) )
+        bar1 = plt.bar( id, oneshot_accuracy, width, align = 'center', alpha = 0.4, label = '1-shots' )
+        bar2 = plt.bar( id + width, twoshot_accuracy, width, alpha = 0.4, label = '2-shots' )
+        bar3 = plt.bar( id + 2 * width, threeshot_accuracy, width, alpha = 0.4, label = '3-shots' )
+        bar4 = plt.bar( id + 3 * width, fourshot_accuracy, width, alpha = 0.4, label = '4-shots' )
+        bar5 = plt.bar( id + 4 * width, fiveshot_accuracy, width, alpha = 0.4, label = '5-shots' )
+        plt.ylabel( "Accuracy", fontsize = 28 )
+        plt.legend( fontsize = 22,loc = 1,ncol = 2 )
+        plt.yticks( fontsize = 28 )
+        plt.xticks( id + 2 * width, ('Lab (in-domain)', 'Home (cross-domain)'), fontsize = 28 )
+        plt.ylim( 0, 100 )
+    if result == 'crossDomainFT':
+        compareFT = [ 57.9,  ]
+        compareFT1 = [ 72.8,  ]
+        N = 1
+        id = np.arange( N )
+        plt.figure( figsize = (12, 10) )
+        p = 0.05
+        bar1 = plt.bar( id - p/2, compareFT, p, alpha = 0.4, label = 'without fine tuning')
+        bar2 = plt.bar( id + p/2, compareFT1, p, alpha = 0.4, label = 'with fine tuning' )
+        plt.ylim( 0, 100 )
+        # for rect in bar1+bar2:
+        #     height = rect.get_height( )
+        #     plt.text(
+        #             rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center',
+        #             va = 'bottom',
+        #             fontsize = 17
+        #             )
+        plt.ylabel( "Accuracy", fontsize = 28 )
+        plt.xlim(-0.1,0.1)
+        plt.legend( fontsize = 22 )
+        plt.yticks( fontsize = 28 )
+        plt.xticks( id  ,
+                (' '),
+                fontsize = 28 )
+    if result == 'crossUser':
+        oneshot_accuracy = [  72, 70, 80.4, 92.4 ]
+        twoshot_accuracy = [ 72.9, 74.3, 80.6, 93.0 ]
+        threeshot_accuracy = [ 76.2, 73.2, 84.2,  94.6 ]
+        fourshot_accuracy = [ 75.4, 74.4, 84.4, 94.6 ]
+        fiveshot_accuracy = [ 76.6, 77.2, 85.3, 95.2 ]
+        plt.figure( figsize = (12, 10) )
+        bar1 = plt.bar(
+                np.arange( len( oneshot_accuracy ) ), oneshot_accuracy, width, align = 'center', alpha = 0.4,
+                label = '1-shots'
+                )
+        bar2 = plt.bar(
+                np.arange( len( oneshot_accuracy ) ) + width, twoshot_accuracy, width, alpha = 0.4, label = '2-shots'
+                )
+        bar3 = plt.bar(
+                np.arange( len( oneshot_accuracy ) ) + 2 * width, threeshot_accuracy, width, alpha = 0.4,
+                label = '3-shots'
+                )
+        bar4 = plt.bar(
+                np.arange( len( oneshot_accuracy ) ) + 3 * width, fourshot_accuracy, width, alpha = 0.4,
+                label = '4-shots'
+                )
+        bar5 = plt.bar(
+                np.arange( len( oneshot_accuracy ) ) + 4 * width, fiveshot_accuracy, width, alpha = 0.4,
+                label = '5-shots'
+                )
+        plt.ylabel( "Accuracy", fontsize = 28 )
+        plt.legend( fontsize = 22,loc = 2,ncol = 2 )
+        plt.ylim( 0, 100 )
+        plt.yticks( fontsize = 28 )
+        plt.xticks(
+                np.arange( len( oneshot_accuracy ) ) + 2 * width, ('User s1', 'User s2', 'User s3', 'User s4'),
+                fontsize = 28
+                )
+    if result == 'crossUserFT':
+        noFT = [ 72, 70, 80.4, 92.4 ]
+        # FT = [81.3,78.2,91.6,96.4]
+        FT_test = [ 81.3, 77, 91.6, 96.5 ]
+        plt.figure( figsize = (12, 10) )
+        bar1 = plt.bar( np.arange(len(noFT))+1.5*width, noFT, width,align='center', alpha=0.4,label = 'without fine '
+                                                                                                    'tuning' )
+        bar2 = plt.bar( np.arange(len(FT_test))+2.5*width, FT_test, width,  alpha=0.4,label = 'with fine tuning' )
+
+        plt.ylabel( "Accuracy" ,fontsize = 28)
+        plt.legend(fontsize = 22)
+        plt.ylim(0, 100)
+        plt.yticks( fontsize = 28 )
+        plt.xticks( np.arange(len(FT_test)) + 2*width , ('User s1', 'User s2','User s3','User s4') ,
+                fontsize = 28)
+    if result == 'adv':
+        N = 1
+        id = np.arange( N )
+        adv = [ 4 ]
+        # cnn = [70,0.1]
+        oneshot = [ 57.9 ]
+        oneshot_FT = [ 72.8, ]
+        plt.figure( figsize = (12, 10) )
+        p = 0.05
+        bar1 = plt.bar( id - p, adv, p, align = 'center', alpha = 0.4, label = 'Adversarial Learning' )
+        bar2 = plt.bar( id, oneshot, p, alpha = 0.4, label = 'OSL ' )
+        bar3 = plt.bar( id + p, oneshot_FT, p, alpha = 0.4, label = 'OSL with fine tuning' )
+        plt.ylabel( "Accuracy", fontsize = 28 )
+        plt.legend( fontsize = 22, loc = 'upper left' )
+        plt.yticks( fontsize = 28 )
+        plt.xticks(
+                id + 2 * p, (' '),
+                fontsize = 28
+                )
+        plt.ylim( 0, 100 )
+    plt.show()
+
 if __name__ == '__main__':
     # plot_barchart()
     # test_acc = OneShotPerformanceTest('150')
     # record()
     # CnnModelTesting()
     # kFactorNreceiver()
-    record()
-    # plot_barchart(result = 'crossDomain')
+    # record()
+    barChartNew(result = 'adv')
 

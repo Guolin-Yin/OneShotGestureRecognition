@@ -85,9 +85,11 @@ class DANNtrain( object ):
 		actCls = self.actClsEncoder( feature )
 		domainCls = self.domainClsEncoder( self.grl(feature) )
 		self.dannModel = tf.keras.models.Model( self.dataInput, [ actCls, domainCls ] )
+		self.dannModel = tf.keras.models.Model( self.dataInput, actCls )
 		self.dannModel.summary( )
-	def train( self, train_source_datagen, train_target_datagen, val_target_datagen, train_iter_num, val_iter_num,
-			test_gen=None,test_iter_num=None ):
+	def train( self, train_source_datagen,
+			# train_target_datagen,
+			val_target_datagen, train_iter_num, val_iter_num,):
 		"""
 			   This is the training for the DANN model
 			   :param train_source_datagen: source domain dataset generator
@@ -115,17 +117,28 @@ class DANNtrain( object ):
 			# training for one loop
 			train_loss, train_act_cls_loss, train_domain_cls_loss, train_act_cls_acc, train_domain_cls_acc = self.fit_one_epoch(
 					train_source_datagen,
-					train_target_datagen,
+					# train_target_datagen,
 					train_iter_num,
 					ep,
 					)
+			# train_loss, train_act_cls_loss, train_act_cls_acc = self.fit_one_epoch(
+			# 		train_source_datagen,
+			# 		train_target_datagen,
+			# 		train_iter_num,
+			# 		ep,
+			# 		)
 			self.out_train_loss.append( train_loss )
 			self.out_train_act_cls_loss.append( train_act_cls_loss )
 			self.out_train_domain_cls_loss.append( train_domain_cls_loss )
 			self.out_train_act_cls_acc.append( train_act_cls_acc )
 			self.out_train_domain_cls_acc.append( train_domain_cls_acc )
 			# validation
-			val_loss, val_act_cls_loss, val_domain_cls_loss, val_act_cls_acc, val_domain_cls_acc = self.eval_one_epoch(
+			# val_loss, val_act_cls_loss, val_domain_cls_loss, val_act_cls_acc, val_domain_cls_acc = self.eval_one_epoch(
+			# 		val_target_datagen,
+			# 		val_iter_num,
+			# 		ep,
+			# 		)
+			val_loss, val_act_cls_loss, val_act_cls_acc = self.eval_one_epoch(
 					val_target_datagen,
 					val_iter_num,
 					ep,
@@ -133,9 +146,9 @@ class DANNtrain( object ):
 
 			self.out_val_loss.append( val_loss )
 			self.out_val_act_cls_loss.append( val_act_cls_loss )
-			self.out_val_domain_cls_loss.append( val_domain_cls_loss )
+			# self.out_val_domain_cls_loss.append( val_domain_cls_loss )
 			self.out_val_act_acc.append( val_act_cls_acc )
-			self.out_val_domain_cls_acc.append( val_domain_cls_acc )
+			# self.out_val_domain_cls_acc.append( val_domain_cls_acc )
 
 			self.train_loss.reset_states( )
 			self.train_act_cls_loss.reset_states( )
@@ -184,35 +197,38 @@ class DANNtrain( object ):
 		valResults = {
 				"train_loss"                : self.out_val_loss,
 				"Act_classification_loss"   : self.out_val_act_cls_loss,
-				"Domain_classification_loss": self.out_val_domain_cls_loss,
+				# "Domain_classification_loss": self.out_val_domain_cls_loss,
 				"Act_classification_acc"    : self.out_val_act_acc,
-				"Domain_classification_acc" : self.out_val_domain_cls_acc
+				# "Domain_classification_acc" : self.out_val_domain_cls_acc
 				}
 		return trainResults, valResults
-	def fit_one_epoch( self, train_source_datagen, train_target_datagen, train_iter_num, ep ):
+	def fit_one_epoch( self, train_source_datagen,
+			# train_target_datagen,
+			train_iter_num, ep ):
 		'''
 		Training for every Epoch
 		train_source_datagen:   source dataset generator
 		train_target_datagen:   target dataset generator
-		train_iter_num:         number of iteration for one trainig step
+		train_iter_num:         number of iteration for one training step
 		ep:                     Current epoch
 		'''
 		progbar = tf.keras.utils.Progbar( train_iter_num )
 		print( f'Epoch{ep}/{self.config.epoch}' )
 		for i in np.arange( 1, train_iter_num + 1 ):
-			batch_act_source_data, batch_act_source_labels = train_source_datagen.__next__( )  # train_source_datagen.next_batch()
-			batch_act_target_data, batch_act_target_labels = train_target_datagen.__next__( )  # train_target_datagen.next_batch()
-			batch_domain_label = np.vstack(
-					[
-							np.tile( [ 1, 0 ], [ len( batch_act_source_labels ), 1 ] ),
-							np.tile( [ 0, 1 ], [ len( batch_act_target_labels ), 1 ] )
-							]
-					)
-			batch_domain_train_data = np.concatenate(
-					[ batch_act_source_data, batch_act_target_data ],
-					axis = 0
-					)
-			batch_domain_cls_label = np.concatenate([batch_act_source_labels,batch_act_target_labels],axis = 0 )
+			batch_act_source_data, batch_act_source_labels, batch_domain_label = train_source_datagen.__next__( )  #
+			# train_source_datagen.next_batch()
+			# batch_act_target_data, batch_act_target_labels = train_target_datagen.__next__( )  # train_target_datagen.next_batch()
+			# batch_domain_label = np.vstack(
+			# 		[
+			# 				np.tile( [ 1, 0 ], [ len( batch_act_source_labels ), 1 ] ),
+			# 				np.tile( [ 0, 1 ], [ len( batch_act_target_labels ), 1 ] )
+			# 				]
+			# 		)
+			# batch_domain_train_data = np.concatenate(
+			# 		[ batch_act_source_data, batch_act_target_data ],
+			# 		axis = 0
+			# 		)
+			# batch_domain_cls_label = np.concatenate([batch_act_source_labels,batch_act_target_labels],axis = 0 )
 			# update and visualise the trainig
 			iter = (ep - 1) * train_iter_num + i
 			process = iter * 1.0 / (self.config.epoch * train_iter_num)
@@ -222,13 +238,13 @@ class DANNtrain( object ):
 			tf.keras.backend.set_value( self.optimizer.lr, learning_rate )
 			with tf.GradientTape( ) as tape:
 				# calculate the activity classification's output loss and accuracy
-				act_cls_feature = self.featureEncoder( batch_domain_train_data, training = True)
+				act_cls_feature = self.featureEncoder( batch_act_source_data, training = True)
 				act_cls_pred = self.actClsEncoder( act_cls_feature, training = True )
-				act_cls_loss = self.loss( batch_domain_cls_label, act_cls_pred )
-				act_cls_acc = self.acc( batch_domain_cls_label, act_cls_pred )
+				act_cls_loss = self.loss( batch_act_source_labels, act_cls_pred )
+				act_cls_acc = self.acc( batch_act_source_labels, act_cls_pred )
 
 				# calculate the output, loss and accuracy of the domain classifer
-				domain_cls_feature = self.featureEncoder( batch_domain_train_data )
+				domain_cls_feature = self.featureEncoder( batch_act_source_data )
 				domain_cls_pred = self.domainClsEncoder(
 						self.grl(domain_cls_feature,self.grl_lambd),
 						training = True,
@@ -264,35 +280,38 @@ class DANNtrain( object ):
 			'''
 		print( f'\ncurrent learning rate:{learning_rate}' )
 		return self.train_loss.result( ), self.train_act_cls_loss.result( ), self.train_domain_cls_loss.result( ), self.train_act_cls_acc.result( ), self.train_domain_cls_acc.result( )
+		# return self.train_loss.result( ), self.train_act_cls_loss.result( ), self.train_act_cls_acc.result( )
 	def eval_one_epoch( self, val_target_data_gen, val_iter_num, ep ):
 		for i in np.arange( 1, val_iter_num + 1 ):
 			batch_act_target_data, batch_act_target_labels = val_target_data_gen.__next__( )
-			batch_target_domain_labels = np.tile( [ 0, 1 ], [ len( batch_act_target_labels ), 1 ] ).astype( np.float32 )
+			# batch_target_domain_labels = np.tile( [ 0, 1 ], [ len( batch_act_target_labels ), 1 ] ).astype( np.float32 )
 			# compute the target domain activity classification and domain classification output
 			target_act_feature = self.featureEncoder( batch_act_target_data )
 			target_act_cls_pred = self.actClsEncoder( target_act_feature, training = False )
-			target_domain_cls_pred = self.domainClsEncoder( target_act_feature, training = False )
+			# target_domain_cls_pred = self.domainClsEncoder( target_act_feature, training = False )
 			# compute the target domain prediction losses
 			target_act_cls_loss = self.loss( batch_act_target_labels, target_act_cls_pred )
-			target_domain_cls_loss = self.loss( batch_target_domain_labels, target_domain_cls_pred )
-			target_loss = tf.reduce_mean( target_act_cls_loss ) + tf.reduce_mean( target_domain_cls_loss )
+			# target_domain_cls_loss = self.loss( batch_target_domain_labels, target_domain_cls_pred )
+			target_loss = tf.reduce_mean( target_act_cls_loss ) #+ tf.reduce_mean( target_domain_cls_loss )
 			# Target domain classification accuracy
 			act_cls_acc = self.acc( batch_act_target_labels, target_act_cls_pred )
-			domain_cls_acc = self.acc( batch_target_domain_labels, target_domain_cls_pred )
+			# domain_cls_acc = self.acc( batch_target_domain_labels, target_domain_cls_pred )
 			# update the validation loss and accuracy
 			self.val_loss( target_loss )
 			self.val_act_cls_loss( target_act_cls_loss )
-			self.val_domain_cls_loss( target_domain_cls_loss )
+			# self.val_domain_cls_loss( target_domain_cls_loss )
 			self.val_act_cls_acc( act_cls_acc )
-			self.val_domain_cls_acc( domain_cls_acc )
+			# self.val_domain_cls_acc( domain_cls_acc )
 			'''
 			return: 
 					Total loss
 					Activity classification accuracy
 
 			'''
-		return self.val_loss.result( ), self.val_act_cls_loss.result( ), self.val_domain_cls_loss.result( ), self.val_act_cls_acc.result( ), self.val_domain_cls_acc.result( )
-	# def trainCNN( self ):
+		# return self.val_loss.result( ), self.val_act_cls_loss.result( ), self.val_domain_cls_loss.result( ), self.val_act_cls_acc.result( ), self.val_domain_cls_acc.result( )
+		#
+		return self.val_loss.result( ), self.val_act_cls_loss.result( ), self.val_act_cls_acc.result( )
+
 def getAdvData( dataLoadObj,isTraining=True):
 	source = ['lab','home']
 	domain_data = []
@@ -336,42 +355,54 @@ def getAdvData( dataLoadObj,isTraining=True):
 			'domain_label': domain_label,
 			}
 	return train_set
-def getAdvDomainData(dataLoadObj,domain:str,iftest = False ):
+def getAdvDomainData(dataLoadObj,domain:str ):
 	def getSelectedData(dataNlabel,selected_sign):
 		data,label = dataNlabel
 		idx = np.where( label == selected_sign )[ 0 ]
 		data = data[ idx ]
 		label = label[ idx ]
 		return data, label
-
-	train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
-			source = domain,
-			isZscore = False
-			)
-	data = np.concatenate( (train_data, test_data), axis = 0 )
-	label = np.concatenate( (train_labels, test_labels), axis = 0 )
+	def getData(domain):
+		train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
+				source = domain,
+				isZscore = False
+				)
+		data = np.concatenate( (train_data, test_data), axis = 0 )
+		label = np.concatenate( (train_labels, test_labels), axis = 0 )
+		return [data, label]
 	if domain == 'lab':
-		selected_sign = np.arange( 1, 150 )
-		data, label = getSelectedData([data,label],selected_sign)
-		train_data,train_labels = shuffle_aligned_list([data,label])
-		return [train_data, to_categorical(train_labels - 1,num_classes=276)]
-	elif domain == 'home':
-		# selected_sign = np.arange( 251, 277 )
-		selected_sign = np.random.choice( np.arange( 151, 277 ),126,replace = False )
+		selected_sign = np.arange( 1, 277 )
+		data, label = getData(domain)
 		data, label = getSelectedData( [ data, label ], selected_sign )
-		num = int( 0.1 * len( data ) )
-		if not iftest:
-			train_data = data[0:num]
-			train_label = label[0:num]
-			train_data, train_label = shuffle_aligned_list( [ train_data, train_label ] )
-			return [train_data,to_categorical(train_label - 1,num_classes= 276)]
-		else:
-			# selected_sign = np.arange(  251 ,277)
-			# data, label = getSelectedData([data,label],selected_sign)
-			val_data = data[ num:len( data ) ]
-			val_label = label[ num:len( label ) ]
-			val_data, val_label = shuffle_aligned_list( [ val_data, val_label ] )
-			return [ val_data, to_categorical( val_label - 1, num_classes = 276 ) ]
+		data_2, label_2 = getData( [1,2,3,4,5] )
+		domain_label = np.vstack(
+					[
+							np.tile( 0, [ len( data ), 1 ] ),
+							np.tile( 1, [ 1500, 1 ] ),
+							np.tile( 2, [ 1500, 1 ] ),
+							np.tile( 3, [ 1500, 1 ] ),
+							np.tile( 4, [ 1500, 1 ] ),
+							np.tile( 5, [ 1500, 1 ] )
+							]
+					)
+		train_data = np.concatenate([data,data_2[np.where(label_2 <= 276)[0]]])
+		train_labels = np.concatenate([label,label_2[np.where(label_2 <= 276)[0]]])
+		train_data,train_labels = shuffle_aligned_list([train_data,train_labels])
+		return [train_data, to_categorical(train_labels - 1,num_classes=config.N_base_classes),to_categorical(
+				domain_label,num_classes=6)]
+	elif domain == 'home':
+		data, label = getData( domain )
+		selected_sign = np.random.choice( np.arange( 1, 277 ),276,replace = False )
+		data, label = getSelectedData( [ data, label ], selected_sign )
+		return [data,to_categorical( label - 1, num_classes = config.N_base_classes )]
+		# num = int( 0.1 * len( data ) )
+		# train_data = data[ 0:num ]
+		# train_label = label[ 0:num ]
+		# train_data, train_label = shuffle_aligned_list( [ train_data, train_label ] )
+		# val_data = data[ num:len( data ) ]
+		# val_label = label[ num:len( label ) ]
+		# val_data, val_label = shuffle_aligned_list( [ val_data, val_label ] )
+		# return [train_data,to_categorical(train_label - 1,num_classes= config.N_base_classes)],[ val_data, to_categorical( val_label - 1, num_classes = config.N_base_classes ) ]
 def train_adv():
 	config = getConfig( )
 	config.lr = 1e-4
@@ -442,23 +473,23 @@ if __name__ == '__main__':
 	config.N_base_classes = 276
 	dataLoadObj = signDataLoader( config = config )
 	source_domain = getAdvDomainData( dataLoadObj, domain = 'lab' )
-	target_domain = getAdvDomainData( dataLoadObj, domain = 'home',iftest = False )
-	val_target_domain = getAdvDomainData( dataLoadObj, domain ='home',iftest=True)
+	val_domain = getAdvDomainData( dataLoadObj, domain = 'home' )
+	# val_target_domain = getAdvDomainData( dataLoadObj, domain ='home',iftest=True)
 	# test_set = getAdvData( dataLoadObj, isTraining = False )
 	train_source_datagen = batch_generator(source_domain,config.batch_size//2)
-	train_target_datagen = batch_generator( target_domain, config.batch_size//2 )
-	val_target_datagen = batch_generator( val_target_domain, config.batch_size )
+	# train_target_datagen = batch_generator( target_domain, config.batch_size//2 )
+	val_target_datagen = batch_generator( val_domain, config.batch_size )
 	# test_gen = batch_generator(test_domain,config.batch_size)
 	# Training the model
 	train_source_batch_num = int( len( source_domain[0] ) // (config.batch_size )//2 )
-	train_target_batch_num = int( len( target_domain[0] ) // (config.batch_size)//2 )
-	train_iter_num = int( np.max( [ train_target_batch_num, train_source_batch_num ] ) )
-	val_iter_num = int( len( val_target_domain[0] ) // config.batch_size )
+	# train_target_batch_num = int( len( target_domain[0] ) // (config.batch_size)//2 )
+	train_iter_num = int( np.max( [ train_source_batch_num, train_source_batch_num ] ) )
+	val_iter_num = int( len( val_domain[0] ) // config.batch_size )
 	# test_iter_num = int( len( test_domain[ 0 ] ) // config.batch_size )
 	dann = DANNtrain( config )
 	trainResults, valResults = dann.train(
 											train_source_datagen,
-											train_target_datagen,
+											# train_target_datagen,
 											val_target_datagen,
 											train_iter_num,
 											val_iter_num,
