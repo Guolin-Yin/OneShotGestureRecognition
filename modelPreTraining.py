@@ -88,9 +88,9 @@ class FSLtest():
         '''
         test_acc = [ ]
         softmax_func = tf.keras.layers.Softmax( )
-        # for nway in np.concatenate((np.arange(2,10),np.arange(10,77,10),np.asarray([76])),axis=0):
+        for nway in np.concatenate((np.arange(2,10),np.arange(10,77,10),np.asarray([76])),axis=0):
         # for nway in np.arange(2,26,1):
-        for nway in [25]:
+        # for nway in [25]:
             print( "Checking %d way accuracy...." % nway )
             correct_count = 0
             for i in range( N_test_sample ):
@@ -279,7 +279,7 @@ if __name__ == '__main__':
     acc = RunTest(
             N_train_classes = 200, domain = 'lab', nshots = 1,
             FE_path = 'a.h5',
-            FT_path = 'a_tuned_signFi_user_2.h5',
+            # FT_path = 'a_tuned_signFi_user_2.h5',
             applyFinetunedModel = False
             # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
             )
