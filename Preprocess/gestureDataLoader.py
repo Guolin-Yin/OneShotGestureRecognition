@@ -94,7 +94,7 @@ class gestureDataLoader:
         return e
     def _mapFilenameToClass(self):
         date_filename = re.findall( r'\b\d+\b', self.data_path )[0]
-        sim_gesture_6ges = ['20181115','20181109','Pre_16','20181121']
+        sim_gesture_6ges = ['20181115','20181109','Pre_16','20181121','20181211','20181127']
         draw_gesture_10ges = [ '20181112', '20181116','Pre_16' ]
         if date_filename in sim_gesture_6ges:
             keys = [ 'Push&Pull',
@@ -347,20 +347,21 @@ class WidarDataloader(gestureDataLoader):
         query_set = [ ]
         support_label = [ ]
         query_label = [ ]
-        num_val = 20-nshots
+        num_sample_per_gesture = 20
+        num_val = num_sample_per_gesture-nshots
         Val_set = np.zeros( (6 * num_val, 200, 60, 3) )
         Val_set_label = [ ]
         record = []
         if mode == 'random':
             for gesture in gesture_type:
-                sample_idx = np.random.choice( np.arange( 0, 20 ), nshots+1, replace = False )
+                sample_idx = np.random.choice( np.arange( 0, num_sample_per_gesture ), nshots+1, replace = False )
                 [support_set.append( self.selected_gesture_samples_data[gesture][sample_idx[i]] ) for i in range(nshots)]
                 query_set.append( self.selected_gesture_samples_data[gesture][sample_idx[-1]] )
             return np.asarray(support_set),np.asarray(query_set)
         if mode == 'fix':
             for count, gesture in enumerate(gesture_type):
                 if not isTest:
-                    idx_list = np.arange( 0, 20 )
+                    idx_list = np.arange( 0, num_sample_per_gesture )
                     shots_idx = np.random.choice( idx_list, nshots, replace = False )
                     for i in shots_idx:
                         idx_list = np.delete( idx_list, np.where( idx_list == i ) )
@@ -373,7 +374,7 @@ class WidarDataloader(gestureDataLoader):
                     [Val_set_label.append(count) for i in range(num_val)]
                     record.append(shots_idx )
                 else:
-                    idx_list = np.arange( 0, 20 )
+                    idx_list = np.arange( 0, num_sample_per_gesture )
                     shots_idx =  Best[ count ]
                     for i in shots_idx:
                         idx_list = np.delete( idx_list, np.where( idx_list == i ) )
@@ -403,95 +404,6 @@ class WidarDataloader(gestureDataLoader):
                     }
             return output
 
-        # gesture_type = self.gesture_type
-        # Support_set = [ ]
-        # query_set = [ ]
-        # support_label = [ ]
-        # query_label = [ ]
-        # num_val = 20 - nshots_per_domain
-        # Val_set_multi_domain = []
-        # Val_set_label_multi_domain = [ ]
-        # record = []
-        # selected_multiorientation_gesture_samples_data = self.selected_multiorientation_gesture_samples_data
-        # all_domain = list( selected_multiorientation_gesture_samples_data )
-        # for count, gesture in enumerate( gesture_type ):
-        #     if not isTest:
-        #         Current_record = [ ]
-        #         for i in range( len( selected_multiorientation_gesture_samples_data ) ):
-        #             idx_list = np.arange( 0, 20 )
-        #             shots_idx = np.random.choice( idx_list, nshots_per_domain, replace = False )
-        #             current_domain = all_domain[ i ]
-        #             idx_list = np.delete( idx_list, np.where( idx_list == shots_idx ) )
-        #             Support_set.append(
-        #                     selected_multiorientation_gesture_samples_data[ current_domain ][ gesture ][
-        #                         shots_idx ]
-        #                     )
-        #             support_label.append( count )
-        #             Val_set_multi_domain.append(
-        #                     selected_multiorientation_gesture_samples_data[ current_domain ][ gesture ][
-        #                         idx_list ]
-        #                     )
-        #             [ Val_set_label_multi_domain.append( count ) for i in range( num_val ) ]
-        #             Current_record.append( shots_idx )
-        #         record.append(np.asarray(Current_record).reshape(1,len( selected_multiorientation_gesture_samples_data )))
-        #         domain_idx = np.random.choice( np.arange( 0, len( all_domain ) ), 1, replace = False )[ 0 ]
-        #         selected_domain = all_domain[ domain_idx ]
-        #         # g_idx = np.random.choice( np.arange( 0, len( gesture_type ) ), 1, replace = False )[ 0 ]
-        #         # selected_g = gesture_type[ g_idx ]
-        #         sample_idx = np.random.choice( idx_list, 1, replace = False )[ 0 ]
-        #         query_set.append(
-        #                 selected_multiorientation_gesture_samples_data[ selected_domain ][
-        #                     gesture ][ sample_idx ]
-        #                 )
-        #         query_label.append( count )
-        #     else:
-        #         idx_list = np.arange( 0, 20 )
-        #         current_domain_shots_idx = Best[ count ]
-        #         record = Best
-        #         for i in range( len( selected_multiorientation_gesture_samples_data ) ):
-        #             idx_list = np.arange( 0, 20 )
-        #             current_domain = all_domain[ i ]
-        #             shots_idx = current_domain_shots_idx[ :, i ]
-        #             idx_list = np.delete( idx_list, np.where( idx_list == shots_idx ) )
-        #             Support_set.append(
-        #                     selected_multiorientation_gesture_samples_data[ current_domain ][ gesture ][
-        #                         shots_idx ]
-        #                     )
-        #             support_label.append( count )
-        #             Val_set_multi_domain.append(
-        #                     selected_multiorientation_gesture_samples_data[ current_domain ][ gesture ][
-        #                         idx_list ]
-        #                     )
-        #             [ Val_set_label_multi_domain.append( count ) for i in range( num_val ) ]
-        #         domain_idx = np.random.choice( np.arange( 0, len( all_domain ) ), 1, replace = False )[ 0 ]
-        #         selected_domain = all_domain[ domain_idx ]
-        #         sample_idx = np.random.choice( idx_list, 1, replace = False )[ 0 ]
-        #         query_set.append(
-        #                 selected_multiorientation_gesture_samples_data[ selected_domain ][
-        #                     gesture ][ sample_idx ]
-        #                 )
-        #         query_label.append( count )
-        #
-        # else:
-        #     Support_set = np.concatenate( Support_set, axis = 0 )
-        #     Support_data = np.asarray( Support_set )
-        #     Support_label = np.expand_dims( np.asarray( support_label ), axis = 1 )
-        #     Query_data = np.asarray( query_set )
-        #     Query_label = np.expand_dims( np.asarray( query_label ), axis = 1 )
-        #     Val_data = np.concatenate(Val_set_multi_domain,axis = 0 )
-        #     Val_label = np.expand_dims( (Val_set_label_multi_domain), axis = 1 )
-        #     record = record
-        #
-        # output = {
-        #         'Support_data' : Support_data,
-        #         'Support_label': Support_label,
-        #         'Query_data'   : Query_data,
-        #         'Query_label'  : Query_label,
-        #         'Val_data'     : Val_data,
-        #         'Val_label'    : Val_label,
-        #         'record'       : record
-        #         }
-        # return output
     def _delete_idx(self, idx_list,shots_idx, nshots_per_domain):
         for n in range( nshots_per_domain ):
             idx_list = np.delete( idx_list, list( idx_list ).index( list( shots_idx )[ n ] ) )

@@ -48,7 +48,7 @@ def visualize_scatter_domain( data_2d, label_ids, perplexity,n_iter,figsize = (1
 	plt.title(f'perplexity is {perplexity}, number of iterations is {n_iter}', fontsize=18)
 	plt.xlabel("t-SNE_1", fontsize=15)
 	plt.ylabel( "t-SNE_2", fontsize = 15 )
-def visualize_scatter_classes( data, label, perplexity,n_iter,figsize = (12,10) ,domain = None,):
+def visualize_scatter_classes( data, label_id, label, perplexity,n_iter,figsize = (12,10) ,domain = None,):
 	plt.figure( figsize = figsize )
 	plt.tick_params( axis = 'x', label1On = False )
 	plt.tick_params( axis = 'y', label1On = False )
@@ -58,40 +58,31 @@ def visualize_scatter_classes( data, label, perplexity,n_iter,figsize = (12,10) 
 	# id_to_label_dict = list(str(np.unique( label_ids )))
 	marker = ['X', '*', 'd', 'h', 'H', 'D', 'P', 'o','v','^', '<', '>', '8', 's', 'p', '*',  ]
 	color = np.random.choice([1,2,3],2,replace = False )
+	domains = ['lab','home']
 	for i in range(len(data)):
 		data_2d = data[i]
-		label_ids = label[i]
-		for idx,label_id in enumerate(np.unique( label_ids )):
+		label_ids = label_id[ i ]
+		domain = domains[i]
+		for idx, id in enumerate(np.unique( label_ids ) ):
+			p = np.where( label_ids == id )[0]
+			if id == 7:
+				o = 2
+			elif id == 28:
+				o = 3
+			elif id == 1:
+				o = 1
 			plt.scatter(
-					data_2d[ np.where( label_ids == label_id ), 0 ],
-					data_2d[ np.where( label_ids == label_id ), 1 ],
+					data_2d[ p, 0 ],
+					data_2d[ p, 1 ],
 					marker = marker[idx],
-					s = 200,
-					# color = plt.cm.Set1( label_id / float( nb_classes + 1 ) ),
+					s = 500,
+					# color = plt.cm.Set1( id / float( nb_classes + 1 ) ),
 					color = plt.cm.Set1( color[i] ),
 					linewidth = 1,
 					alpha = 0.7,
-					# label = label_id
+					label = 'sign' + str(o) + f'({domain})'
 					)
-
-	# tsne_df = pd.DataFrame(
-	# 		{
-	# 				't-SNE_1'    : data_2d[ :, 0 ],
-	# 				't-SNE_2'    : data_2d[ :, 1 ],
-	# 				'labels': np.squeeze(label_ids)
-	# 				}
-	# 		)
-	# sns.scatterplot(
-	# 		x = "t-SNE_1", y = "t-SNE_2",
-	# 		hue = "labels",
-	# 		style = 'labels',
-	# 		data = tsne_df
-	# 		)
-	plt.legend( loc = 'best' )
-	# plt.title(f'perplexity is {perplexity}, number of iterations is {n_iter}', fontsize=18)
-	# plt.xlabel(" ", fontsize=15)
-	# plt.ylabel( " ", fontsize = 15 )
-
+	plt.legend( fontsize = 22,loc = 'best' )
 def domain_t_sne(data,n_components:int = 2,random_state = 0,perplexity:int = 6,n_iter:int = 5000):
 	# data = data.reshape(len(data),-1)
 	n = len(data)
@@ -106,25 +97,26 @@ def domain_t_sne(data,n_components:int = 2,random_state = 0,perplexity:int = 6,n
 	model = TSNE(n_components=n_components, random_state=random_state,perplexity = perplexity,n_iter=n_iter)
 	tsne_data = model.fit_transform(data_con)
 	visualize_scatter_domain( data_2d = tsne_data, label_ids = domain_label, perplexity = perplexity, n_iter = n_iter )
-def class_t_sne(data,label,n_components:int = 2,random_state = 0,perplexity:int = 6,n_iter:int = 5000):
+def class_t_sne(data,label_id,label,n_components:int = 2,random_state = 0,perplexity:int = 6,n_iter:int = 5000):
 	data = [d.reshape( len( d ), -1 ) for d in data]
 	model = TSNE(n_components=n_components, random_state=random_state,perplexity = perplexity,n_iter=n_iter)
 	tsne_data = [model.fit_transform(t_d) for t_d in data]
-	visualize_scatter_classes( data = tsne_data, label = label, perplexity = perplexity, n_iter = n_iter,
+	visualize_scatter_classes( data = tsne_data,label_id = label_id, label = label, perplexity = perplexity, n_iter = n_iter,
 			domain = 'lab' )
 if __name__ == '__main__':
+
 	config = getConfig( )
-	config.domain_selection = (2, 2, 1)
-	config.train_dir = 'E:/Sensing_project/Cross_dataset/20181109/User1'
-	WidarDataLoaderObjMulti = WidarDataloader(
-			 isMultiDomain = False,
-			config = config
-			)
-	data = WidarDataLoaderObjMulti.getSQDataForTest(
-			nshots = 1, mode = 'fix',
-			isTest = False, Best = None
-			)
-	data_val_1 = data[ 'Val_data' ]
+	# config.domain_selection = (2, 2, 1)
+	# config.train_dir = 'E:/Sensing_project/Cross_dataset/20181109/User1'
+	# WidarDataLoaderObjMulti = WidarDataloader(
+	# 		 isMultiDomain = False,
+	# 		config = config
+	# 		)
+	# data = WidarDataLoaderObjMulti.getSQDataForTest(
+	# 		nshots = 1, mode = 'fix',
+	# 		isTest = False, Best = None
+	# 		)
+	# data_val_1 = data[ 'Val_data' ]
 	# label_val_1 = data['Val_label']
 	# domain_label_1 = [0 for i in range(len(data_val_1))]
 	# config.domain_selection = (2, 2, 3)
@@ -155,16 +147,20 @@ if __name__ == '__main__':
 	# data_val = np.concatenate( (data_val_1, signFiData_lab), axis = 0 )
 	# domain_label = np.concatenate( (domain_label_1, domain_label_3), axis = 0 )
 	# domain_t_sne( (data_val_1, signFiData_lab), perplexity = 20, n_iter = 2000 )
-	selection = [1,7,14,27]
+	selection = [1,7,28]
 	signFidata = signDataObj.getFormatedData( source = 'lab',isZscore = True )
 	idx = np.where(signFidata[1] == selection)[0]
 	data_lab = signFidata[0][idx]
-	label_lab = signFidata[1][idx]
+	label_lab = signFidata[1][idx].tolist()
+
 
 	signFidata = signDataObj.getFormatedData( source = 'home',isZscore = True  )
 	idx = np.where(signFidata[1] == selection)[0]
 	data_home = signFidata[0][idx]
-	label_home = signFidata[1][idx]
+	label_home = signFidata[1][idx].tolist()
+
+
 	data = [data_lab,data_home]
-	label = [label_lab,label_home]
-	class_t_sne(data = data,label=label,perplexity = 7,n_iter = 2000)
+	label_id = [label_lab,label_home]
+	label = [label_lab_str,label_home_str]
+	class_t_sne(data = data,label_id=label_id, label=label,perplexity = 7,n_iter = 2000)

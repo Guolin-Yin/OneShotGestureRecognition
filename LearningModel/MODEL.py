@@ -215,8 +215,6 @@ class models:
         else:
             return lr * tf.math.exp(-0.1)
 if __name__ == "__main__":
-    config.N_novel_classes = 76
-    config.train_dir = 'D:\Matlab\SignFi\Dataset'
-    config.N_base_classes = 200
-    advObj = AdversarialNetwork(config)
-    adv_net = advObj.buildAdvModel()
+    m = models()
+    net = m.buildFeatureExtractor()
+    net.summary()

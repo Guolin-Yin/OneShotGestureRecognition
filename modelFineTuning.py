@@ -269,8 +269,8 @@ class fineTuningSignFi:
         '''
         # cls_intput_Support = Input(feature_extractor.output.shape[1],name = 'Support_input')
         # cls_intput_Query = Input( feature_extractor.output.shape[1], name = 'Query_input' )
-        cls_intput_Support = Input(4096,name = 'Support_input')
-        cls_intput_Query = Input( 4096, name = 'Query_input' )
+        cls_intput_Support = Input(1280,name = 'Support_input')
+        cls_intput_Query = Input( 1280, name = 'Query_input' )
         cosSim_layer = Dot( axes = 1, normalize = True )([cls_intput_Support,cls_intput_Query])
         cls_output = Softmax( )( tf.squeeze(cosSim_layer,-1) )
         classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
@@ -395,7 +395,7 @@ class fineTuningWidar(fineTuningSignFi ):
                     )
         else:
             self.WidarDataLoaderObj = WidarDataloader(
-                     isMultiDomain = isMultiDomain,
+                    isMultiDomain = isMultiDomain,
                     config = config
                     )
     # def getMultiDomainData(self,isTest=False):
@@ -569,17 +569,28 @@ class fineTuningWidar(fineTuningSignFi ):
         test_acc.append( acc )
         print( "Accuracy %.2f" % acc )
         return test_acc,[y_true,y_pred],label_true
-def searchBestSample(config):
+def searchBestSample(config,nshots=None):
+    '''
+    data_dir:
+         E:/Sensing_project/Cross_dataset/20181109/User1 --> environment 1, user 1
+         E:/Sensing_project/Cross_dataset/20181127       --> environment 2, user 2
+         E:/Sensing_project/Cross_dataset/20181211       --> environment 3, user 7
+    '''
+    data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
+                 'E:/Sensing_project/Cross_dataset/20181109/User2',
+                 'E:/Sensing_project/Cross_dataset/20181109/User3'
+                 ]
+    x = 3
     config.nshots_per_domain = None
     # config.nshots = int(5*1*1*config.nshots_per_domain)
-    config.nshots = 5
-    config.train_dir = 'E:/Sensing_project/Cross_dataset/20181109/User1'
+    config.nshots = nshots
+    config.train_dir = data_dir[2]
     # config.train_dir = 'E:/Cross_dataset/20181115'
     config.N_novel_classes = 6
     config.lr = 1e-4
     config.domain_selection = (2, 2, 3)
-    config.pretrainedfeatureExtractor_path = \
-        './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    # config.pretrainedfeatureExtractor_path = './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    config.pretrainedfeatureExtractor_path = './a.h5'
     fineTuningWidarObj = fineTuningWidar(config = config,isMultiDomain = False)
     location,orientation,Rx = config.domain_selection
     val_acc = 0
@@ -594,17 +605,21 @@ def searchBestSample(config):
             val_acc = history.history[ 'val_acc' ][ -1 ]
             config.tunedModel_path = f'./models/Publication_related/widar_fineTuned_model_20181109' \
                                      f'_{config.nshots}shots_' \
-                                     f'_domain{config.domain_selection}_{val_acc:0.2f}.h5'
+                                     f'_domain{config.domain_selection}_{val_acc:0.2f}_newFE_user{x}.h5'
             fine_Tune_model.save_weights(config.tunedModel_path)
             best_record = record
             config.record = best_record
             print(f'Updated record is: {best_record}')
             mdic = {'record':best_record,
                     'val_acc':val_acc}
-            config.setMatSavePath(f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots"
-                                  f"_domain_{config.domain_selection}_20181109.mat")
+            # config.setMatSavePath(f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots"
+            #                       f"_domain_{config.domain_selection}_20181109.mat")
+            config.setMatSavePath(
+                    f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots"
+                    f"_domain_{config.domain_selection}_20181109_newFE_user{x}.mat"
+                    )
             savemat( config.matPath, mdic )
-            if val_acc >= 0.900:
+            if val_acc >= 0.95:
                 print(f'reached expected val_acc {val_acc}')
                 break
     config.getSampleIdx( )
@@ -613,25 +628,31 @@ def searchBestSample(config):
     title = f'{config.nshots}_shot_sRx_{Rx}_domain_{config.domain_selection}'
     plt_cf.pltCFMatrix( y = label_true, y_pred = y_pred, figsize = (18,15),title = title )
     print(f'The average accuracy is {np.mean(acc_record)}')
-    plt.savefig(f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/results_figs/{config.nshots}shots_'
-                f'{config.domain_selection}_finetuned.png')
-    return acc_record
+    plt.savefig(f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot learning/Results/results_figs'
+                f'/{config.nshots}shots_'
+                f'{config.domain_selection}_finetuned_{test_acc[0]:0.2f}_user{x}.pdf')
+    return test_acc
 def evaluation( domain_selection,nshots ):
     # config.getFineTunedModelPath( )
     # location, orientation, Rx = config.domain_selection
+    data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
+                 'E:/Sensing_project/Cross_dataset/20181109/User2',
+                 'E:/Sensing_project/Cross_dataset/20181109/User3'
+                 ]
     config = getConfig( )
     config.domain_selection = domain_selection
     config.nshots = nshots
-    config.pretrainedfeatureExtractor_path = \
-            './models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0.95_on_250cls.h5'
+    config.pretrainedfeatureExtractor_path = './a.h5'
     # config.setMatSavePath(
     #         f"./Sample_index/Publication_related/sample_index_record_for_2_shots_domain_(2, 2, 3)_20181109.mat"
     #         )
-    config.matPath = f"./Sample_index/Publication_related/sample_index_record_for_5_shots_domain_(2, 2, 3)_20181109.mat"
-    config.getSampleIdx( )
-    config.train_dir = 'E:/Sensing_project/Cross_dataset/20181109/User1'
+    config.matPath = f"./Sample_index/Publication_related/sample_index_record_for_{nshots}_shots_domain_(2, 2, " \
+                     f"3)_20181109_newFE_user2.mat"
+    # config.getSampleIdx( )
+    config.train_dir = data_dir[1]
     # config.tunedModel_path = f'./models/fine_tuning_widar/widar_fineTuned_model_20181109_1shots_test_domain_(2, 2, 3).h5'
-    config.tunedModel_path = './models/Publication_related/widar_fineTuned_model_20181109_5shots_domain(2, 2, 3)_0.88.h5'
+    config.tunedModel_path = './models/Publication_related/widar_fineTuned_model_20181109_5shots__domain(2, 2, ' \
+                             '3)_0.97_newFE_user2.h5'
     config.record = loadmat(config.matPath)['record']
     config.domain_selection = domain_selection
     config.N_novel_classes = 6
@@ -639,11 +660,9 @@ def evaluation( domain_selection,nshots ):
     test_acc,[y_true,y_pred],label_true = fineTuneModelEvalObj.test(applyFinetunedModel =True)
     plt_cf = pltConfusionMatrix( )
     plt_cf.pltCFMatrix(
-            y = label_true, y_pred = y_pred, figsize = (12, 10), title = f'{config.nshots}_shots '
-                                                                         f'domain_{domain_selection}'
-                                                                         f'with_fine_'
-                                                                         f'tuning_results'
+            y = label_true, y_pred = y_pred, figsize = (12, 10),title = ""
             )
+    return test_acc
 def compareDomain():
     config = getConfig( )
     config.nshots_per_domain = 2
@@ -741,8 +760,15 @@ def testingSignFi(path,mode,N_train_classes,environment:str):
     test_acc = fineTuningSignFiObj.signTest(test_data, test_labels, 1000, feature_extractor)
     return test_acc
 if __name__ == '__main__':
-    fine_Tune_model = tuningSignFi()
-    fine_Tune_model.save_weights( 'a_tuned_signFi_user_3.h5')
+    config = getConfig()
+    # searchBestSample(config,4)
+    test_acc = []
+    # test_acc.append([evaluation(domain_selection=(2, 2, 3),nshots=i,) for i in [1,2,3,4,5]])
+    evaluation(domain_selection=(2, 2, 3),nshots=5,)
+    # for i in [1,2,3,4,5]:
+    #     test_acc = searchBestSample( config,i )
+    # fine_Tune_model = tuningSignFi()
+    # fine_Tune_model.save_weights( 'a_tuned_signFi_user_3.h5')
     # config = getConfig( )
     # acc_record = searchBestSample(config)
     '''Testing with specific domain selection'''
