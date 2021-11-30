@@ -242,17 +242,19 @@ class fineTuningSignFi:
         trained_featureExtractor = self.modelObj.buildFeatureExtractor( mode='Alexnet' )
         trained_featureExtractor.load_weights(self.config.pretrainedfeatureExtractor_path )
         return trained_featureExtractor
-    def _loadFineTunedModel(self,applyFinetunedModel:bool = True, useWeightMatrix:bool = False):
+    def _loadFineTunedModel(self,applyFinetunedModel:bool = True, useWeightMatrix:bool = False,isSepRx:bool = False):
         '''
         This function build for load fine tuned model for testing
         :returns pre-trained feature extractor and fine tuned classifier
         '''
         './models/fine_tuning_signfi/fc_fineTuned_250Cls_labTohome_1_shot_without_Zscore.h5'
         if applyFinetunedModel:
-            print( f'loading fine tuned model: {self.config.tunedModel_path}' )
+
             fine_Tune_model = self.modelObj.buildTuneModel( config = self.config,isTest = True )
-            # fine_Tune_model = self.advObj.buildFeatureExtractor()
-            fine_Tune_model.load_weights(self.config.tunedModel_path)
+            if not isSepRx:
+                print( f'loading fine tuned model: {self.config.tunedModel_path}' )
+                print('loading fine tuned model weights}')
+                fine_Tune_model.load_weights(self.config.tunedModel_path)
             if useWeightMatrix:
                 feature_extractor = fine_Tune_model
             else:
@@ -332,6 +334,7 @@ class fineTuningSignFi:
     def test( self, nway,applyFinetunedModel:bool=True ):
         # self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
         # self.pretrained_featureExtractor.trainable = False
+        # softmax_func = tf.keras.layers.Softmax( )
         self.data = self._getSQData( nshots = self.nshots )
         N_test_sample = 100
         feature_extractor, classifier = self._loadFineTunedModel( applyFinetunedModel )
@@ -372,32 +375,34 @@ class fineTuningSignFi:
                 print( "Accuracy %.2f" % acc )
         return test_acc
 class fineTuningWidar(fineTuningSignFi ):
-    def __init__( self,config,isMultiDomain:bool = False ):
+    def __init__( self,config,isMultiDomain:bool = False,isiheritance=False ):
         super().__init__(config = config, isiheritance = True, )
-        self.WidarDataLoaderObj = WidarDataloader(config = config)
+        self.isMultiDomain = isMultiDomain
+        if not isiheritance:
+            self.WidarDataLoaderObj = WidarDataloader(config = config, isMultiDomain = True )
         # self.selected_gesture_samples_data,self.x,self.y = self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.x,self.WidarDataLoaderObj.y
-        self.config = config
-        self.nshots = config.nshots
-        self.nshots_per_domain = config.nshots_per_domain
-        # self.nshots_per_domain = int(self.nshots/5)
-        self.nways = config.N_novel_classes
-        self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
-        self.pretrained_featureExtractor.trainable = True
-        self.initializer = tf.keras.initializers.RandomUniform( minval = 0., maxval = 1. )
-        self.fine_Tune_model = self.modelObj.buildTuneModel(
-                pretrained_feature_extractor = self.pretrained_featureExtractor,
-                isTest = False, config = self.config
-                )
-        if isMultiDomain:
-            self.WidarDataLoaderObjMulti = WidarDataloader(
-                    isMultiDomain = isMultiDomain,
-                    config = config
+            self.config = config
+            self.nshots = config.nshots
+            self.nshots_per_domain = config.nshots_per_domain
+            # self.nshots_per_domain = int(self.nshots/5)
+            self.nways = config.N_novel_classes
+            self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+            self.pretrained_featureExtractor.trainable = True
+            self.initializer = tf.keras.initializers.RandomUniform( minval = 0., maxval = 1. )
+            self.fine_Tune_model = self.modelObj.buildTuneModel(
+                    pretrained_feature_extractor = self.pretrained_featureExtractor,
+                    isTest = False, config = self.config
                     )
-        else:
-            self.WidarDataLoaderObj = WidarDataloader(
-                    isMultiDomain = isMultiDomain,
-                    config = config
-                    )
+            if isMultiDomain:
+                self.WidarDataLoaderObjMulti = WidarDataloader(
+                        isMultiDomain = isMultiDomain,
+                        config = config
+                        )
+            else:
+                self.WidarDataLoaderObj = WidarDataloader(
+                        isMultiDomain = isMultiDomain,
+                        config = config
+                        )
     # def getMultiDomainData(self,isTest=False):
     #     Support_data = []
     #     Support_label =[]
@@ -448,14 +453,32 @@ class fineTuningWidar(fineTuningSignFi ):
     #             'record'       : np.concatenate(record,axis = 0)
     #             }
     #     return output
+    def _getoutput( self, feature_extractor ):
+        return Model(inputs = feature_extractor.input,outputs = feature_extractor.get_layer('lambda_layer').output)
     def _getNShotsEmbedding( self,feature_extractor,Support_set ):
         Support_set_embedding_all = feature_extractor.predict( Support_set )
         Support_set_embedding = []
-        for i in range(self.nways):
-            Support_set_embedding.append(np.mean(Support_set_embedding_all[i*self.nshots:i*self.nshots+self.nshots],
-                    axis=0))
+        if self.isMultiDomain:
+            n = len(self.config.domain_selection)
+            for i in range( self.nways ):
+                Support_set_embedding.append(
+                        np.mean(
+                                Support_set_embedding_all[ i * n * self.nshots:i * n * self.nshots + n * self.nshots ],
+                                axis = 0
+                                )
+                        )
+        else:
+            # n=self.nshots
+            for i in range( self.nways ):
+                Support_set_embedding.append(
+                        np.mean(
+                                Support_set_embedding_all[ i * self.nshots:i * self.nshots + self.nshots ],
+                                axis = 0
+                                )
+                        )
+
         return np.asarray(Support_set_embedding)
-    def tuning( self,init_weights = True,init_bias = False, isLoopSearch:bool = False, iteration: int = None,isTest:bool = False):
+    def tuning( self,init_weights = True,init_bias = False,isTest:bool = False):
         self.data = self.WidarDataLoaderObj.getSQDataForTest(
                 nshots = self.nshots, mode = 'fix',
                 isTest = isTest,
@@ -518,8 +541,41 @@ class fineTuningWidar(fineTuningSignFi ):
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
         return [self.fine_Tune_model,self.data['record'],history]
-    def _getoutput( self, feature_extractor ):
-        return Model(inputs = feature_extractor.input,outputs = feature_extractor.get_layer('lambda_layer').output)
+    def tuningMultiRx( self ):
+        data = self.WidarDataLoaderObj.getMultiDomainSQDataForTest( nshots_per_domain = self.config.nshots, isTest = False )
+        Support_data = [ ]
+        keys = list( data[ 'Support_data' ].keys( ) )
+        [ Support_data.append( np.concatenate( data[ 'Support_data' ][ keys[ j ] ], axis = 0 ) ) for j in
+          range( len( keys ) ) ]
+        s_data_array = np.concatenate( Support_data, axis = 0 )
+        self.pretrained_featureExtractor.load_weights( self.config.pretrainedfeatureExtractor_path )
+        weights = np.transpose(
+                self._getNShotsEmbedding( self.pretrained_featureExtractor, s_data_array )
+                )
+        bias = np.zeros( self.config.N_novel_classes )
+        self.fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
+        optimizer = tf.keras.optimizers.Adam(
+                learning_rate = self.config.lr,
+                # momentum = 0.9,
+                epsilon = 1e-06,
+                )
+        self.fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+        val_data, val_label = data[ 'Val_data' ], to_categorical(
+                data[ 'Val_label' ], num_classes
+                = self.config.N_novel_classes
+                )
+
+        idx = np.random.permutation( len( s_data_array ) )
+        history = self.fine_Tune_model.fit(
+                s_data_array[ idx ],
+                to_categorical(data[ 'Support_label' ][ idx ], num_classes = self.config.N_novel_classes),
+                epochs = 1000,
+                verbose = 0,
+                # shuffle = True,
+                validation_data = (val_data, val_label),
+                callbacks = [ self.earlyStop, self.lrScheduler ]
+                )
+        return [self.fine_Tune_model,data['record'],history]
     def test( self, applyFinetunedModel:bool):
         self.feature_extractor, self.classifier = self._loadFineTunedModel(
                 applyFinetunedModel = applyFinetunedModel,useWeightMatrix = True
@@ -569,13 +625,188 @@ class fineTuningWidar(fineTuningSignFi ):
         test_acc.append( acc )
         print( "Accuracy %.2f" % acc )
         return test_acc,[y_true,y_pred],label_true
-def searchBestSample(config,nshots=None):
-    '''
-    data_dir:
-         E:/Sensing_project/Cross_dataset/20181109/User1 --> environment 1, user 1
-         E:/Sensing_project/Cross_dataset/20181127       --> environment 2, user 2
-         E:/Sensing_project/Cross_dataset/20181211       --> environment 3, user 7
-    '''
+    def testMultiRx( self,applyFinetunedModel:bool,useWeightMatrix:bool = True,n_Rx:int = 6):
+        # n_Rx = 5
+        self.feature_extractor, _ = self._loadFineTunedModel(
+                applyFinetunedModel = applyFinetunedModel,useWeightMatrix = useWeightMatrix)
+        print(f'check for {self.nshots} shots {n_Rx} Receivers'
+              f'accuracy......................................................................')
+        N_test_sample,correct_count,test_acc,y_true,y_pred,label_true, n = 600,0,[],[],[],[],6
+        softmax_func = tf.keras.layers.Softmax( )
+        if useWeightMatrix:
+            weights = np.transpose(
+                    self.feature_extractor.get_layer( 'fine_tune_layer' ).get_weights( )[ 0 ]
+                    )
+            feature_extractor = self._getoutput( self.feature_extractor )
+        for i in range( N_test_sample ):
+            Query_data_selection = []
+            data = self.WidarDataLoaderObj.getMultiDomainSQDataForTest( 1, False )
+            Support_data,Query_data,Support_embedding,Query_embedding,sim,sim_mean = [],[],[],[],[],[]
+            keys = list( data[ 'Support_data' ].keys( ) )
+            [Support_data.append( np.concatenate( data[ 'Support_data' ][ keys[ j ] ], axis = 0 )) for j in range(len(keys))]
+            # random selection of specific receiver
+            selected_Rx_idx = np.unique(np.random.choice(np.arange(0,6),n_Rx,replace = False))
+            # selection of specific receiver
+            # selected_Rx_idx = np.arange(0,n_Rx)
+            for g in range(len(Support_data)):
+                Support_data[g] = Support_data[g][selected_Rx_idx]
+            if not useWeightMatrix:
+                feature_extractor = self.feature_extractor
+                '''gestures, 6 receivers CSI embedding'''
+                [Support_embedding.append(feature_extractor.predict(Support_data[j])) for j in range(len(Support_data))]
+            g_idx = np.random.choice( np.arange( 0, len( keys ) ), 1, replace = False )[ 0 ]
+            sample_idx = np.random.choice( np.arange( 0, len(data['Query_data'][keys[g_idx]][0]) ), 1,replace = False)[ 0 ]
+            buffer = data['Query_data'][keys[g_idx]]
+            '''select one sample for the selected gesture, corresponding to six receivers'''
+            [Query_data.append(buffer[ant][sample_idx]) for ant in range(len(data['Query_data'][keys[g_idx]]))]
+            [Query_data_selection.append(Query_data[ant]) for ant in selected_Rx_idx]
+            Query_embedding.append( feature_extractor.predict( np.asarray( Query_data_selection ) ) )
+            if useWeightMatrix:
+                p = []
+                buf_sim = [ cosine_similarity( weights, np.expand_dims( Query_embedding[ 0 ][ ant ], axis = 0 ) )
+                            for ant in range( len(Query_embedding[0])) ]
+                [p.append(np.expand_dims(softmax_func( np.squeeze(buf_sim[tt],axis=-1) ).numpy( ),axis = 0 )) for tt in range(len(buf_sim) )]
+                p = np.sum(np.concatenate( p, axis = 0 ),axis=0)
+            else:
+                for g_sim in range(len(Support_embedding ) ):
+                    [sim.append(cosine_similarity( np.expand_dims(Support_embedding[ g_sim ][ ant ],axis=0 ),np.expand_dims(
+                            Query_embedding[0][ant],axis=0) )) for ant in range(len(Query_embedding[0]))]
+                    sim_mean.append(np.mean(sim))
+                p = softmax_func(sim_mean).numpy( )
+            if np.argmax( p ) == g_idx:
+                correct_count += 1
+        acc = (correct_count / N_test_sample) * 100.
+        print( "Accuracy %.2f" % acc )
+        return acc
+    def GetparamForMulRx(self,path_idx:int):
+        FE, _ = self._loadFineTunedModel(
+                applyFinetunedModel = True, useWeightMatrix = True, isSepRx = True
+                )
+        FE.load_weights( self.config.tunedModel_path[ path_idx ] )
+        feature_extractor = self._getoutput( FE )
+        weights = np.transpose(
+                FE.get_layer( 'fine_tune_layer' ).get_weights( )[ 0 ]
+                )
+        return feature_extractor,weights
+    def testMultiRxSep( self, N_Rx:int ):
+        f1, w1 = self.GetparamForMulRx( path_idx = 0 )
+        f2, w2 = self.GetparamForMulRx( path_idx = 1 )
+        f3, w3 = self.GetparamForMulRx( path_idx = 2 )
+        f4, w4 = self.GetparamForMulRx( path_idx = 3 )
+        f5, w5 = self.GetparamForMulRx( path_idx = 4 )
+        f6, w6 = self.GetparamForMulRx( path_idx = 5 )
+        feature_extractor = [f1,f2,f3,f4,f5,f6]
+        weights=[w1,w2,w3,w4,w5,w6]
+        N_test_sample, correct_count, test_acc, y_true, y_pred, label_true, n = 600, 0, [ ], [ ], [ ], [ ], 6
+        print(self.config.tunedModel_path)
+        softmax_func = tf.keras.layers.Softmax( )
+        print(f'check for {self.nshots} shots, {N_Rx}_Receivers '
+              f'accuracy......................................................................')
+        for i in range( N_test_sample ):
+            data = self.WidarDataLoaderObj.getMultiDomainSQDataForTest( self.config.nshots, True,
+                    Best = self.config.record )
+            Support_data, Query_data, Support_embedding, Query_embedding, sim, sim_mean,p = [ ], [ ], [ ], [ ], [ ], \
+                                                                                            [ ],[ ]
+            keys = list( data[ 'Support_data' ].keys( ) )
+            '''gestures, 6 receivers CSI data'''
+            # [ Support_data.append( np.concatenate( data[ 'Support_data' ][ keys[ j ] ], axis = 0 ) ) for j in range(len( keys ) ) ]
+            # '''gestures, 6 receivers CSI embedding'''
+            # for j in range( len( Support_data ) ):
+            #     data_buf = Support_data[ j ]
+            #     emb_buf = []
+            #     for f_idx in range( len( data_buf)):
+            #         emb_buf.append(feature_extractor[f_idx].predict( np.expand_dims(data_buf[f_idx],axis=0) ))
+            # Support_embedding.append( np.concatenate(emb_buf,axis=0) )
+            g_idx = np.random.choice( np.arange( 0, len( keys ) ), 1, replace = False )[ 0 ]
+            sample_idx = np.random.choice( np.arange( 0, len(data['Query_data'][keys[g_idx]][0]) ), 1,replace = False)[ 0 ]
+            buffer = data['Query_data'][keys[g_idx]]
+            ant_selection = np.random.choice( np.arange( 0, 6), N_Rx, replace = False)
+            '''select one sample for the selected gesture, corresponding to six receivers'''
+            [Query_data.append(buffer[ant][sample_idx]) for ant in range(len(data['Query_data'][keys[g_idx]]))]
+            '''select antenna'''
+            Query_data_selection = []
+            weights_selection = []
+            for at in ant_selection:
+                Query_data_selection.append(Query_data[at])
+                weights_selection.append(weights[at])
+
+            [Query_embedding.append(feature_extractor[ant_selection[ant]].predict(np.expand_dims(
+                    Query_data_selection[ant],axis = 0))) for ant in range(len(Query_data_selection))]
+            for w in range(len(Query_embedding)):
+                sim.append(cosine_similarity( weights_selection[w], Query_embedding[ w ]) )
+            for g in range( len( sim ) ):
+                p.append(softmax_func(  np.squeeze(sim[ g ] )).numpy())
+            p = np.sum( np.asarray(p), axis = 0 )
+            if np.argmax( p ) == g_idx:
+                correct_count += 1
+        acc = (correct_count / N_test_sample) * 100.
+        print( "Accuracy %.2f" % acc )
+        return acc
+class fineTuningWiAR(fineTuningWidar):
+    def __init__( self,config,idx_user):
+        super( ).__init__( config = config, isMultiDomain = False,isiheritance = True )
+        self.config = config
+        self.wiar = WiARdataLoader( config, data_path = f'E:\\Sensing_project\\Cross_dataset\\WiAR\\volunteer_{idx_user}' )
+        self.data = self.wiar.data
+        self.label = self.wiar.label
+        self.config.N_novel_classes = len(self.data)
+        self.nways = self.config.N_novel_classes
+        self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+        self.pretrained_featureExtractor.trainable = True
+        self.fine_Tune_model = self.modelObj.buildTuneModel(
+                pretrained_feature_extractor = self.pretrained_featureExtractor,
+                isTest = False, config = self.config
+                )
+    def tuning( self):
+        self.pretrained_featureExtractor.load_weights(self.config.pretrainedfeatureExtractor_path)
+        self.pretrained_featureExtractor.trainable = True
+        self.data = self.wiar.getSQDataForTest()
+        weights = np.transpose(
+                self._getNShotsEmbedding( self.pretrained_featureExtractor, self.data[ 'Support_data' ] )
+                )
+        bias = np.zeros( self.config.N_novel_classes )
+        self.fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
+        val_data, val_label = self.data[ 'Val_data' ], to_categorical(
+                self.data[ 'Val_label' ], num_classes
+                = self.config.N_novel_classes
+                )
+        optimizer = tf.keras.optimizers.Adam(
+                learning_rate = self.config.lr,
+                # momentum = 0.9,
+                epsilon = 1e-06,
+                )
+        # optimizer = tf.keras.optimizers.SGD(
+        #         learning_rate = config.lr,
+        #         momentum = 0.99,
+        #         )
+        # optimizer = tf.keras.optimizers.Adadelta(
+        #         learning_rate = config.lr, rho = 0.50, epsilon = 1e-06, name = 'Adadelta',
+        #
+        #         )
+        # optimizer =  tf.keras.optimizers.RMSprop(
+        #                                     learning_rate=config.lr,
+        #                                     rho=0.99, momentum=0.9,
+        #                                     epsilon=1e-06,
+        #                                     centered=False,
+        #                                     name='RMSprop',
+        #                                                     )
+        # optimizer = tf.keras.optimizers.Adamax(
+        #                                          learning_rate=self.config.lr, beta_1=0.90, beta_2=0.98, epsilon=1e-08,
+        #                                          name='Adamax'
+        #                                      )
+        self.fine_Tune_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
+        idx = np.random.permutation( len( self.data[ 'Support_data' ] ) )
+        history = self.fine_Tune_model.fit(
+                self.data[ 'Support_data' ][ idx ], to_categorical(self.data[ 'Support_label' ][ idx ] , num_classes
+                = self.config.N_novel_classes ),
+                epochs = 1000,
+                verbose = 0,
+                validation_data = (val_data, val_label),
+                callbacks = [ self.earlyStop, self.lrScheduler ]
+                )
+        return [self.fine_Tune_model,self.data['record'],history]
+def searchBestSample(nshots=None):
+    config = getConfig( )
     data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
                  'E:/Sensing_project/Cross_dataset/20181109/User2',
                  'E:/Sensing_project/Cross_dataset/20181109/User3'
@@ -584,7 +815,7 @@ def searchBestSample(config,nshots=None):
     config.nshots_per_domain = None
     # config.nshots = int(5*1*1*config.nshots_per_domain)
     config.nshots = nshots
-    config.train_dir = data_dir[2]
+    config.train_dir = data_dir[0]
     # config.train_dir = 'E:/Cross_dataset/20181115'
     config.N_novel_classes = 6
     config.lr = 1e-4
@@ -596,8 +827,7 @@ def searchBestSample(config,nshots=None):
     val_acc = 0
     acc_record = []
     for i in range(100):
-        fine_Tune_model,record,history = fineTuningWidarObj.tuning(isLoopSearch = True, init_bias = True,
-                iteration = i)
+        fine_Tune_model,record,history = fineTuningWidarObj.tuning( init_bias = True)
         print("=========================================================iteration: "
               "%d=========================================================" % i)
         acc_record.append(history.history[ 'val_acc' ][ -1 ])
@@ -622,6 +852,7 @@ def searchBestSample(config,nshots=None):
             if val_acc >= 0.95:
                 print(f'reached expected val_acc {val_acc}')
                 break
+    '''Testing'''
     config.getSampleIdx( )
     test_acc,[y_true,y_pred],label_true = fineTuningWidarObj.test(applyFinetunedModel = True)
     plt_cf = pltConfusionMatrix( )
@@ -632,6 +863,106 @@ def searchBestSample(config,nshots=None):
                 f'/{config.nshots}shots_'
                 f'{config.domain_selection}_finetuned_{test_acc[0]:0.2f}_user{x}.pdf')
     return test_acc
+def searchBestSampleMultiRx(nshots:int = None,Rx:list = None):
+    config = getConfig( )
+    data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
+                 'E:/Sensing_project/Cross_dataset/20181109/User2',
+                 'E:/Sensing_project/Cross_dataset/20181109/User3'
+                 ]
+    config.pretrainedfeatureExtractor_path = './models/Publication_related/FE/a.h5'
+    config.nshots = nshots
+    config.train_dir = data_dir[ 0 ]
+    config.N_novel_classes = 6
+    config.lr = 1e-4
+    config.domain_selection = Rx
+    # selection = np.random.choice(config.domain_selection,n,replace = False)
+    x = 1
+    val_acc = 0.0
+    fineTuningWidarObj = fineTuningWidar( config = config, isMultiDomain = True )
+    for i in range(50):
+        fine_Tune_model,record,history = fineTuningWidarObj.tuningMultiRx( )
+        print("=========================================================iteration: "
+              "%d=========================================================" % i)
+        if val_acc < np.max(history.history['val_acc']):
+            val_acc = np.max(history.history['val_acc'])
+            config.tunedModel_path = f'./models/Publication_related/widar_fineTuned_M_Rx_model_20181109' \
+                                     f'_{config.nshots}shots_' \
+                                     f'_domain{config.domain_selection}_{val_acc:0.2f}_newFE_user{x}.h5'
+            fine_Tune_model.save_weights(config.tunedModel_path)
+            config.record = record
+            print(f'Updated record is: {config.record }')
+            mdic = {'record':config.record ,
+                    'val_acc':val_acc}
+            config.setMatSavePath(
+                    f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots"
+                    f"_domain_{config.domain_selection}_20181109_MultiRx_newFE_user{x}.mat"
+                    )
+            savemat( config.matPath, mdic )
+            if val_acc >= 0.75:
+                print(f'reached expected val_acc {val_acc}')
+                break
+    return val_acc
+def evaluationMultiRx(N_Rx,N_shots):
+    acc = {'user1':[],'user2':[],'user3':[] }
+    config = getConfig( )
+    data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
+                 'E:/Sensing_project/Cross_dataset/20181109/User2',
+                 'E:/Sensing_project/Cross_dataset/20181109/User3'
+                 ]
+    config.pretrainedfeatureExtractor_path = './models/Publication_related/FE/a.h5'
+    path = './models/Publication_related/Rx_specific/'
+
+    # config.tunedModel_path = ['./models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain['
+    #                           '1]_0.37_newFE_user1.h5',
+    #                           './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain['
+    #                           '2]_0.61_newFE_user1.h5',
+    #                           './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain['
+    #                           '3]_0.53_newFE_user1.h5',
+    #                           './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain['
+    #                           '4]_0.39_newFE_user1.h5',
+    #                           './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain['
+    #                           '5]_0.45_newFE_user1.h5',
+    #                           './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain['
+    #                           '6]_0.42_newFE_user1.h5',]
+    # config.tunedModel_path = './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain[1]_0.37_newFE_user1.h5'
+    # config.tunedModel_path = './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain[1, 2]_0.43_newFE_user1'
+    # config.tunedModel_path = './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain[1, 2, 3]_0.42_newFE_user1.h5'
+    # config.tunedModel_path = './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain[1, 2, 3, 4]_0.41_newFE_user1.h5'
+    # config.tunedModel_path = './models/Publication_related/widar_fineTuned_M_Rx_model_20181109_1shots__domain[1, 2, 3, 4, 5]_0.40_newFE_user1.h5'
+    config.N_novel_classes = 6
+    config.nshots = N_shots
+    config.tunedModel_path = [
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[1]_newFE_user1.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[2]_newFE_user1.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[3]_newFE_user1.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[4]_newFE_user1.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[5]_newFE_user1.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[6]_newFE_user1.h5',]
+    config.matPath = [ f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
+                       f"1]_20181109_MultiRx_newFE_user1",
+                       f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
+                       f"2]_20181109_MultiRx_newFE_user1",
+                       f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
+                       f"3]_20181109_MultiRx_newFE_user1",
+                       f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
+                       f"4]_20181109_MultiRx_newFE_user1",
+                       f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
+                       f"5]_20181109_MultiRx_newFE_user1",
+                       f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
+                       f"6]_20181109_MultiRx_newFE_user1" ]
+    config.record = []
+    for i in range(len(config.matPath)):
+        config.record.append(loadmat( config.matPath[i] + '.mat' )[ 'record' ])
+    # for j in range(3):
+    config.train_dir = data_dir[ 0 ]
+    config.domain_selection = [1,2,3,4,5,6]
+    testWidar = fineTuningWidar( config, True )
+    # fineTuneModelEvalObj = WidarDataloader( config = config, isMultiDomain = True )
+    # data = fineTuneModelEvalObj.getMultiDomainSQDataForTest(1,False)
+    for i in range(10):
+        # acc['user1'].append(testWidar.testMultiRx( applyFinetunedModel = True,useWeightMatrix = True,n_Rx = N_Rx ))
+        acc[ 'user1' ].append( testWidar.testMultiRxSep( N_Rx = N_Rx ) )
+    return acc
 def evaluation( domain_selection,nshots ):
     # config.getFineTunedModelPath( )
     # location, orientation, Rx = config.domain_selection
@@ -642,14 +973,18 @@ def evaluation( domain_selection,nshots ):
     config = getConfig( )
     config.domain_selection = domain_selection
     config.nshots = nshots
-    config.pretrainedfeatureExtractor_path = './a.h5'
+    config.pretrainedfeatureExtractor_path = './models/Publication_related/FE/a.h5'
     # config.setMatSavePath(
     #         f"./Sample_index/Publication_related/sample_index_record_for_2_shots_domain_(2, 2, 3)_20181109.mat"
     #         )
-    config.matPath = f"./Sample_index/Publication_related/sample_index_record_for_{nshots}_shots_domain_(2, 2, " \
-                     f"3)_20181109_newFE_user2.mat"
+    config.matPath = [f"./Sample_index/sample_index_record_for_{nshots}_shots_domain_[1]_20181109_MultiRx_newFE_user1",
+                      f"./Sample_index/sample_index_record_for_{nshots}_shots_domain_[2]_20181109_MultiRx_newFE_user1"
+                      f"./Sample_index/sample_index_record_for_{nshots}_shots_domain_[3]_20181109_MultiRx_newFE_user1"
+                      f"./Sample_index/sample_index_record_for_{nshots}_shots_domain_[4]_20181109_MultiRx_newFE_user1"
+                      f"./Sample_index/sample_index_record_for_{nshots}_shots_domain_[5]_20181109_MultiRx_newFE_user1"
+                      f"./Sample_index/sample_index_record_for_{nshots}_shots_domain_[6]_20181109_MultiRx_newFE_user1"]
     # config.getSampleIdx( )
-    config.train_dir = data_dir[1]
+    config.train_dir = data_dir[0]
     # config.tunedModel_path = f'./models/fine_tuning_widar/widar_fineTuned_model_20181109_1shots_test_domain_(2, 2, 3).h5'
     config.tunedModel_path = './models/Publication_related/widar_fineTuned_model_20181109_5shots__domain(2, 2, ' \
                              '3)_0.97_newFE_user2.h5'
@@ -759,34 +1094,55 @@ def testingSignFi(path,mode,N_train_classes,environment:str):
     fineTuningSignFiObj = fineTuningSignFi( config )
     test_acc = fineTuningSignFiObj.signTest(test_data, test_labels, 1000, feature_extractor)
     return test_acc
-if __name__ == '__main__':
+def tuningWiar(nshots,idx_user):
     config = getConfig()
-    # searchBestSample(config,4)
-    test_acc = []
-    # test_acc.append([evaluation(domain_selection=(2, 2, 3),nshots=i,) for i in [1,2,3,4,5]])
-    evaluation(domain_selection=(2, 2, 3),nshots=5,)
-    # for i in [1,2,3,4,5]:
-    #     test_acc = searchBestSample( config,i )
-    # fine_Tune_model = tuningSignFi()
-    # fine_Tune_model.save_weights( 'a_tuned_signFi_user_3.h5')
-    # config = getConfig( )
-    # acc_record = searchBestSample(config)
-    '''Testing with specific domain selection'''
-    # evaluation(
-    #         domain_selection = (2, 2, 3),
-    #         nshots = 5
-    #         )
-    # all_acc = testingSignFi()
-    # environment = 'lab'
-    # all_acc = { }
-    # all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
-    # for i, path in enumerate( all_path ):
-    #     n = re.findall( r'\d+', all_path[ i ] )[ 2 ]
-    #     if int( n ) == 200:
-    #         print( f'{n} in environment {environment}' )
-    #         extractor_path = './models/pretrained_feature_extractors/' + path
-    #         acc = testingSignFi(
-    #                 path = extractor_path,
-    #                 mode = 'Alexnet', N_base_classes = int( n ), environment = environment
-    #                 )
-    #         all_acc[ f'{n}_{environment}' ] = np.asarray( acc )
+    config.nshots = nshots
+    config.lr = 1e-4
+    config.pretrainedfeatureExtractor_path = './models/Publication_related/FE/a.h5'
+    wiarFTObj = fineTuningWiAR(config = config,idx_user=idx_user)
+    val_acc = 0.0
+    for i in range(50):
+        fine_Tune_model,record,history = wiarFTObj.tuning()
+        print("=========================================================iteration: "
+              "%d=========================================================" % i)
+        print('Tuning %d shots model' % nshots)
+        currentAcc = np.max( history.history[ 'val_acc' ])
+        print(f'Accuracy is {currentAcc}')
+        if val_acc < np.max(history.history['val_acc']):
+            val_acc = np.max(history.history['val_acc'])
+            config.tunedModel_path = f'.\\models\\Publication_related\\wiar_FT_{config.nshots}shots_' \
+                                     f'{val_acc:0.2f}_User_{idx_user}.h5'
+            fine_Tune_model.save_weights(config.tunedModel_path)
+            print(f'Updated record is: {record}')
+            mdic = {'record':record,
+                    'val_acc':val_acc}
+            config.setMatSavePath(
+                    f".\\Sample_index\\Publication_related\\sample_index_record_for_{config.nshots}_shots_User_{idx_user}.mat"
+                    )
+            savemat( config.matPath, mdic )
+            # if val_acc >= 0.75:
+            #     print(f'reached expected val_acc {val_acc}')
+            #     break
+    return val_acc
+if __name__ == '__main__':
+    '''WiAR'''
+    acc_all = { }
+    shots_list = [1,2,3,4,5]
+    for nshots in shots_list:
+        val_acc = tuningWiar(nshots = nshots,idx_user = 6 )
+        acc_all[f'User1_{nshots}_shots'] = val_acc
+    key = list(acc_all.keys())
+    for i in range(len(key)):
+        print(acc_all[key[i]])
+    '''Multiple receivers test'''
+    # acc_all = {}
+    # for i in range(1,7):
+    #     for shot in range(2,6):
+    #         acc = evaluationMultiRx( N_Rx = i,N_shots=shot )
+    #         acc_all[f'{i}_Rx_{shot}_shot'] = acc
+    # savemat('multiRx_acc.mat',acc_all)
+    # for k in range(1,7):
+    #     x = 3
+    #     per = np.min(acc_all[f'{k}_Rx_{x}_shot']['user1'])
+    #     print(f'{k} receivers, {x} shots accuracy is: {per:.2f}%')
+

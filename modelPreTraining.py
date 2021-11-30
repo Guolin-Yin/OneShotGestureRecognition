@@ -268,19 +268,25 @@ def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None,applyFin
     return test_acc
 if __name__ == '__main__':
     '''Feature Extractor pre-Training'''
-    N_base_classes = 200
-    [ preTrain_model, feature_extractor, val_acc, config ] = train_lab( N_base_classes )
-    extractor_path = f'./models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_{np.max(val_acc):.2f}_on' \
-                      f'_{config.N_base_classes}cls_256_1280_units.h5'
-    # feature_extractor.save_weights( extractor_path )
-    extractor_path = 'a.h5'
-    feature_extractor.save('a.h5')
+    # N_base_classes = 200
+    # [ preTrain_model, feature_extractor, val_acc, config ] = train_lab( N_base_classes )
+    # # extractor_path = f'./models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_{np.max(val_acc):.2f}_on' \
+    # #                   f'_{config.N_base_classes}cls_256_1280_units.h5'
+    # # feature_extractor.save_weights( extractor_path )
+    # extractor_path = 'FE_No_l2_200.h5'
+    # feature_extractor.save(extractor_path)
+    extractor_path = ['FE_No_l2_200.h5','a.h5']
+    domains = ['lab','home']
+    results = {}
     '''Testing'''
-    acc = RunTest(
-            N_train_classes = 200, domain = 'lab', nshots = 1,
-            FE_path = 'a.h5',
-            # FT_path = 'a_tuned_signFi_user_2.h5',
-            applyFinetunedModel = False
-            # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
-            )
+    for path in extractor_path:
+        for domain in domains:
+            acc = RunTest(
+                    N_train_classes = 200, domain = domain, nshots = 1,
+                    FE_path = path,
+                    # FT_path = 'a_tuned_signFi_user_2.h5',
+                    applyFinetunedModel = False
+                    # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
+                    )
+            results[domain+'_'+path] = acc
 

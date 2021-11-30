@@ -207,7 +207,7 @@ class models:
                 fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )
             except AttributeError:
                 print("The feature extractor has not been passed!!!!!!!!!!!!!!")
-        fine_Tune_model.summary( )
+        # fine_Tune_model.summary( )
         return fine_Tune_model
     def lr_scheduler(self, epoch, lr):
         if epoch < 100:

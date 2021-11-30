@@ -1,63 +1,13 @@
 from modelPreTraining import *
 from Preprocess.gestureDataLoader import signDataLoader
-from tensorflow.keras.models import Model
+
 from Config import getConfig
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 import random
+from scipy.io import savemat,loadmat
 # from methodTesting.plotResults import pltResults
-
 config = getConfig()
-
-
-def split(x_all,y_all):
-    start = np.where( y_all == 254 )[ 0 ]
-    # end = start + 25
-    test_labels_user1 = np.zeros( (250, 1), dtype=int )
-    test_data_user1 = np.zeros((250,200,60,3))
-    count = 0
-    for i in start:
-        test_labels_user1[ count:count + 25 ] = y_all[ i:i + 25 ]
-        test_data_user1[count:count + 25] = x_all[i:i + 25]
-        count += 25
-    return [test_data_user1,test_labels_user1]
-def OneShotPerformanceTest(source:str = '276'):
-    testOneshot = PreTrainModel( )
-    testSign = signDataLoader( dataDir=config.train_dir )
-    if source == '276':
-        _,trained_featureExtractor = defineModel( mode = 'Alexnet' )
-        trained_featureExtractor.load_weights( 'D:\OneShotGestureRecognition\models\signFi_featureExtractor_weight_AlexNet_training_acc_0.95_on_250cls.h5' )
-        testSign = signDataLoader( dataDir=config.train_dir )
-        x_all, y_all = testSign.getFormatedData( source='home' )
-        # test_data, test_labels = split( x_all, y_all )
-        test_data, test_labels, _, _ = testSign.getTrainTestSplit( data=x_all, labels=y_all,
-                                                                   N_train_classes=26,
-                                                                   N_samples_per_class= 10)
-
-        test_acc = testOneshot.signTest(
-                test_data = test_data, test_labels = test_labels, N_test_sample = 1000,
-                embedding_model = trained_featureExtractor
-                )
-    elif source == '150':
-        _, trained_featureExtractor = defineModel( mode='Alexnet' )
-        trained_featureExtractor.load_weights('./models/signFi_wholeModel_weight_AlexNet_training_acc_0.90_on_125cls_user1to4.h5')
-        x_all, y_all = testSign.getFormatedData( source='lab_other' )
-        test_data = x_all[ 1250:1500 ]
-        test_labels = y_all[ 1250:1500 ]
-        test_acc = testOneshot.signTest(
-                test_data = test_data, test_labels = test_labels, N_test_sample = 1000,
-                embedding_model = trained_featureExtractor, mode = 'fix'
-                )
-    return test_acc
-def CnnModelTesting():
-    model, _ = defineModel( mode='Alexnet' )
-    model.load_weights('./models/signFi_wholeModel_weight_AlexNet_training_acc_0.96_on_276cls.h5')
-    testSign = signDataLoader( dataDir=config.train_dir )
-    x_all, y_all = testSign.getFormatedData( source='lab_other' )
-    test_labels_1 = to_categorical(y_all[0:1250] - 1,num_classes=int(np.max(y_all)-2))
-    test_labels_2 = to_categorical( y_all[ 1250:1500 ] - 3, num_classes=int( np.max( y_all ) - 2 ) )
-    test_labels = np.concatenate((test_labels_1,test_labels_2),axis = 0)
-    model.evaluate(x_all,test_labels)
 def pltCrossDomain():
     labToHome = [0.875,0.918,0.934,0.935,0.961]
     # HomeToLab = [0.611,0.734,0.814,0.888,0.904,0.955,0.968,0.977,0.988,0.997]
@@ -141,7 +91,6 @@ def kFactorNreceiver():
     plt.xlabel( ' Power ratio' )
     plt.ylabel( 'Average accuracy')
     plt.ylim( 0,100 )
-
 def pltResults(
         acc, resultsLabel, axis, linestl = None, markertype = None, linecolor = None, ncol = None, name = None,
         ifsetFigure = 'else', xtic:str = 'K' + ' (No. Novel classes)'
@@ -175,7 +124,7 @@ def pltResults(
     # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
     ax.set_xlabel( xtic, fontsize = fsize )
     ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
-    ax.legend( fontsize = 11,ncol = ncol )
+    ax.legend( fontsize = 10,ncol = ncol,loc='upper center', bbox_to_anchor=(0.5, 1.17))
     out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
            f'learning/Results/results_figs/Paperfigure/'+ name
     plt.savefig( out +'.pdf' )
@@ -461,7 +410,6 @@ def plot_barchart(result):
         #     plt.text( rect.get_x( ) + rect.get_width( ) / 2.0, height, f'{height:.0f}%', ha = 'center', va = 'bottom' ,
         #             fontsize = 14)
     plt.show()
-
 def recordNew(result):
     if result == 'compare_Base':
         resultsLabel = []
@@ -624,6 +572,15 @@ def recordNew(result):
                 name = 'widarperform_3user',
                 ifsetFigure = 'widar'
                 )
+    if result == 'l2_norm':
+        without_lab = [99. , 98.5, 97.1, 97.6, 96. , 95.6, 94.7, 94.8, 94.8, 90.1, 88.3,
+       85.1, 84.8, 84.2, 81.9, 80.8]
+        without_home = [94.6, 88.7, 82. , 80.6, 79.2, 76.9, 79. , 74.7, 72.6, 66. , 62.1,
+       58.7, 55.6, 53.3, 51.8, 51.1]
+        with_lab = [99.6, 99.5, 99.4, 99. , 98.9, 99.5, 98.2, 98.9, 98.7, 97.4, 96. ,
+       94.4, 92.3, 93.6, 93.4, 92.5]
+        with_home = [96.4, 93.6, 91.7, 88.2, 88. , 83.4, 83. , 82.2, 81.5, 72.7, 68.2,
+       65.9, 63.2, 62.7, 62.3, 61.3]
     plt.show( )
 def barChartNew(result):
     width = 0.17
@@ -835,12 +792,79 @@ def barChartNew(result):
     #             fontsize = fsize
     #             )
     plt.show()
-
+def multiRx():
+    resultsLabel = []
+    oneShot_NoFT = [25.83,27.83,29.83,31.33,38.33,41.83]
+    resultsLabel.append('1 shot without FT')
+    oneShot_FT_general = [38.16,47.33,53.5,55.67,56.17,64]
+    resultsLabel.append( '1 shot with FT (GM)' )
+    oneShot_FT_specific = [38.16,53.17,61,67.5,73.5,75.5]
+    resultsLabel.append( '1 shot with FT (RSM)' )
+    twoShot_FT_specific = [59.5,68.83,77.5,85.83,87.0,92]
+    resultsLabel.append( '2 shot with FT (RSM)' )
+    threeShot_FT_specific = [66.83,78,88,92,96.83,98.83]
+    resultsLabel.append( '3 shot with FT (RSM)' )
+    fourShot_FT_specific = [68.83,80.83,89.33,92.17,95.5,97.33]
+    resultsLabel.append( '4 shot with FT (RSM)' )
+    fiveShot_FT_specific = [76.83,87.33,95.5,98.5,99.5,100.00]
+    resultsLabel.append( '5 shot with FT (RSM)' )
+    acc = [ oneShot_NoFT, oneShot_FT_general, oneShot_FT_specific, twoShot_FT_specific, threeShot_FT_specific,
+            fourShot_FT_specific, fiveShot_FT_specific ]
+    markertype = [ "*","X",4,5,6,7,'D']
+    linecolor = [ 'burlywood', 'violet', 'lightseagreen', 'lightseagreen', 'lightseagreen', 'lightseagreen','lightseagreen' ]
+    linestl = [ 'dotted', 'dotted','solid', 'solid', 'solid','solid','solid' ]
+    pltResults(
+            acc,
+            resultsLabel,
+            np.arange( 1, 7 ),
+            linestl = linestl,
+            markertype = markertype,
+            linecolor = linecolor,
+            ncol = 3,
+            name = 'multiRx_results',
+            xtic = 'No. Receivers',
+            ifsetFigure = True
+            )
+def wiar():
+    resultsLabel = []
+    oneShot_NoFT = [25.83,27.83,29.83,31.33,38.33,41.83]
+    resultsLabel.append('1 shot without FT')
+    oneShot_FT_general = [38.16,47.33,53.5,55.67,56.17,64]
+    resultsLabel.append( '1 shot with FT (GM)' )
+    oneShot_FT_specific = [38.16,53.17,61,67.5,73.5,75.5]
+    resultsLabel.append( '1 shot with FT (RSM)' )
+    twoShot_FT_specific = [59.5,68.83,77.5,85.83,87.0,92]
+    resultsLabel.append( '2 shot with FT (RSM)' )
+    threeShot_FT_specific = [66.83,78,88,92,96.83,98.83]
+    resultsLabel.append( '3 shot with FT (RSM)' )
+    fourShot_FT_specific = [68.83,80.83,89.33,92.17,95.5,97.33]
+    resultsLabel.append( '4 shot with FT (RSM)' )
+    fiveShot_FT_specific = [76.83,87.33,95.5,98.5,99.5,100.00]
+    resultsLabel.append( '5 shot with FT (RSM)' )
+    acc = [ oneShot_NoFT, oneShot_FT_general, oneShot_FT_specific, twoShot_FT_specific, threeShot_FT_specific,
+            fourShot_FT_specific, fiveShot_FT_specific ]
+    markertype = [ "*","X",4,5,6,7,'D']
+    linecolor = [ 'burlywood', 'violet', 'lightseagreen', 'lightseagreen', 'lightseagreen', 'lightseagreen','lightseagreen' ]
+    linestl = [ 'dotted', 'dotted','solid', 'solid', 'solid','solid','solid' ]
+    pltResults(
+            acc,
+            resultsLabel,
+            np.arange( 1, 7 ),
+            linestl = linestl,
+            markertype = markertype,
+            linecolor = linecolor,
+            ncol = 3,
+            name = 'multiRx_results',
+            xtic = 'No. Receivers',
+            ifsetFigure = True
+            )
 if __name__ == '__main__':
-    recordNew( result = 'compare_Base' )
-    recordNew( result = 'in_domain' )
-    recordNew( result = 'crossenvir_user5' )
-    recordNew(result = 'crossenvir_user1234')
-    recordNew( result = 'cross_domain_user_shots' )
-    recordNew( result = 'widar' )
+    multiRx()
+    # recordNew( result = 'compare_Base' )
+    # recordNew( result = 'in_domain' )
+    # recordNew( result = 'crossenvir_user5' )
+    # recordNew(result = 'crossenvir_user1234')
+    # recordNew( result = 'cross_domain_user_shots' )
+    # recordNew( result = 'widar' )
+
 
