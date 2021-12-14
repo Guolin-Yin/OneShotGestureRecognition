@@ -568,8 +568,9 @@ def recordNew(result):
                 linestl = linestl,
                 linecolor = linecolor,
                 markertype = markertype,
-                ncol = 2,
+                ncol = 3,
                 name = 'widarperform_3user',
+                xtic = 'N (No. shots)',
                 ifsetFigure = 'widar'
                 )
     if result == 'l2_norm':
@@ -827,39 +828,36 @@ def multiRx():
             )
 def wiar():
     resultsLabel = []
-    oneShot_NoFT = [25.83,27.83,29.83,31.33,38.33,41.83]
-    resultsLabel.append('1 shot without FT')
-    oneShot_FT_general = [38.16,47.33,53.5,55.67,56.17,64]
-    resultsLabel.append( '1 shot with FT (GM)' )
-    oneShot_FT_specific = [38.16,53.17,61,67.5,73.5,75.5]
-    resultsLabel.append( '1 shot with FT (RSM)' )
-    twoShot_FT_specific = [59.5,68.83,77.5,85.83,87.0,92]
-    resultsLabel.append( '2 shot with FT (RSM)' )
-    threeShot_FT_specific = [66.83,78,88,92,96.83,98.83]
-    resultsLabel.append( '3 shot with FT (RSM)' )
-    fourShot_FT_specific = [68.83,80.83,89.33,92.17,95.5,97.33]
-    resultsLabel.append( '4 shot with FT (RSM)' )
-    fiveShot_FT_specific = [76.83,87.33,95.5,98.5,99.5,100.00]
-    resultsLabel.append( '5 shot with FT (RSM)' )
-    acc = [ oneShot_NoFT, oneShot_FT_general, oneShot_FT_specific, twoShot_FT_specific, threeShot_FT_specific,
-            fourShot_FT_specific, fiveShot_FT_specific ]
-    markertype = [ "*","X",4,5,6,7,'D']
-    linecolor = [ 'burlywood', 'violet', 'lightseagreen', 'lightseagreen', 'lightseagreen', 'lightseagreen','lightseagreen' ]
-    linestl = [ 'dotted', 'dotted','solid', 'solid', 'solid','solid','solid' ]
+    u2 = [66.2,79.5,86.8,89.2,94.2,]
+    resultsLabel.append('User 1')
+    u6 = [54.2,60.9,75.9,78.1,86.3]
+    resultsLabel.append( 'User 2' )
+    u7 = [31.03,37.5,46.52,48.32,57.24]
+    resultsLabel.append( 'User 3' )
+    u8 = [60.13,73.66,80.32,84.61,88.74]
+    resultsLabel.append( 'User 4' )
+    u9 = [54.09,62.72,75.23,78.60,81.25]
+    resultsLabel.append( 'User 5' )
+    u10 = [51.29,64.73,78.24,81.97,88.49]
+    resultsLabel.append( 'User 6' )
+    acc = [ u2,u6,u7,u8,u9,u10 ]
+    markertype = [ "h",">",'v','8','p','*']
+    linecolor = [ 'lightcoral', 'salmon', 'chocolate', 'sandybrown', 'lightseagreen', 'peru' ]
+    linestl = [ 'dotted', 'dotted','dotted', 'dotted', 'dotted','dotted','dotted' ]
     pltResults(
             acc,
             resultsLabel,
-            np.arange( 1, 7 ),
+            np.arange( 1, 6 ),
             linestl = linestl,
             markertype = markertype,
             linecolor = linecolor,
             ncol = 3,
-            name = 'multiRx_results',
-            xtic = 'No. Receivers',
+            name = 'wiar_dataset',
+            xtic = 'N (No. shots)',
             ifsetFigure = True
             )
 if __name__ == '__main__':
-    multiRx()
+    wiar()
     # recordNew( result = 'compare_Base' )
     # recordNew( result = 'in_domain' )
     # recordNew( result = 'crossenvir_user5' )
