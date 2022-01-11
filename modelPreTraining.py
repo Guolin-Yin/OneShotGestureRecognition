@@ -179,11 +179,11 @@ class PreTrainModel:
             preTrain_model.compile( loss = 'categorical_crossentropy', optimizer = optimizer, metrics = 'acc' )
             preTrain_model.summary( )
         return preTrain_model, self.feature_extractor
-    # def scheduler(self, epoch, lr):
-    #     if epoch > 100:
-    #         return lr * tf.math.exp(-0.1)
-    #     else:
-    #         return lr
+    def scheduler(self, epoch, lr):
+        if epoch > 100:
+            return lr * tf.math.exp(-0.1)
+        else:
+            return lr
 def train_user_1to5():
     config = getConfig( )
     config.source = 'lab'
@@ -192,7 +192,11 @@ def train_user_1to5():
     dataLoadObj = signDataLoader( dataDir=config.train_dir )
     preTrain_modelObj = PreTrainModel( )
     # Training params
-    lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
+    # lrScheduler = tf.keras.callbacks.LearningRateScheduler( preTrain_modelObj.scheduler )
+    lrScheduler = ReduceLROnPlateau(
+            monitor = 'val_loss', factor = 0.1,
+            patience = 20,
+            )
     earlyStop = tf.keras.callbacks.EarlyStopping( monitor='val_loss', patience=20, restore_best_weights=True )
     # Sign recognition
     x_all, y_all,_,_ = dataLoadObj.getFormatedData(source = config.source)

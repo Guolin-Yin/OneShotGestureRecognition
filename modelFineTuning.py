@@ -137,7 +137,11 @@ class fineTuningSignFi:
         self.modelObj = models( )
         self.config = config
         self.trainTestObj = PreTrainModel(config = config )
-        self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
+        # self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
+        self.lrScheduler = ReduceLROnPlateau(
+                monitor = 'val_loss', factor = 0.1,
+                patience = 20,
+                )
         self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, restore_best_weights
         =True, min_delta = 0.0001/2,mode = 'min',verbose=1)
         # self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
