@@ -57,17 +57,17 @@ def visualize_scatter_classes( data, label_id, label, perplexity,n_iter,figsize 
 	# id_to_label_dict = ['Push&Pull','Sweep','Clap','Slide','Draw-Zigzag(Vertical)','Draw-N(Vertical)']
 	# id_to_label_dict = list(str(np.unique( label_ids )))
 	marker = ['X', '*', 'd', 'h', 'H', 'D', 'P', 'o','v','^', '<', '>', '8', 's', 'p', '*',  ]
-	color = np.random.choice([1,2,3],2,replace = False )
-	domains = ['lab','home']
+	color = np.random.choice([1,2,3],3,replace = False )
+	domains = ['user 5, laboratory','user 5, home','user 1, laboratory']
 	for i in range(len(data)):
 		data_2d = data[i]
 		label_ids = label_id[ i ]
 		domain = domains[i]
 		for idx, id in enumerate(np.unique( label_ids ) ):
 			p = np.where( label_ids == id )[0]
-			if id == 7:
+			if id == 5:
 				o = 2
-			elif id == 28:
+			elif id == 3:
 				o = 3
 			elif id == 1:
 				o = 1
@@ -75,14 +75,15 @@ def visualize_scatter_classes( data, label_id, label, perplexity,n_iter,figsize 
 					data_2d[ p, 0 ],
 					data_2d[ p, 1 ],
 					marker = marker[idx],
-					s = 500,
+					s = 200,
 					# color = plt.cm.Set1( id / float( nb_classes + 1 ) ),
 					color = plt.cm.Set1( color[i] ),
 					linewidth = 1,
 					alpha = 0.7,
 					label = 'sign' + str(o) + f'({domain})'
 					)
-	plt.legend( fontsize = 22,loc = 'best' )
+
+	plt.legend( fontsize = 15,loc = 'best' )
 def domain_t_sne(data,n_components:int = 2,random_state = 0,perplexity:int = 6,n_iter:int = 5000):
 	# data = data.reshape(len(data),-1)
 	n = len(data)
@@ -147,7 +148,7 @@ if __name__ == '__main__':
 	# data_val = np.concatenate( (data_val_1, signFiData_lab), axis = 0 )
 	# domain_label = np.concatenate( (domain_label_1, domain_label_3), axis = 0 )
 	# domain_t_sne( (data_val_1, signFiData_lab), perplexity = 20, n_iter = 2000 )
-	selection = [1,7,28]
+	selection = [1,3,5]
 	signFidata = signDataObj.getFormatedData( source = 'lab',isZscore = True )
 	idx = np.where(signFidata[1] == selection)[0]
 	data_lab = signFidata[0][idx]
@@ -159,8 +160,17 @@ if __name__ == '__main__':
 	data_home = signFidata[0][idx]
 	label_home = signFidata[1][idx].tolist()
 
+	signFidata = signDataObj.getFormatedData( source = [1,2,3,4,2],isZscore = True  )
+	idx = np.where(signFidata[1] == selection)[0]
+	data_user5 = signFidata[0][idx][0:60]
+	label_user5 = signFidata[1][idx].tolist()[0:60]
 
-	data = [data_lab,data_home]
-	label_id = [label_lab,label_home]
-	label = [label_lab_str,label_home_str]
+	signFidata = signDataObj.getFormatedData( source = [2,3,5,4,1],isZscore = True  )
+	idx = np.where(signFidata[1] == selection)[0]
+	data_user4 = signFidata[0][idx][0:60]
+	label_user4 = signFidata[1][idx].tolist()[0:60]
+
+	data = [data_home,data_lab,data_user4]
+	label_id = [label_home,label_lab,label_user4]
+	label = []
 	class_t_sne(data = data,label_id=label_id, label=label,perplexity = 7,n_iter = 2000)

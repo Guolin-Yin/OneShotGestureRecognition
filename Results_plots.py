@@ -93,7 +93,7 @@ def kFactorNreceiver():
     plt.ylim( 0,100 )
 def pltResults(
         acc, resultsLabel, axis, linestl = None, markertype = None, linecolor = None, ncol = None, name = None,
-        ifsetFigure = 'else', xtic:str = 'K' + ' (No. Novel classes)'
+        ifsetFigure = 'else', xtic:str = 'N' + ' (No. Novel classes)'
         ):
 
     ax = plt.figure( figsize = (8, 5) ).gca( )
@@ -118,13 +118,17 @@ def pltResults(
         ax.set_ylim( 35, 101 )
     if ifsetFigure == 'widar':
         ax.set_ylim( 0, 100 )
+    # ax.set_xlim( 39, 80 )
     fsize = 14
     plt.xticks(fontsize = fsize)
     plt.yticks( fontsize = fsize )
     # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
     ax.set_xlabel( xtic, fontsize = fsize )
     ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
-    ax.legend( fontsize = 10,ncol = ncol,loc='upper center', bbox_to_anchor=(0.5, 1.17))
+    ax.legend( fontsize = 10,ncol = ncol,
+            # loc='upper center',
+            # bbox_to_anchor=(0.5, 1.17)
+            )
     out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
            f'learning/Results/results_figs/Paperfigure/'+ name
     plt.savefig( out +'.pdf' )
@@ -493,15 +497,17 @@ def recordNew(result):
                 markertype = markertype,
                 linecolor = linecolor,
                 ncol = 2,
+                xtic = 'N (No.classes)',
                 name = 'crossenvir_user1234'
                 )
     if result == 'in_domain':
-        test_76_cls_FE_200_256_1280_lab = [99.9,99.8,99.8,98.7,98.8,98.7,98.5,97.8,97.8,96.8,95.4,95.8,95.,93.3,92.3,91.7]
-
+        # test_76_cls_FE_200_256_1280_lab = [99.9,99.8,99.8,98.7,98.8,98.7,98.5,97.8,97.8,96.8,95.4,95.8,95.,93.3,92.3,91.7]
+        test_76_cls_FE_200_256_1280_lab = [95.4,95.8,95.,93.3,92.3,91.7]
         pltResults(
                 [ test_76_cls_FE_200_256_1280_lab ]
                 , [ 'lab, user 5 (in-domain)' ],
-                np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ), np.asarray( [ 76 ] )), axis = 0 ),
+                # np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ), np.asarray( [ 76 ] )), axis = 0 ),
+                np.concatenate((np.arange( 30, 77, 10 ), np.asarray( [ 76 ] )),axis = 0),
                 linestl = ['solid'],
                 markertype = ['s'],
                 linecolor = ['cornflowerblue'],
@@ -518,23 +524,36 @@ def recordNew(result):
                 linestl = [ 'dashed' ],
                 markertype = [ 's' ],
                 linecolor = [ 'darkorange' ],
-                name = 'crossenvir_user5'
+                name = 'crossenvir_user5',
+                xtic = 'N (No.classes)'
+
                 # linecolor = linecolor
                 )
     if result == 'cross_domain_user_shots':
-        indomain_user_5 = [91.7,95.4,96.9,98,98.3]
+        # indomain_user_5 = [91.7,95.4,96.9,98,98.3]
         crossdomain_user_5 = [57.9,62.5,68.7,69.9,71.5]
         crossdomain_user_1 = [72,72.9,76.2,75.4,76.6]
         crossdomain_user_2 = [70,74.3,73.2,74.2,77.2]
         crossdomain_user_3 = [80.4,80.6,84.2,84.4,85.3]
         crossdomain_user_4 = [92.4,93.0,94.6,94.5,95.2]
-        markertype = ["s","s","o","P","x","d"]
-        linecolor = ['cornflowerblue','darkorange','green','red','plum','tab:brown']
-        linestl = [ 'solid', 'dashed', 'dotted', 'dotted', 'dotted', 'dotted' ]
+        markertype = [
+                # "s",
+                "s","o","P","x","d"]
+        linecolor = [
+                # 'cornflowerblue',
+                     'darkorange','green','red','plum','tab:brown']
+        linestl = [
+                # 'solid',
+                'dashed', 'dotted', 'dotted', 'dotted', 'dotted' ]
         pltResults(
-                [ indomain_user_5,crossdomain_user_5,crossdomain_user_1,crossdomain_user_2,crossdomain_user_3,
+                [
+                            # indomain_user_5,
+                  crossdomain_user_5,crossdomain_user_1,crossdomain_user_2,crossdomain_user_3,
                   crossdomain_user_4 ]
-                , [ 'lab, user 5 (in-domain)','home, user 5 (cross-domain)',
+                ,
+                [
+                        # 'lab, user 5 (in-domain)',
+                  'home, user 5 (cross-domain)',
                     'lab 2, user 1 (cross-domain)','lab 2, user 2 (cross-domain)','lab 2, user 3 (cross-domain)',
                     'lab 2, user 4 (cross-domain)'],
                 np.arange(1,6),
@@ -543,7 +562,7 @@ def recordNew(result):
                 markertype=markertype,
                 ncol = 2,
                 name = 'FSL',
-                xtic = 'N' + ' (No. shots)'
+                xtic = 'K' + ' (No. shots)'
                 )
     if result == 'widar':
         FT_user1 = [51.8,69.3,83.4,85.2,90.6]
@@ -570,7 +589,7 @@ def recordNew(result):
                 markertype = markertype,
                 ncol = 3,
                 name = 'widarperform_3user',
-                xtic = 'N (No. shots)',
+                xtic = 'K (No. shots)',
                 ifsetFigure = 'widar'
                 )
     if result == 'l2_norm':
@@ -608,42 +627,63 @@ def barChartNew(result):
     #     plt.xticks( id + 2 * width, ('Lab (in-domain)', 'Home (cross-domain)'), fontsize = 28 )
     #     plt.ylim( 0, 100 )
     if result == 'compareFT':
-        u5 = [57.9,72.8]
-        u1 = [72,81.3]
-        u2 = [70,77]
-        u3 = [80.4,91.6]
-        u4 = [92.4,96.5]
+        u5 = [57.9,72.8,87.1]#87.1
+        u1 = [72,81.3,88.0]#88.0
+        u2 = [70,77,96.8]#96.8
+        u3 = [80.4,91.6,98.4]#98.4
+        u4 = [92.4,96.5,99.2]#99.2
+
+
+        oneshot = [72,70,80.4,92.4,57.9,]
+        twoshot = [81.3,77,91.6,96.5,72.8,]
+        threeshot = [88.0,96.8,98.4,99.2,87.1,]
         plt.figure( figsize = (8, 5) )
-
-        bar1 = plt.bar(
-                np.arange( len( u1 ) ) + 0 * width, u1, width, align = 'center', alpha = 0.4,
-                label = 'lab 2, user 1 (cross-domain)'
+        plt.bar(
+                np.arange( len( oneshot ) ) + 0 * width, oneshot, width, align = 'center', alpha = 0.4,
+                label = 'without fine-tuning'
                 )
-        bar1 = plt.bar(
-                np.arange( len( u2 ) ) + 1 * width, u2, width, align = 'center', alpha = 0.4,
-                label = 'lab 2, user 2 (cross-domain)'
+        plt.bar(
+                np.arange( len( twoshot ) ) + 1 * width, twoshot, width, align = 'center', alpha = 0.4,
+                label = 'with fine-tuning(1 shot)'
                 )
-        bar1 = plt.bar(
-                np.arange( len( u3 ) ) + 2 * width, u3, width, align = 'center', alpha = 0.4,
-                label = 'lab 2, user 3 (cross-domain)'
+        plt.bar(
+                np.arange( len( threeshot ) ) + 2 * width, threeshot, width, align = 'center', alpha = 0.4,
+                label = 'with fine-tuning(5 shots)'
                 )
-        bar1 = plt.bar(
-                np.arange( len( u4 ) ) + 3 * width, u4, width, align = 'center', alpha = 0.4,
-                label = 'lab 2, user 4 (cross-domain)'
+        plt.xticks(
+                np.arange( len( threeshot ) ) + 2 * width, ('User s1', 'User s2', 'User s3', 'User s4','User s5'),
+                fontsize = fsize
                 )
-        bar1 = plt.bar(
-                np.arange( len( u5 ) ) + 4 * width, u5, width, align = 'center', alpha = 0.4,
-                label = 'home, user 5 (cross-domain)'
-                )
-
+        # bar1 = plt.bar(
+        #         np.arange( len( u1 ) ) + 0 * width, u1, width, align = 'center', alpha = 0.4,
+        #         label = 'lab 2, user 1 (cross-domain)'
+        #         )
+        # bar1 = plt.bar(
+        #         np.arange( len( u2 ) ) + 1 * width, u2, width, align = 'center', alpha = 0.4,
+        #         label = 'lab 2, user 2 (cross-domain)'
+        #         )
+        # bar1 = plt.bar(
+        #         np.arange( len( u3 ) ) + 2 * width, u3, width, align = 'center', alpha = 0.4,
+        #         label = 'lab 2, user 3 (cross-domain)'
+        #         )
+        # bar1 = plt.bar(
+        #         np.arange( len( u4 ) ) + 3 * width, u4, width, align = 'center', alpha = 0.4,
+        #         label = 'lab 2, user 4 (cross-domain)'
+        #         )
+        # bar1 = plt.bar(
+        #         np.arange( len( u5 ) ) + 4 * width, u5, width, align = 'center', alpha = 0.4,
+        #         label = 'home, user 5 (cross-domain)'
+        #         )
+        # plt.xticks(
+        #         np.arange( len( u4 ) ) + 2 * width, ('without fine-tuning', 'with fine-tuning(1 shot)',
+        #                                              'with fine-tuning(5 shots)'),
+        #         fontsize = fsize
+        #         )
         plt.ylabel( "Accuracy(%)", fontsize = fsize )
         plt.legend( fontsize = 11,loc = 3 )
         plt.ylim( 0, 100 )
         plt.yticks( fontsize = fsize )
-        plt.xticks(
-                np.arange( len( u4 ) ) + 2 * width, ('without fine-tuning','with fine-tuning'),
-                fontsize = fsize
-                )
+
         name = 'compareFinetuning'
         out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
               f'learning/Results/results_figs/Paperfigure/' + name
@@ -853,16 +893,10 @@ def wiar():
             linecolor = linecolor,
             ncol = 3,
             name = 'wiar_dataset',
-            xtic = 'N (No. shots)',
+            xtic = 'K (No. shots)',
             ifsetFigure = True
             )
 if __name__ == '__main__':
     wiar()
-    # recordNew( result = 'compare_Base' )
-    # recordNew( result = 'in_domain' )
-    # recordNew( result = 'crossenvir_user5' )
-    # recordNew(result = 'crossenvir_user1234')
-    # recordNew( result = 'cross_domain_user_shots' )
-    # recordNew( result = 'widar' )
 
 

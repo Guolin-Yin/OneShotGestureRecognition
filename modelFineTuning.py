@@ -1040,10 +1040,10 @@ def compareDomain():
     class_t_sne( pred_223, label_223,perplexity = 40, n_iter = 3000 )
 def tuningSignFi():
     config = getConfig( )
-    config.source = [1,2,5,4,3]
-    config.nshots = 1
-    config.N_novel_classes = 25
-    config.N_base_classes = 125
+    config.source = 'home'
+    config.nshots = 5
+    config.N_novel_classes = 76
+    config.N_base_classes = 200
     # config.lr = 4e-4
     # config.lr = 1e-3
     # user 1 - 0.7e-3, 2,3 - 0.65e-3, 4 -
@@ -1125,15 +1125,16 @@ def tuningWiar(nshots,idx_user):
             #     break
     return val_acc
 if __name__ == '__main__':
+    tuningSignFi()
     '''WiAR'''
-    acc_all = { }
-    shots_list = [1,2,3,4,5]
-    for nshots in shots_list:
-        val_acc = tuningWiar(nshots = nshots,idx_user = 6 )
-        acc_all[f'User1_{nshots}_shots'] = val_acc
-    key = list(acc_all.keys())
-    for i in range(len(key)):
-        print(acc_all[key[i]])
+    # acc_all = { }
+    # shots_list = [1,2,3,4,5]
+    # for nshots in shots_list:
+    #     val_acc = tuningWiar(nshots = nshots,idx_user = 6 )
+    #     acc_all[f'User1_{nshots}_shots'] = val_acc
+    # key = list(acc_all.keys())
+    # for i in range(len(key)):
+    #     print(acc_all[key[i]])
     '''Multiple receivers test'''
     # acc_all = {}
     # for i in range(1,7):

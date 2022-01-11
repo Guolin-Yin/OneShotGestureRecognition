@@ -714,27 +714,6 @@ class signDataLoader:
                     n_samples_per_user = 10,shuffle=False
                     )
             return [ train_data, train_labels, test_data, test_labels ]
-        # elif source == 'labuser1':
-        #     print( 'lab environment user 5, 150 classes' )
-        #     x = self.data[ 1 ][ 'csi5' ]
-        #     # x_amp,x_phase = self.preprocessers.csiRatio(csi = x)
-        #     x_amp = np.abs( x )
-        #     x_phase = np.angle( x )
-        #     if isZscore:
-        #         x_amp = stats.zscore( x_amp, axis = 1, ddof = 0 )
-        #         x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
-        #     x_all = np.concatenate( (x_amp, x_phase), axis=2 )
-        #     y_all = self.data[ 1 ][ 'label' ][6000:7500]
-        #     return [ x_all, y_all ]
-        # elif source == 'user1to4':
-        #     print(' lab environment, user 1 to 4, 150 classes')
-        #     x_1 = self._getConcatenated(self.data[ 1 ][ 'csi1' ],isZscore)
-        #     x_2 = self._getConcatenated(self.data[ 1 ][ 'csi2' ],isZscore)
-        #     x_3 = self._getConcatenated(self.data[ 1 ][ 'csi3' ],isZscore)
-        #     x_4 = self._getConcatenated(self.data[ 1 ][ 'csi4' ],isZscore)
-        #     x_all = np.concatenate( (x_1,x_2,x_3,x_4),axis = 0)
-        #     y_all = self.data[ 1 ][ 'label' ][ 0:6000 ]
-        #     return [ x_all, y_all ]
         elif type(source) == list:
             # if len( source ) < 4:
             #     sys.exit( 'list of items not long enough' )
