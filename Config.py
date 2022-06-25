@@ -24,6 +24,7 @@ class getConfig:
         self.matPath = None
         self.test_Domain = (2,3,3)
         self.learning_Domain = [(2,1,3), (2,2,3), (2,3,3), (2,4,3), (2,5,3)]
+        self.history = None
         # if if_Restore_Samp_idx:
         #     self.getSampleIdx()
         self.initGPU()

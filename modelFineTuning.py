@@ -16,8 +16,18 @@ from scipy.io import savemat,loadmat
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
+import time
 from methodTesting.t_SNE import *
 # from modelPreTraining import PreTrainModel
+
+seed = 42
+import random
+import numpy as np
+
+random.seed(seed)
+np.random.seed(seed)
+tf.random.set_seed(seed)
+
 class pltConfusionMatrix():
     def __init__( self ):
         pass
@@ -137,11 +147,11 @@ class fineTuningSignFi:
         self.modelObj = models( )
         self.config = config
         self.trainTestObj = PreTrainModel(config = config )
-        # self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
-        self.lrScheduler = ReduceLROnPlateau(
-                monitor = 'val_loss', factor = 0.1,
-                patience = 20,
-                )
+        self.lrScheduler = tf.keras.callbacks.LearningRateScheduler( self.trainTestObj.scheduler )
+        # self.lrScheduler = ReduceLROnPlateau(
+        #         monitor = 'val_loss', factor = 0.1,
+        #         patience = 20,
+        #         )
         self.earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, restore_best_weights
         =True, min_delta = 0.0001/2,mode = 'min',verbose=1)
         # self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
@@ -163,10 +173,16 @@ class fineTuningSignFi:
             x = x_test[ 1250:1500 ]
             y = y_test[ 1250:1500 ]
             num = nshots * 25
-            Support_data = x[ 0:num, :, :, : ]
-            Support_label = y[0:num,:]
-            Query_data = x[num:len(x)+1,:,:,:]
-            Query_label = y[num:len(x)+1,:]
+            # Support_data = x[ 0:num, :, :, : ]
+            # Support_label = y[0:num,:]
+            # Query_data = x[num:len(x)+1,:,:,:]
+            # Query_label = y[num:len(x)+1,:]
+
+            n = 5
+            Support_data = x[ 25*n:25*(n+1), :, :, : ]
+            Support_label = y[25*n:25*(n+1),:]
+            Query_data = np.delete(x,np.arange(25*n,25*(n+1)),0)
+            Query_label = np.delete(y,np.arange(25*n,25*(n+1)),0)
         elif 'home' in self.config.source or 'lab' in self.config.source:
             if fixed_query_set:
                 _, _, x_test, y_test = testSign.getFormatedData( source = self.config.source, isZscore = self.isZscore )
@@ -177,7 +193,7 @@ class fineTuningSignFi:
                 Query_data = x_test[ query_idx:len( x_test ) + 1, :, :, : ]
                 Query_label = y_test[ query_idx:len( x_test ) + 1, : ]
             else:
-                _, _, x_test, y_test = testSign.getFormatedData( source = self.config.source,isZscore=self.isZscore )
+                _, _, x_test, y_test, = testSign.getFormatedData( source = self.config.source,isZscore=self.isZscore )
                 num = nshots * (np.max(y_test) + 1 - np.min(y_test))
                 Support_data = x_test[ 0:num, :, :, : ]
                 Support_label = y_test[ 0:num, : ]
@@ -254,7 +270,8 @@ class fineTuningSignFi:
         './models/fine_tuning_signfi/fc_fineTuned_250Cls_labTohome_1_shot_without_Zscore.h5'
         if applyFinetunedModel:
 
-            fine_Tune_model = self.modelObj.buildTuneModel( config = self.config,isTest = True )
+            # fine_Tune_model = self.modelObj.buildTuneModel( config = self.config,isTest = True )
+            fine_Tune_model = self.modelObj.buildFeatureExtractor(  )
             if not isSepRx:
                 print( f'loading fine tuned model: {self.config.tunedModel_path}' )
                 print('loading fine tuned model weights}')
@@ -284,9 +301,27 @@ class fineTuningSignFi:
         return [feature_extractor, classifier]
     def tuning( self ,init_weights = True,init_bias = False):
         self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
+
+        # self.pretrained_featureExtractor = Model( inputs = self.pretrained_featureExtractor.input, outputs = self.pretrained_featureExtractor.get_layer( 'Maxpool_3' ).output )
         self.pretrained_featureExtractor.trainable = True
         self.data = self._getSQData( nshots = self.nshots )
+
+        if 1:
+            sup_label_id = np.unique( self.data["Support_label"] )
+            # sup_selected_label_id = np.random.choice(sup_label_id,6,replace = False )
+            sup_selected_label_id = sup_label_id[0:6]
+            sup_idx = np.where( self.data[ 'Support_label' ] == sup_selected_label_id )[ 0 ]
+            self.data['Support_data'] = self.data['Support_data'][sup_idx]
+            self.data['Support_label'] = self.data['Support_label'][sup_idx]
+
+
+            que_idx = np.where( self.data[ 'Query_label' ] == sup_selected_label_id )[ 0 ]
+            self.data['Query_data'] = self.data['Query_data'][que_idx]
+            self.data['Query_label'] = self.data['Query_label'][que_idx]
+
+
         # self.pretrained_featureExtractor = _getPreTrainedFeatureExtractor()
+        # self.config.N_novel_classes = 276 - self.config.N_novel_classes
         fine_Tune_model = self.modelObj.buildTuneModel(
                 pretrained_feature_extractor = self.pretrained_featureExtractor,
                 isTest = False,config = self.config
@@ -314,14 +349,18 @@ class fineTuningSignFi:
         #         )
         fine_Tune_model.compile( loss='categorical_crossentropy', optimizer=optimizer, metrics='acc' )
         idx = np.random.permutation(len(self.data[ 'Support_data' ]))
-        fine_Tune_model.fit(
+        start = time.time( )
+        self.config.history = fine_Tune_model.fit(
                 self.data[ 'Support_data' ][ idx ], to_categorical( self.data[ 'Support_label' ][ idx ] - np.min(
                                 self.data[ 'Support_label' ]),num_classes = self.config.N_novel_classes ),
                 epochs = 1000,
                 # shuffle = True,
+                verbose = True,
                 validation_data = (val_data, val_label),
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
+        end = time.time( )
+        print( f'feature extractor tuning time is: {end - start:.2f}' )
         return fine_Tune_model
     def _mapToNways(self,Support_data,query_set,query_label,nway):
         query_label = np.argmax( query_label, axis = 1 )
@@ -347,7 +386,7 @@ class fineTuningSignFi:
         Support_data = self.data[ 'Support_data' ]
         Support_label = self.data[ 'Support_label' ]
         test_acc = [ ]
-        for i in range( 24,25 ):
+        for i in range( 74,76 ):
             nway = i
             correct_count = 0
             print( f'................................Checking {nway} ways accuracy................................' )
@@ -552,10 +591,15 @@ class fineTuningWidar(fineTuningSignFi ):
         [ Support_data.append( np.concatenate( data[ 'Support_data' ][ keys[ j ] ], axis = 0 ) ) for j in
           range( len( keys ) ) ]
         s_data_array = np.concatenate( Support_data, axis = 0 )
+
         self.pretrained_featureExtractor.load_weights( self.config.pretrainedfeatureExtractor_path )
+        start = time.time( )
         weights = np.transpose(
                 self._getNShotsEmbedding( self.pretrained_featureExtractor, s_data_array )
                 )
+        end = time.time( )
+        timecost = (end - start)
+        print( f'The inference time 1 is: {timecost:.2f}' )
         bias = np.zeros( self.config.N_novel_classes )
         self.fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
         optimizer = tf.keras.optimizers.Adam(
@@ -570,6 +614,7 @@ class fineTuningWidar(fineTuningSignFi ):
                 )
 
         idx = np.random.permutation( len( s_data_array ) )
+        start = time.time( )
         history = self.fine_Tune_model.fit(
                 s_data_array[ idx ],
                 to_categorical(data[ 'Support_label' ][ idx ], num_classes = self.config.N_novel_classes),
@@ -579,6 +624,9 @@ class fineTuningWidar(fineTuningSignFi ):
                 validation_data = (val_data, val_label),
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
+        end = time.time( )
+        timecost = (end - start)
+        print( f'The inference time 2 is: {timecost:.2f}' )
         return [self.fine_Tune_model,data['record'],history]
     def test( self, applyFinetunedModel:bool):
         self.feature_extractor, self.classifier = self._loadFineTunedModel(
@@ -733,9 +781,14 @@ class fineTuningWidar(fineTuningSignFi ):
             for at in ant_selection:
                 Query_data_selection.append(Query_data[at])
                 weights_selection.append(weights[at])
+            start = time.time( )
 
             [Query_embedding.append(feature_extractor[ant_selection[ant]].predict(np.expand_dims(
                     Query_data_selection[ant],axis = 0))) for ant in range(len(Query_data_selection))]
+
+            end = time.time( )
+            timecost = (end - start) / N_Rx
+            print( f'The inference time is: {timecost:.2f}' )
             for w in range(len(Query_embedding)):
                 sim.append(cosine_similarity( weights_selection[w], Query_embedding[ w ]) )
             for g in range( len( sim ) ):
@@ -869,18 +922,19 @@ def searchBestSample(nshots=None):
     return test_acc
 def searchBestSampleMultiRx(nshots:int = None,Rx:list = None):
     config = getConfig( )
+    x = 3
     data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
                  'E:/Sensing_project/Cross_dataset/20181109/User2',
                  'E:/Sensing_project/Cross_dataset/20181109/User3'
                  ]
     config.pretrainedfeatureExtractor_path = './models/Publication_related/FE/a.h5'
     config.nshots = nshots
-    config.train_dir = data_dir[ 0 ]
+    config.train_dir = data_dir[ int(x-1) ]
     config.N_novel_classes = 6
     config.lr = 1e-4
     config.domain_selection = Rx
     # selection = np.random.choice(config.domain_selection,n,replace = False)
-    x = 1
+
     val_acc = 0.0
     fineTuningWidarObj = fineTuningWidar( config = config, isMultiDomain = True )
     for i in range(50):
@@ -889,7 +943,7 @@ def searchBestSampleMultiRx(nshots:int = None,Rx:list = None):
               "%d=========================================================" % i)
         if val_acc < np.max(history.history['val_acc']):
             val_acc = np.max(history.history['val_acc'])
-            config.tunedModel_path = f'./models/Publication_related/widar_fineTuned_M_Rx_model_20181109' \
+            config.tunedModel_path = f'./models/Publication_related/Rx_specific/widar_fineTuned_M_Rx_model_20181109' \
                                      f'_{config.nshots}shots_' \
                                      f'_domain{config.domain_selection}_{val_acc:0.2f}_newFE_user{x}.h5'
             fine_Tune_model.save_weights(config.tunedModel_path)
@@ -906,7 +960,7 @@ def searchBestSampleMultiRx(nshots:int = None,Rx:list = None):
                 print(f'reached expected val_acc {val_acc}')
                 break
     return val_acc
-def evaluationMultiRx(N_Rx,N_shots):
+def evaluationMultiRx(N_Rx,N_shots,userId = 1):
     acc = {'user1':[],'user2':[],'user3':[] }
     config = getConfig( )
     data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
@@ -936,36 +990,36 @@ def evaluationMultiRx(N_Rx,N_shots):
     config.N_novel_classes = 6
     config.nshots = N_shots
     config.tunedModel_path = [
-                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[1]_newFE_user1.h5',
-                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[2]_newFE_user1.h5',
-                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[3]_newFE_user1.h5',
-                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[4]_newFE_user1.h5',
-                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[5]_newFE_user1.h5',
-                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[6]_newFE_user1.h5',]
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[1]_newFE_user{userId}.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[2]_newFE_user{userId}.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[3]_newFE_user{userId}.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[4]_newFE_user{userId}.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[5]_newFE_user{userId}.h5',
+                            path+f'widar_fineTuned_M_Rx_model_20181109_{config.nshots}shots__domain[6]_newFE_user{userId}.h5',]
     config.matPath = [ f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
-                       f"1]_20181109_MultiRx_newFE_user1",
+                       f"1]_20181109_MultiRx_newFE_user{userId}",
                        f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
-                       f"2]_20181109_MultiRx_newFE_user1",
+                       f"2]_20181109_MultiRx_newFE_user{userId}",
                        f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
-                       f"3]_20181109_MultiRx_newFE_user1",
+                       f"3]_20181109_MultiRx_newFE_user{userId}",
                        f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
-                       f"4]_20181109_MultiRx_newFE_user1",
+                       f"4]_20181109_MultiRx_newFE_user{userId}",
                        f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
-                       f"5]_20181109_MultiRx_newFE_user1",
+                       f"5]_20181109_MultiRx_newFE_user{userId}",
                        f"./Sample_index/Publication_related/sample_index_record_for_{config.nshots}_shots_domain_["
-                       f"6]_20181109_MultiRx_newFE_user1" ]
+                       f"6]_20181109_MultiRx_newFE_user{userId}" ]
     config.record = []
     for i in range(len(config.matPath)):
         config.record.append(loadmat( config.matPath[i] + '.mat' )[ 'record' ])
     # for j in range(3):
-    config.train_dir = data_dir[ 0 ]
+    config.train_dir = data_dir[ userId - 1 ]
     config.domain_selection = [1,2,3,4,5,6]
     testWidar = fineTuningWidar( config, True )
     # fineTuneModelEvalObj = WidarDataloader( config = config, isMultiDomain = True )
     # data = fineTuneModelEvalObj.getMultiDomainSQDataForTest(1,False)
     for i in range(10):
         # acc['user1'].append(testWidar.testMultiRx( applyFinetunedModel = True,useWeightMatrix = True,n_Rx = N_Rx ))
-        acc[ 'user1' ].append( testWidar.testMultiRxSep( N_Rx = N_Rx ) )
+        acc[ f'user{userId}' ].append( testWidar.testMultiRxSep( N_Rx = N_Rx ) )
     return acc
 def evaluation( domain_selection,nshots ):
     # config.getFineTunedModelPath( )
@@ -1042,62 +1096,68 @@ def compareDomain():
     pred_233 = feature_extractor.predict( data233['Val_data'] )
     label_233 = data233[ 'Val_label' ]
     class_t_sne( pred_223, label_223,perplexity = 40, n_iter = 3000 )
-def tuningSignFi():
+def tuningSignFi(preTrain_model_path,nshots,source = 'home',):
     config = getConfig( )
-    config.source = 'home'
-    config.nshots = 5
-    config.N_novel_classes = 76
-    config.N_base_classes = 200
+    config.source = source
+    config.nshots = nshots
+    # config.N_novel_classes = 25
+    # config.N_base_classes = 276 - config.N_novel_classes
+
+    config.N_novel_classes = 6
+    config.N_base_classes = 150 - config.N_novel_classes
     # config.lr = 4e-4
     # config.lr = 1e-3
     # user 1 - 0.7e-3, 2,3 - 0.65e-3, 4 -
-    config.lr = 0.65e-3
+    # config.lr = 1e-3
+    config.lr = 6.5e-4
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
-    config.tunedModel_path = f'./models/Publication_related/signFi_finetuned_model_{config.nshots}_shots_' \
-                             f'{config.N_novel_classes}_ways_256_1280.h5'
-    # config.pretrainedfeatureExtractor_path = \
-    #     './models/pretrained_feature_extractors/signFi_featureExtractor_weight_AlexNet_lab_training_acc_0' \
-    #     '.95_on_200cls.h5'
-    config.pretrainedfeatureExtractor_path = 'a.h5'
+    # config.tunedModel_path = f'./models/Publication_related/signFi_finetuned_model_{config.nshots}_shots_' \
+    #                          f'{config.N_novel_classes}_ways_256_1280.h5'
+    # config.pretrainedfeatureExtractor_path = 'a.h5'
+    config.pretrainedfeatureExtractor_path = preTrain_model_path
     tuningSignFiObj = fineTuningSignFi(config,isZscore = False)
-    fine_Tune_model = tuningSignFiObj.tuning(init_bias = False)
-    return fine_Tune_model
+    fine_Tune_model = tuningSignFiObj.tuning(init_weights = True,init_bias = False)
+    return fine_Tune_model,config
 def testingSignFi(path,mode,N_train_classes,environment:str):
-    # config = getConfig( )
-    # config.nshots = 1
-    # config.train_dir = 'D:\Matlab\SignFi\Dataset'
-    # config.source = 'lab'
-    # all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
+    config = getConfig( )
+    config.nshots = 1
+    config.train_dir = 'D:\Matlab\SignFi\Dataset'
+    config.source = 'home'
+    config.N_base_classes = 200
+    config.N_novel_classes = 76
+    all_path = os.listdir( f'./models/pretrained_feature_extractors/' )
     # for i, path in enumerate( all_path ):
     #     n = re.findall( r'\d+', all_path[ i ] )[ 2 ]
     #     if int( n ) == 200:
     #         config.N_base_classes = int( n )
     #         config.N_novel_classes = 276 - config.N_base_classes
     #         print( f'{n} in environment {config.source}' )
-    #         config.pretrainedfeatureExtractor_path = './models/pretrained_feature_extractors/' + path
-    # tuningSignFiObj = fineTuningSignFi( config, isZscore = False )
-    # acc_all = tuningSignFiObj.test( nway = None, applyFinetunedModel = False )
+    # config.pretrainedfeatureExtractor_path = './models/pretrained_feature_extractors/' + path
+    config.tunedModel_path = path
+    tuningSignFiObj = fineTuningSignFi( config, isZscore = False )
+    acc_all = tuningSignFiObj.test( nway = None, applyFinetunedModel = True )
 
-    config = getConfig( )
-    modelObj = models( )
-
-    config.source = environment
-    config.train_dir = 'D:\Matlab\SignFi\Dataset'
-    config.N_base_classes = N_train_classes
-    # config.lr = 3e-4
-    config.pretrainedfeatureExtractor_path = path
-    # Declare objects
-    dataLoadObj = signDataLoader( config = config )
-    # preTrain_modelObj = PreTrainModel( config = config )
-    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
-            source = config.source,
-            isZscore = False
-            )
-    feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
-    feature_extractor.load_weights(config.pretrainedfeatureExtractor_path )
-    fineTuningSignFiObj = fineTuningSignFi( config )
-    test_acc = fineTuningSignFiObj.signTest(test_data, test_labels, 1000, feature_extractor)
-    return test_acc
+    # config = getConfig( )
+    # modelObj = models( )
+    #
+    # config.source = environment
+    # config.train_dir = 'D:\Matlab\SignFi\Dataset'
+    # config.N_base_classes = N_train_classes
+    # # config.lr = 3e-4
+    # config.pretrainedfeatureExtractor_path = path
+    # # Declare objects
+    # config.tunedModel_path = 'fe.h5'
+    # dataLoadObj = signDataLoader( config = config )
+    # # preTrain_modelObj = PreTrainModel( config = config )
+    # train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
+    #         source = config.source,
+    #         isZscore = False
+    #         )
+    # feature_extractor = modelObj.buildFeatureExtractor( mode = mode )
+    # feature_extractor.load_weights(config.pretrainedfeatureExtractor_path )
+    # fineTuningSignFiObj = fineTuningSignFi( config )
+    # test_acc = fineTuningSignFiObj.test(test_data, test_labels, 1000, feature_extractor)
+    return acc_all
 def tuningWiar(nshots,idx_user):
     config = getConfig()
     config.nshots = nshots
@@ -1129,7 +1189,62 @@ def tuningWiar(nshots,idx_user):
             #     break
     return val_acc
 if __name__ == '__main__':
-    tuningSignFi()
+    if 1:
+        acc_all = {
+                'user_5':[],
+                'user_4':[],
+                'user_3':[],
+                'user_2':[],
+                'user_1':[],
+                'user_e':[],
+                }
+        N_base_classes = 170
+        # for N_base_classes in np.linspace(3,20,18,dtype = int):
+        # for N_base_classes in [30,40,50,60,70,80,90,100,110,120,150,200,]:
+        # preTrain_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
+        # FT_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\FT_a_lab_training_{N_base_classes}cls.h5'
+        # for i in ['home',[1,2,3,4,5]]
+        preTrain_model_path = f'a.h5'
+        user_N = [[4,3,1,2,5],[4,1,2,5,3],[4,3,1,5,2],[3,1,2,5,4,]]
+        # user_N = ['home',]
+        for _,i in enumerate([1,2,3,4,5]):
+            for n in user_N:
+                fine_Tune_model,config = tuningSignFi(preTrain_model_path,i,n)
+                acc_all[f'user_{n[-1]}'].append(np.max(config.history.history['val_acc']))
+        # fe = Model( inputs = fine_Tune_model.input, outputs = fine_Tune_model.get_layer( 'lambda_layer' ).output)
+        # fine_Tune_model.save_weights(FT_model_path)
+        # acc_all = np.asarray( acc_all )
+    ''' 25 classes
+    home: 1 -> 88.03
+    home: 2 -> 84.5 93.5
+    home: 3 -> 86.5
+    home: 4 -> 92.5
+    home: 5 -> 93.6
+    lab 2:[0.68000001, 0.72000003, 0.78857142, 0.81999999, 0.83999997] - user 5
+    lab 2:[0.92888892, 0.97000003, 0.96571428, 0.97333336, 0.96799999] - user 4
+    lab 2:[0.80000001, 0.86000001, 0.88      , 0.89333332, 0.912     ] - user 3
+    lab 2:[0.68000001, 0.70499998, 0.71428573, 0.75333333, 0.792     ] - user 2
+    average: [0.77222224, 0.81375001, 0.83714286, 0.86      , 0.87799999]
+    
+    6 novel classes
+    'home': [1,1,1,1,1]
+    'user_5': [0.26, 0.29, 0.52, 0.58, 0.60],
+    'user_4': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'user_3': [1.0, 1.0, 1.0, 1.0, 1.0],
+    # 'user_2': [0.93,0.85,0.86,0.92,0.97]
+    # 'user_2': [0.85, 0.92, 0.79, 0.88, 0.87]
+    'user_2': [0.85, 0.86, ,0.89, 0.92, 0.97]
+
+    '''
+    # preTrain_model_path = f'a.h5'
+    #
+    # fine_Tune_model, config = tuningSignFi( preTrain_model_path, 1, 'home' )
+    # savemat( f'signfi_oneshot_history.mat', config.history.history )
+    # testingSignFi('fe.h5','Alexnet',200,'home')
+    # for i in range(1,6):
+    #     for j in range(1,7):
+    #         searchBestSampleMultiRx(nshots = i,Rx = [j])
+    # tuningSignFi()
     '''WiAR'''
     # acc_all = { }
     # shots_list = [1,2,3,4,5]
@@ -1141,13 +1256,14 @@ if __name__ == '__main__':
     #     print(acc_all[key[i]])
     '''Multiple receivers test'''
     # acc_all = {}
+    # userId = 3
     # for i in range(1,7):
-    #     for shot in range(2,6):
-    #         acc = evaluationMultiRx( N_Rx = i,N_shots=shot )
+    #     for shot in range(1,6):
+    #         acc = evaluationMultiRx( N_Rx = i,N_shots=shot,userId = userId )
     #         acc_all[f'{i}_Rx_{shot}_shot'] = acc
-    # savemat('multiRx_acc.mat',acc_all)
+    # savemat(f'multiRx_acc_user_{userId}.mat',acc_all)
     # for k in range(1,7):
-    #     x = 3
-    #     per = np.min(acc_all[f'{k}_Rx_{x}_shot']['user1'])
-    #     print(f'{k} receivers, {x} shots accuracy is: {per:.2f}%')
+    #     for x in range(1,6):
+    #         per = np.mean(acc_all[f'{k}_Rx_{x}_shot']['user3'])
+    #         print(f'{k} receivers, {x} shots accuracy is: {per:.2f}%')
 

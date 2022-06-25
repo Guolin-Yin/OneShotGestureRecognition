@@ -6,6 +6,7 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 import random
 from scipy.io import savemat,loadmat
+from matplotlib.lines import Line2D
 # from methodTesting.plotResults import pltResults
 config = getConfig()
 def pltCrossDomain():
@@ -92,12 +93,17 @@ def kFactorNreceiver():
     plt.ylabel( 'Average accuracy')
     plt.ylim( 0,100 )
 def pltResults(
-        acc, resultsLabel, axis, linestl = None, markertype = None, linecolor = None, ncol = None, name = None,
-        ifsetFigure = 'else', xtic:str = 'N' + ' (No. Novel classes)'
+        acc, resultsLabel, axis, yrange = None,xrange=None, linestl = None, markertype = None, linecolor = None, \
+                                                                                                      ncol = None,
+        name = None,
+        ifsetFigure = 'else', xtic:str = 'N' + ' (No. Novel Classes)', bbox_to_anchor=None,fillstyle
+        =Line2D.fillStyles[-1]
         ):
 
-    ax = plt.figure( figsize = (8, 5) ).gca( )
+    ax = plt.figure( figsize = (8, 4.5) ).gca( )
     ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
+    # box = ax.get_position( )
+    # ax.set_position( [ box.x0, box.y0, box.width * 0.8, box.height ] )
     # markertype = [".","s","o","P","x","d",">"]
     for i in range( len( acc ) ):
         ax.plot(
@@ -109,15 +115,23 @@ def pltResults(
                 marker = markertype[i],
                 # marker = "s",
                 color = linecolor[i],
-                markersize = 6,
-                label = resultsLabel[ i ]
+                # markersize = 12,
+                label = resultsLabel[ i ],
+                ms=10,mew=1,
+                linewidth = 1,
+                fillstyle = fillstyle
                 )
-    if ifsetFigure:
-        pass
-    if ifsetFigure == 'else':
-        ax.set_ylim( 35, 101 )
-    if ifsetFigure == 'widar':
-        ax.set_ylim( 0, 100 )
+    # if ifsetFigure:
+    #     pass
+    # if ifsetFigure == 'else':
+    #     ax.set_ylim( 35, 101 )
+    # if ifsetFigure == 'widar':
+    if yrange is not None:
+        a,b = yrange
+        ax.set_ylim( a, b )
+    if xrange is not None:
+        c, d = xrange
+        ax.set_xlim( c, d )
     # ax.set_xlim( 39, 80 )
     fsize = 14
     plt.xticks(fontsize = fsize)
@@ -125,13 +139,23 @@ def pltResults(
     # ax.set_title( 'Feature extractor trained on lab environment with 125 classes' )
     ax.set_xlabel( xtic, fontsize = fsize )
     ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
-    ax.legend( fontsize = 10,ncol = ncol,
-            # loc='upper center',
-            # bbox_to_anchor=(0.5, 1.17)
-            )
+    if bbox_to_anchor is None:
+        ax.legend( fontsize = 10,ncol = ncol,
+                # loc='upper center',
+                fancybox = True, shadow=True,
+                # bbox_to_anchor=bbox_to_anchor
+                )
+    else:
+        ax.legend(
+                fontsize = 10, ncol = ncol,
+                # loc='upper center',
+                fancybox = True, shadow = True,
+                bbox_to_anchor = bbox_to_anchor
+                )
+    plt.grid( alpha = 0.2)
     out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
            f'learning/Results/results_figs/Paperfigure/'+ name
-    plt.savefig( out +'.pdf' )
+    plt.savefig( out +'.pdf',bbox_inches='tight' )
 def record():
     resultsLabel = []
 
@@ -422,38 +446,38 @@ def recordNew(result):
         linecolor = []
         '''COMPARE BASE CLASSES'''
         resultsLabel.append( ' $N_b = 250$' )
-        linecolor.append( 'darkslategrey' )
-        linestl.append( 'dashdot' )
-        markertype.append( 'h' )
+        linecolor.append( 'tab:green' )
+        linestl.append( 'solid' )
+        markertype.append( 's' )
         train_with_lab_250cls_26_testcls_26 = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0,
                                                 99.8, 100.0, 100.0, 99.9,
                                                 100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
 
         resultsLabel.append( ' $N_b = 200$' )
-        linecolor.append('cornflowerblue')
+        linecolor.append('darkblue')
         linestl.append('solid')
-        markertype.append('s')
+        markertype.append('o')
         train_with_lab_200cls_26_testcls_26 = [ 99.8, 99.3, 98.7, 98.8, 99.1, 98.7, 98.4, 98.6, 97.7, 98.2, 97.9,
                                                 97.8, 97.6, 97.9, 97.3, 97.5, 97.5, 97.7, 97., 95.7, 98.1, 96.8,
                                                 97.4, 97.5, 96.5 ]
         resultsLabel.append( ' $N_b = 150$' )
-        linecolor.append( 'darkolivegreen' )
-        linestl.append( 'dashdot' )
+        linecolor.append( 'k' )
+        linestl.append( 'solid' )
         markertype.append( '4' )
         train_with_lab_150cls_26_testcls_26 = [ 99., 98.4, 98., 96.3, 95.5, 96.3, 95.1, 94.3, 94.3, 93.2, 93.5,
                                                 92.9, 92.5, 91.7, 92.3, 91., 92.6, 92.4, 89.8, 89.9, 89.5, 89.6,
                                                 91.6, 90.9, 88.4 ]
         resultsLabel.append( ' $N_b = 100$' )
-        linecolor.append( 'sandybrown' )
-        linestl.append( 'dashdot' )
-        markertype.append( 11 )
+        linecolor.append( 'tab:red' )
+        linestl.append( 'solid' )
+        markertype.append( "v" )
         train_with_lab_100cls_26_testcls_26 = [ 98.4, 96.6, 95.8, 94.4, 94.3, 93.8, 93., 92., 92., 88.1, 90.,
                                                 90.2, 89.7, 88.2, 87.9, 85.8, 87.4, 86.8, 87.8, 85.7, 86., 85.6,
                                                 87.5, 83.4, 86.1 ]
         resultsLabel.append( ' $N_b = 50$' )
-        linecolor.append( 'peru' )
-        linestl.append( 'dashdot' )
-        markertype.append( 10 )
+        linecolor.append( 'darkmagenta' )
+        linestl.append( 'solid' )
+        markertype.append( "^" )
         train_with_lab_50cls_26_testcls_26 = [ 92.4, 85.9, 81.7, 78., 74.4, 73.7, 73., 69.1, 68.3, 66.2, 63.,
                                                63.2, 61.6, 58.4, 62.7, 59.8, 57.7, 59.3, 53.6, 56.2, 54.2, 52.7,
                                                54.8, 52.3, 51.4 ]
@@ -466,26 +490,28 @@ def recordNew(result):
                 linestl = linestl,
                 markertype = markertype,
                 linecolor = linecolor,
-                ncol = 1,
-                name = 'compareBaseClasses'
+                ncol = 3,
+                name = 'compareBaseClasses',
+                yrange = (30,103), xrange = (0,27), fillstyle = 'none',
+                # bbox_to_anchor = (0.5, 1.12)
                 )
     if result == 'crossenvir_user1234':
         resultsLabel = []
-        markertype = ["o","P","x","d"]
-        linecolor = ['green','red','plum','tab:brown']
-        resultsLabel.append( 'lab 2, user 1 (cross-domain)' )
+        markertype = ["*","+","x","d"]
+        linecolor = ['green','red','deeppink','tab:brown']
+        resultsLabel.append( 'lab 2, s1' )
 
         test_on_lab_2_user_1 = [ 95.6, 93.2, 89., 87.2, 83.6, 85.4, 83.6, 78.8, 80.2, 79.2, 79.2, 75.8, 72.8, 79.,
                                  76.4, 76.4, 72.2, 75.6, 74.8, 79.4, 74.2, 72., 73.4, 72. ]
-        resultsLabel.append( 'lab 2, user 2 (cross-domain)' )
+        resultsLabel.append( 'lab 2, s2' )
         test_on_lab_2_user_2 = [ 94., 91., 86.5, 86.6, 83.5, 82., 79.2, 78.5, 77.7, 73.8, 73.4,
                                  74.3, 74.2, 72.4, 73.1, 73.1, 71.2, 75., 71.6, 66.1, 68.5, 70.3,
                                  69.4, 70. ]
-        resultsLabel.append( 'lab 2, user 3 (cross-domain)' )
+        resultsLabel.append( 'lab 2, s3' )
         test_on_lab_2_user_3 = [ 97.1, 95.5, 92.6, 91.4, 90.1, 88., 88.3, 88.6, 86.3, 84.9, 86.2,
                                  85.9, 83.1, 85.5, 81.5, 84.5, 80.7, 82.1, 84.6, 79., 81.2, 81.3,
                                  77.1, 80.4 ]
-        resultsLabel.append( 'lab 2, user 4 (cross-domain)' )
+        resultsLabel.append( 'lab 2, s4' )
         test_on_lab_2_user_4 = [ 99.5, 99.1, 98.8, 98.1, 97.3, 96.2, 96.3, 96.6, 96., 95.2, 95.9,
                                  95.6, 95.4, 94.5, 93.7, 94.3, 93.9, 94.6, 92.4, 92.1, 91.7, 93.8,
                                  92.8, 92.4 ]
@@ -493,40 +519,42 @@ def recordNew(result):
                 [ test_on_lab_2_user_1, test_on_lab_2_user_2, test_on_lab_2_user_3, test_on_lab_2_user_4 ],
                 resultsLabel,
                 np.arange( 2, 26 ),
-                linestl = ['dotted','dotted','dotted','dotted'],
+                linestl = ['solid','solid','solid','solid'],
                 markertype = markertype,
                 linecolor = linecolor,
-                ncol = 2,
-                xtic = 'N (No.classes)',
-                name = 'crossenvir_user1234'
+                ncol = 4,
+                xtic = 'N (No. Novel Classes)',
+                name = 'crossenvir_user1234',
+                yrange=(30,102)
                 )
     if result == 'in_domain':
         # test_76_cls_FE_200_256_1280_lab = [99.9,99.8,99.8,98.7,98.8,98.7,98.5,97.8,97.8,96.8,95.4,95.8,95.,93.3,92.3,91.7]
         test_76_cls_FE_200_256_1280_lab = [95.4,95.8,95.,93.3,92.3,91.7]
         pltResults(
                 [ test_76_cls_FE_200_256_1280_lab ]
-                , [ 'lab, user 5 (in-domain)' ],
+                , [ 'lab, s5' ],
                 # np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ), np.asarray( [ 76 ] )), axis = 0 ),
                 np.concatenate((np.arange( 30, 77, 10 ), np.asarray( [ 76 ] )),axis = 0),
                 linestl = ['solid'],
-                markertype = ['s'],
-                linecolor = ['cornflowerblue'],
+                markertype = ['o'],
+                linecolor = ['darkblue'],
                 name = 'novel_class_in_domain_new',
-                ifsetFigure = True
+                ifsetFigure = True,
+                yrange = (90, 100), xrange =(29,78),fillstyle = 'none'
                 )
     if result == 'crossenvir_user5':
         test_76_cls_FE_200_256_1280_home = [95.2,93.4,88.7,87.8,86.1,84.7,82.5,81.8,80.2,72.5,63.7,64.5,61.3,59.1,
                                              60.9,57.9]
         pltResults(
                 [ test_76_cls_FE_200_256_1280_home ]
-                , [ 'home, user 5 (cross domain)' ],
+                , [ 'home, s5' ],
                 np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ), np.asarray( [ 76 ] )), axis = 0 ),
-                linestl = [ 'dashed' ],
-                markertype = [ 's' ],
+                linestl = [ 'solid' ],
+                markertype = [ 'o' ],
                 linecolor = [ 'darkorange' ],
                 name = 'crossenvir_user5',
-                xtic = 'N (No.classes)'
-
+                xtic = 'N (No. Novel Classes)',
+                yrange = (30,100),xrange = (0,78)
                 # linecolor = linecolor
                 )
     if result == 'cross_domain_user_shots':
@@ -538,13 +566,13 @@ def recordNew(result):
         crossdomain_user_4 = [92.4,93.0,94.6,94.5,95.2]
         markertype = [
                 # "s",
-                "s","o","P","x","d"]
+                "o","s","+","x","d"]
         linecolor = [
                 # 'cornflowerblue',
-                     'darkorange','green','red','plum','tab:brown']
+                     'darkorange','green','red','tab:blue','tab:brown']
         linestl = [
                 # 'solid',
-                'dashed', 'dotted', 'dotted', 'dotted', 'dotted' ]
+                'solid', 'solid', 'solid', 'solid', 'solid' ]
         pltResults(
                 [
                             # indomain_user_5,
@@ -553,16 +581,18 @@ def recordNew(result):
                 ,
                 [
                         # 'lab, user 5 (in-domain)',
-                  'home, user 5 (cross-domain)',
-                    'lab 2, user 1 (cross-domain)','lab 2, user 2 (cross-domain)','lab 2, user 3 (cross-domain)',
-                    'lab 2, user 4 (cross-domain)'],
+                  'home, s5',
+                    'lab 2, s1','lab 2, s2','lab 2, s3',
+                    'lab 2, s4'],
                 np.arange(1,6),
                 linestl = linestl,
                 linecolor = linecolor,
                 markertype=markertype,
-                ncol = 2,
+                ncol = 3,
                 name = 'FSL',
-                xtic = 'K' + ' (No. shots)'
+                xtic = 'K' + ' (No. Shots)',
+                yrange = (30,100),
+                # bbox_to_anchor=(0.5,1.17)
                 )
     if result == 'widar':
         FT_user1 = [51.8,69.3,83.4,85.2,90.6]
@@ -571,26 +601,25 @@ def recordNew(result):
         nFT_user1 = [ 35.6, 38.8, 39.6, 39.6, 42.6 ]
         nFT_user2 = [ 69, 74.17, 79, 80.17, 80.17 ]
         nFT_user3 = [ 50, 58.16, 58.83, 64.5, 67.3 ]
-        markertype = [ "*", 5, 6, "*", 5, 6 ]
-        linecolor = [ 'burlywood','violet','lightseagreen', 'burlywood','violet','lightseagreen']
-        linestl = [ 'solid', 'solid', 'solid', 'dotted', 'dotted', 'dotted' ]
+        markertype = [ "o", "o", 'v', 'v', 's', 's' ]
+        linecolor = [ 'darkblue','darkblue','darkgreen','darkgreen', 'darkmagenta','darkmagenta']
+        linestl = [ 'solid', 'dashed', 'solid', 'dashed', 'solid', 'dashed' ]
+
+
         pltResults(
-                [ FT_user1, FT_user2, FT_user3, nFT_user1, nFT_user2,
-                  nFT_user3 ]
-                , [ 'with FT, user W1',
-                    'with FT, user W2',
-                    'with FT, user W3',
-                    'without FT, user W1',
-                    'without FT, user W2',
-                    'without FT, user W3' ],
+                [FT_user1,nFT_user1,FT_user2,nFT_user2,FT_user3,nFT_user3]
+                , ['w/ FT, w1','w/o FT, w1','w/ FT, w2','w/o FT, w2','w/ FT, w3',
+                   'w/o FT, w3'],
                 np.arange( 1, 6 ),
                 linestl = linestl,
                 linecolor = linecolor,
                 markertype = markertype,
                 ncol = 3,
                 name = 'widarperform_3user',
-                xtic = 'K (No. shots)',
-                ifsetFigure = 'widar'
+                xtic = 'K (No. Shots)',
+                ifsetFigure = 'widar',
+                yrange=(30,103),
+                bbox_to_anchor = (0.3,0.37)
                 )
     if result == 'l2_norm':
         without_lab = [99. , 98.5, 97.1, 97.6, 96. , 95.6, 94.7, 94.8, 94.8, 90.1, 88.3,
@@ -637,18 +666,18 @@ def barChartNew(result):
         oneshot = [72,70,80.4,92.4,57.9,]
         twoshot = [81.3,77,91.6,96.5,72.8,]
         threeshot = [88.0,96.8,98.4,99.2,87.1,]
-        plt.figure( figsize = (8, 5) )
+        plt.figure( figsize = (8, 4.5) )
         plt.bar(
                 np.arange( len( oneshot ) ) + 0 * width, oneshot, width, align = 'center', alpha = 0.4,
                 label = 'without fine-tuning'
                 )
         plt.bar(
                 np.arange( len( twoshot ) ) + 1 * width, twoshot, width, align = 'center', alpha = 0.4,
-                label = 'with fine-tuning(1 shot)'
+                label = 'with fine-tuning (1 shot)'
                 )
         plt.bar(
                 np.arange( len( threeshot ) ) + 2 * width, threeshot, width, align = 'center', alpha = 0.4,
-                label = 'with fine-tuning(5 shots)'
+                label = 'with fine-tuning (5 shots)'
                 )
         plt.xticks(
                 np.arange( len( threeshot ) ) + 2 * width, ('User s1', 'User s2', 'User s3', 'User s4','User s5'),
@@ -680,14 +709,14 @@ def barChartNew(result):
         #         fontsize = fsize
         #         )
         plt.ylabel( "Accuracy(%)", fontsize = fsize )
-        plt.legend( fontsize = 11,loc = 3 )
+        plt.legend( fontsize = 11,loc = 3,fancybox = True, shadow=True, )
         plt.ylim( 0, 100 )
         plt.yticks( fontsize = fsize )
 
         name = 'compareFinetuning'
         out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
               f'learning/Results/results_figs/Paperfigure/' + name
-        plt.savefig( out + '.pdf' )
+        plt.savefig( out + '.pdf',bbox_inches='tight'  )
     if result == 'adv':
         N = 1
         id = np.arange( N )
@@ -833,27 +862,61 @@ def barChartNew(result):
     #             fontsize = fsize
     #             )
     plt.show()
-def multiRx():
-    resultsLabel = []
-    oneShot_NoFT = [25.83,27.83,29.83,31.33,38.33,41.83]
-    resultsLabel.append('1 shot without FT')
-    oneShot_FT_general = [38.16,47.33,53.5,55.67,56.17,64]
-    resultsLabel.append( '1 shot with FT (GM)' )
-    oneShot_FT_specific = [38.16,53.17,61,67.5,73.5,75.5]
-    resultsLabel.append( '1 shot with FT (RSM)' )
-    twoShot_FT_specific = [59.5,68.83,77.5,85.83,87.0,92]
-    resultsLabel.append( '2 shot with FT (RSM)' )
-    threeShot_FT_specific = [66.83,78,88,92,96.83,98.83]
-    resultsLabel.append( '3 shot with FT (RSM)' )
-    fourShot_FT_specific = [68.83,80.83,89.33,92.17,95.5,97.33]
-    resultsLabel.append( '4 shot with FT (RSM)' )
-    fiveShot_FT_specific = [76.83,87.33,95.5,98.5,99.5,100.00]
-    resultsLabel.append( '5 shot with FT (RSM)' )
-    acc = [ oneShot_NoFT, oneShot_FT_general, oneShot_FT_specific, twoShot_FT_specific, threeShot_FT_specific,
-            fourShot_FT_specific, fiveShot_FT_specific ]
-    markertype = [ "*","X",4,5,6,7,'D']
-    linecolor = [ 'burlywood', 'violet', 'lightseagreen', 'lightseagreen', 'lightseagreen', 'lightseagreen','lightseagreen' ]
-    linestl = [ 'dotted', 'dotted','solid', 'solid', 'solid','solid','solid' ]
+def multiRx(ID= 'user1'):
+    if ID == 'user1':
+        resultsLabel = []
+        # oneShot_NoFT = [25.83,27.83,29.83,31.33,38.33,41.83]
+        # resultsLabel.append('1 shot')
+        # oneShot_FT_general = [38.16,47.33,53.5,55.67,56.17,64]
+        # resultsLabel.append( '1 shot' )
+        oneShot_FT_specific = [38.16,53.17,61,67.5,73.5,75.5]
+        resultsLabel.append( '1 shot' )
+        twoShot_FT_specific = [59.5,68.83,77.5,85.83,87.0,92]
+        resultsLabel.append( '2 shots' )
+        threeShot_FT_specific = [66.83,78,88,92,96.83,98.83]
+        resultsLabel.append( '3 shots' )
+        fourShot_FT_specific = [68.83,80.83,89.33,92.17,95.5,97.33]
+        resultsLabel.append( '4 shots' )
+        fiveShot_FT_specific = [76.83,87.33,95.5,98.5,99.5,100.00]
+        resultsLabel.append( '5 shots' )
+    elif ID == 'user2':
+        resultsLabel = []
+        # oneShot_NoFT = [25.83,27.83,29.83,31.33,38.33,41.83]
+        # resultsLabel.append('1 shot without FT')
+        # oneShot_FT_general = [38.16,47.33,53.5,55.67,56.17,64]
+        # resultsLabel.append( '1 shot with FT (GM)' )
+        oneShot_FT_specific = [67.67,77.67,81.33,82.83,92.00,94.33]
+        resultsLabel.append( '1 shot' )
+        twoShot_FT_specific = [79.00,89.00,92.00,94.50,97.50,98.33]
+        resultsLabel.append( '2 shots' )
+        threeShot_FT_specific = [79.33,90.67,95.17,98.5,99.83,100.00]
+        resultsLabel.append( '3 shots' )
+        fourShot_FT_specific = [87.83,93,95.33,97.5,98,98.83]
+        resultsLabel.append( '4 shots' )
+        fiveShot_FT_specific = [86,91,94.67,95.83,98,99]
+        resultsLabel.append( '5 shots' )
+    elif ID == 'user3':
+        resultsLabel = [ ]
+        # oneShot_NoFT = [25.83,27.83,29.83,31.33,38.33,41.83]
+        # resultsLabel.append('1 shot without FT')
+        # oneShot_FT_general = [38.16,47.33,53.5,55.67,56.17,64]
+        # resultsLabel.append( '1 shot with FT (GM)' )
+        oneShot_FT_specific = [ 56, 65.67, 72.50, 82.50, 86.00, 90.17 ]
+        resultsLabel.append( '1 shot' )
+        twoShot_FT_specific = [ 73.00, 82.33, 88.83, 96.33, 98.50, 100.00 ]
+        resultsLabel.append( '2 shots' )
+        threeShot_FT_specific = [ 79.83, 90.83, 95.17, 96.50, 96.83, 98.17 ]
+        resultsLabel.append( '3 shots' )
+        fourShot_FT_specific = [ 84.00, 86.67, 94.00, 97.83, 99.83, 100.00 ]
+        resultsLabel.append( '4 shots' )
+        fiveShot_FT_specific = [ 86.83, 95.83, 98.67, 100.00, 100.00, 100.00 ]
+        resultsLabel.append( '5 shots' )
+    acc = [ oneShot_FT_specific, twoShot_FT_specific, threeShot_FT_specific, fourShot_FT_specific,
+            fiveShot_FT_specific ]
+    # markertype = [ "*","X",4,5,"^",7,'^']
+    markertype = ['p','*','v','+','x']
+    linecolor = [ 'black', 'olive', 'r', 'blueviolet', 'royalblue' ]
+    linestl = [ 'solid', 'solid','solid', 'solid', 'solid','solid','solid' ]
     pltResults(
             acc,
             resultsLabel,
@@ -861,29 +924,32 @@ def multiRx():
             linestl = linestl,
             markertype = markertype,
             linecolor = linecolor,
-            ncol = 3,
-            name = 'multiRx_results',
+            ncol = 5,
+            name = 'multiRx_results' + f'{ID}',
             xtic = 'No. Receivers',
-            ifsetFigure = True
+            ifsetFigure = True,
+            yrange = (30,102)
             )
 def wiar():
     resultsLabel = []
     u2 = [66.2,79.5,86.8,89.2,94.2,]
-    resultsLabel.append('User 1')
+    resultsLabel.append('a1')
     u6 = [54.2,60.9,75.9,78.1,86.3]
-    resultsLabel.append( 'User 2' )
+    resultsLabel.append( 'a2' )
     u7 = [31.03,37.5,46.52,48.32,57.24]
-    resultsLabel.append( 'User 3' )
+    resultsLabel.append( 'a3' )
     u8 = [60.13,73.66,80.32,84.61,88.74]
-    resultsLabel.append( 'User 4' )
+    resultsLabel.append( 'a4' )
     u9 = [54.09,62.72,75.23,78.60,81.25]
-    resultsLabel.append( 'User 5' )
+    resultsLabel.append( 'a5' )
     u10 = [51.29,64.73,78.24,81.97,88.49]
-    resultsLabel.append( 'User 6' )
+    resultsLabel.append( 'a6' )
     acc = [ u2,u6,u7,u8,u9,u10 ]
-    markertype = [ "h",">",'v','8','p','*']
-    linecolor = [ 'lightcoral', 'salmon', 'chocolate', 'sandybrown', 'lightseagreen', 'peru' ]
-    linestl = [ 'dotted', 'dotted','dotted', 'dotted', 'dotted','dotted','dotted' ]
+    markertype = [ "s",">",'v','+','p','*']
+    linecolor = [ 'b', 'red', 'c', 'm', 'green', 'k' ]
+    # linecolor = ['pink', 'spring', 'summer', 'autumn', 'winter', 'cool',
+    #                   'Wistia', 'hot']
+    linestl = [ 'solid', 'solid','solid', 'solid', 'solid','solid','solid' ]
     pltResults(
             acc,
             resultsLabel,
@@ -893,10 +959,154 @@ def wiar():
             linecolor = linecolor,
             ncol = 3,
             name = 'wiar_dataset',
-            xtic = 'K (No. shots)',
-            ifsetFigure = True
+            xtic = 'K (No. Shots)',
+            # bbox_to_anchor = (0.5,1.17),
+            yrange = (30,100)
+            # ifsetFigure = True
             )
-if __name__ == '__main__':
-    wiar()
+def pltconverge():
+    fsize = 14
+    N = 1000
+    oneshot = loadmat('signfi_oneshot_history.mat',squeeze_me = 1)
+    retrain = loadmat('signfi_oneshot_retrain_history.mat',squeeze_me = 1)
+    ax = plt.figure( figsize = (8, 4.5) ).gca( )
+    ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
+    ax.plot(oneshot['val_acc'][0:N],label = 'Fine-tunine')
+    ax.plot(retrain['val_acc'][0:N],label = 'Retraining')
 
+    ax2 = ax.twinx( )
+    ax2.set_ylabel( 'Y2-axis' )
+
+    ax2.plot( oneshot[ 'val_loss' ][ 0:N ], label = 'Fine-tunine',alpha = 0.5 )
+    ax2.plot( retrain[ 'val_loss' ][ 0:N ], label = 'Retraining',alpha = 0.5 )
+
+    ax.set_xlabel( 'Epoch', fontsize = fsize )
+    ax.set_ylabel( 'Validation Accuracy', fontsize = fsize )
+    ax2.set_ylabel( 'Validation Loss', fontsize = fsize )
+    out = 'compare_convergence_results'
+    plt.xticks( fontsize = fsize )
+    plt.yticks( fontsize = fsize )
+    plt.grid( alpha = 0.2 )
+    ax.legend(
+            fontsize = 10,
+            fancybox = True, shadow = True,
+            # bbox_to_anchor=bbox_to_anchor
+            )
+    plt.savefig( out + '.pdf', bbox_inches = 'tight' )
+def pltimpact_cls():
+    # acc = [27.7,47.9,49.9,48.7, 47.8, 49.2,48.9,49.9,50.2,49.4,49.2,48.4,47.4,50.4,50.9,60.6,55.7,55.7,58.8,57.3]
+    # cls = np.linspace(10,200,20)
+
+    # acc = [62.1, 54.9, 59.1, 59.1, 40.8, 42.2, 50.9, 40.6, 35.2, 49. , 39.3, 35. , 44.9, 55.7, 57.8, 28.7, 49.8, 57.3, 32.1]
+    # cls = np.linspace(2,20,19)
+
+    # Fine-tuning results
+    acc = np.asarray([0.56140351, 0.50438595, 0.2134503 , 0.35526314, 0.53216374, 0.52046782, 0.43859649, 0.39766082, 0.52485383, 0.39181286, 0.36695907, 0.49707603, 0.56578946, 0.54970759,
+                      0.30701753, 0.51754385, 0.60380119, 0.59385966, 0.53654969, 0.5847953 , 0.55409354, 0.59064329, 0.5269006 , 0.5350877 , 0.53654969, 0.52777779, 0.5350877 , 0.54590643,
+                      0.61023394, 0.728])*100
+    cls = np.concatenate((np.linspace(3,20,18,dtype = int),np.asarray([30,40,50,60,70,80,90,100,110,120,150,200,])))
+
+    idx = [ np.where( cls == i )[ 0 ] for i in [ 5, 6, 10, 14, 18,30,50,90,120,150,200 ] ]
+    ax = plt.figure( figsize = (8, 4.5) ).gca( )
+    ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
+    ax.plot(
+            cls[np.asarray(idx)],
+            acc[np.asarray(idx)],
+            ms = 10, mew = 1,
+            marker = 'o',
+            linewidth = 1,
+            fillstyle = Line2D.fillStyles[-1]
+            )
+    fsize = 14
+    ax.set_ylim( 0, 100 )
+    ax.set_xlabel( 'The number of base classes', fontsize = fsize )
+    ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
+    plt.grid( alpha = 0.2 )
+    name = 'compareBasecls_cross_domain'
+    out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
+          f'learning/Results/results_figs/Paperfigure/' + name
+    plt.savefig( out + '.pdf', bbox_inches = 'tight' )
+def R1C1():
+    home_u5 = np.array([82.2,84.5,86.5,92.5,93.5])
+    lab2_u1 = np.array([0.68000001, 0.70499998, 0.71428573, 0.75333333, 0.792     ])*100
+    lab2_u2 = np.array([0.80000001, 0.86000001, 0.88      , 0.89333332, 0.912     ])*100
+    lab2_u3 = np.array([0.92888892, 0.97000003, 0.96571428, 0.97333336, 0.96799999])*100
+    lab2_u4 = np.array([0.68000001, 0.72000003, 0.78857142, 0.81999999, 0.83999997])*100
+    acc = [home_u5,lab2_u4,lab2_u3,lab2_u2,lab2_u1,]
+    label = ['home s5', 'lab 2 s4', 'lab 2 s3', 'lab 2 s2', 'lab 2 s1']
+
+
+    ax = plt.figure( figsize = (8, 4.5) ).gca( )
+    ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
+    for i in range( len(acc)):
+        ax.plot(
+                [1,2,3,4,5],
+                acc[i],
+                ms = 10, mew = 1,
+                marker = 'o',
+                linewidth = 1,
+                fillstyle = Line2D.fillStyles[-1],
+                label = label[i]
+                )
+    fsize = 14
+    ax.set_ylim( 0, 100 )
+    ax.set_xlabel( 'The number of base classes', fontsize = fsize )
+    ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
+    plt.grid( alpha = 0.2 )
+    plt.legend()
+    name = 'compareBasecls_cross_domain'
+    out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
+          f'learning/Results/results_figs/Paperfigure/' + name
+def compareDomainSimilarity():
+    '''
+    1. lab -> home
+    2. lab -> lab 2
+    3. lab -> widar
+    '''
+    home_u5 = np.asarray([1,1,1,1,1])*100
+    lab_2_avg = np.asarray([0.950, 0.953, 0.96, 0.97, 0.99])* 100
+    widar = np.asarray([0.6986666667, 0.8233333333, 0.897, 0.9051, 0.9653333333])*100
+    wiar = np.asarray([0.5282333333, 0.6316833333, 0.73835, 0.768, 0.8270333333])*100
+    acc = [home_u5,lab_2_avg,widar,wiar]
+    label = ['Cross Environment', 'Cross Environment User', 'Cross Dataset (Gesture)', 'Cross Dataset (Activity)', ]
+    marker = ['o','v','^', '<', '>', '8', 's', 'p', '*']
+    ax = plt.figure( figsize = (8, 4.5) ).gca( )
+    ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
+    for i in range( len(acc)):
+        ax.plot(
+                [1,2,3,4,5],
+                acc[i],
+                ms = 10, mew = 1,
+                marker = marker[i],
+                linewidth = 1,
+                fillstyle = Line2D.fillStyles[-1],
+                label = label[i]
+                )
+    fsize = 14
+    ax.set_ylim( 0, 103 )
+    ax.set_xlabel( 'The number of base classes', fontsize = fsize )
+    ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
+    plt.grid( alpha = 0.2 )
+    plt.legend()
+    name = 'compare_domain_similarity'
+    out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
+          f'learning/Results/results_figs/Paperfigure/' + name
+    plt.savefig( out +'.pdf',bbox_inches='tight' )
+if __name__ == '__main__':
+
+    # wiar()
+    # recordNew( 'widar' )
+    # recordNew( 'compare_Base' )
+    # # recordNew('in_domain')
+    # recordNew( 'crossenvir_user5' )
+    # recordNew( 'crossenvir_user1234' )
+    # recordNew( 'cross_domain_user_shots' )
+    # multiRx( ID = 'user1' )
+    # multiRx( ID = 'user2' )
+    # multiRx( ID = 'user3' )
+    pltconverge()
+    # pltimpact_cls( )
+    # R1C1()
+    # compareDomainSimilarity()
+    # barChartNew('compareFT')
 

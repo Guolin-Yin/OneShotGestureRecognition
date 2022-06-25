@@ -11,6 +11,7 @@ from Config import *
 import matplotlib.cm as cm
 from sklearn.manifold import TSNE
 import pandas as pd
+from matplotlib.lines import Line2D
 def visualize_scatter_domain( data_2d, label_ids, perplexity,n_iter,figsize = (10, 10) ):
 	plt.figure( figsize = figsize )
 	# plt.grid( )
@@ -56,34 +57,44 @@ def visualize_scatter_classes( data, label_id, label, perplexity,n_iter,figsize 
 	# nb_classes = len( np.unique( label_ids ) )
 	# id_to_label_dict = ['Push&Pull','Sweep','Clap','Slide','Draw-Zigzag(Vertical)','Draw-N(Vertical)']
 	# id_to_label_dict = list(str(np.unique( label_ids )))
-	marker = ['X', '*', 'd', 'h', 'H', 'D', 'P', 'o','v','^', '<', '>', '8', 's', 'p', '*',  ]
+	marker = ['x','v',  '.', 'h', 'H', 'D', 'P', 'o','v','^', '<', '>', '8', 's', 'p', '*',  ]
 	color = np.random.choice([1,2,3],3,replace = False )
-	domains = ['user 5, laboratory','user 5, home','user 1, laboratory']
+	color = ['r','b','g']
+	domains = ['user s5, lab','user s5, home','user s1, lab']
+	facecolors=['r','none','none','b','none','none','g','none','none']
+	# facecolors = [ 'none','r', 'none', 'none','r', 'none', ]
+	count = 0
 	for i in range(len(data)):
 		data_2d = data[i]
 		label_ids = label_id[ i ]
 		domain = domains[i]
+		print( i )
 		for idx, id in enumerate(np.unique( label_ids ) ):
 			p = np.where( label_ids == id )[0]
 			if id == 5:
-				o = 2
-			elif id == 3:
 				o = 3
+			elif id == 3:
+				o = 2
 			elif id == 1:
 				o = 1
 			plt.scatter(
 					data_2d[ p, 0 ],
 					data_2d[ p, 1 ],
 					marker = marker[idx],
-					s = 200,
+					s = 200,facecolors=facecolors[count],
 					# color = plt.cm.Set1( id / float( nb_classes + 1 ) ),
-					color = plt.cm.Set1( color[i] ),
-					linewidth = 1,
+					# color = plt.cm.Set1( color[i] ),
+					color=color[i],
+					linewidth = 2,
 					alpha = 0.7,
-					label = 'sign' + str(o) + f'({domain})'
+					label = 'sign ' + str(o) + f' ({domain})',
+					# fillstyle = Line2D.fillStyles[ -1 ]
 					)
-
-	plt.legend( fontsize = 15,loc = 'best' )
+			count = count+1
+	plt.legend( fontsize = 17,loc = 'best' )
+	out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
+		  f'learning/Results/results_figs/Paperfigure/' + 't_SNE'
+	plt.savefig( out + '.pdf', bbox_inches = 'tight' )
 def domain_t_sne(data,n_components:int = 2,random_state = 0,perplexity:int = 6,n_iter:int = 5000):
 	# data = data.reshape(len(data),-1)
 	n = len(data)
@@ -149,7 +160,7 @@ if __name__ == '__main__':
 	# domain_label = np.concatenate( (domain_label_1, domain_label_3), axis = 0 )
 	# domain_t_sne( (data_val_1, signFiData_lab), perplexity = 20, n_iter = 2000 )
 	selection = [1,3,5]
-	signFidata = signDataObj.getFormatedData( source = 'lab',isZscore = True )
+	signFidata = signDataObj.getFormatedData( source = 'lab',isZscore = False )
 	idx = np.where(signFidata[1] == selection)[0]
 	data_lab = signFidata[0][idx]
 	label_lab = signFidata[1][idx].tolist()
@@ -160,12 +171,12 @@ if __name__ == '__main__':
 	data_home = signFidata[0][idx]
 	label_home = signFidata[1][idx].tolist()
 
-	signFidata = signDataObj.getFormatedData( source = [1,2,3,4,2],isZscore = True  )
+	signFidata = signDataObj.getFormatedData( source = [1,2,3,4,3],isZscore = True  )
 	idx = np.where(signFidata[1] == selection)[0]
 	data_user5 = signFidata[0][idx][0:60]
 	label_user5 = signFidata[1][idx].tolist()[0:60]
 
-	signFidata = signDataObj.getFormatedData( source = [2,3,5,4,1],isZscore = True  )
+	signFidata = signDataObj.getFormatedData( source = [2,3,5,4,4],isZscore = True  )
 	idx = np.where(signFidata[1] == selection)[0]
 	data_user4 = signFidata[0][idx][0:60]
 	label_user4 = signFidata[1][idx].tolist()[0:60]

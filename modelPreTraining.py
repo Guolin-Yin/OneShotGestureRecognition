@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Input, Softmax,Layer
 from tensorflow.keras.models import Model
+from tensorflow.keras.callbacks import ReduceLROnPlateau
 from tensorflow.keras import regularizers
 from Preprocess.gestureDataLoader import *
 import numpy as np
@@ -10,6 +11,7 @@ from LearningModel.MODEL import models
 # from t_SNE import *
 import os
 import re
+import time
 from tensorflow.keras.utils import to_categorical
 
 class FSLtest():
@@ -88,9 +90,7 @@ class FSLtest():
         '''
         test_acc = [ ]
         softmax_func = tf.keras.layers.Softmax( )
-        for nway in np.concatenate((np.arange(2,10),np.arange(10,77,10),np.asarray([76])),axis=0):
-        # for nway in np.arange(2,26,1):
-        # for nway in [25]:
+        for nway in [76]:
             print( "Checking %d way accuracy...." % nway )
             correct_count = 0
             for i in range( N_test_sample ):
@@ -181,7 +181,7 @@ class PreTrainModel:
         return preTrain_model, self.feature_extractor
     def scheduler(self, epoch, lr):
         if epoch > 100:
-            return lr * tf.math.exp(-0.1)
+            return lr #* tf.math.exp(-0.1)
         else:
             return lr
 def train_user_1to5():
@@ -218,6 +218,7 @@ def train_lab(N_train_classes):
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.N_base_classes = N_train_classes
     config.lr = 3e-4
+    # config.lr = 1e-4
     # Declare objects
     dataLoadObj = signDataLoader( dataDir = config.train_dir,config = config,)
     preTrain_modelObj = PreTrainModel( config = config )
@@ -235,12 +236,16 @@ def train_lab(N_train_classes):
             )
     train_labels = to_categorical( train_labels - 1, num_classes = int( np.max( train_labels ) ) )
     preTrain_model, feature_extractor = preTrain_modelObj.builPretrainModel( mode = 'Alexnet' )
+    start = time.time()
+
     history = preTrain_model.fit(
             train_data, train_labels,
             validation_split = 0.05,
             epochs = 1000,
             callbacks = [ earlyStop, lrScheduler ]
             )
+    end = time.time( )
+    print(f'feature extractor pre-training time is: {end-start:.2f}')
     val_acc = history.history[ 'val_acc' ]
     return [preTrain_model, feature_extractor,val_acc,config]
 def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None,applyFinetunedModel=None):
@@ -263,38 +268,41 @@ def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None,applyFin
     #         )
     # test_data = []
     # test_labels = []
-    _, _, test_data, test_labels = dataLoadObj.getFormatedData(
+    train_data, train_labels, test_data, test_labels = dataLoadObj.getFormatedData(
             source = config.source,
             isZscore = False
             )
     if type(config.source) == list:
         test_data = test_data[ 1250:1500 ]
         test_labels = test_labels[ 1250:1500 ]
+    # config.N_novel_classes = 150
     FSLtestObj = FSLtest( config )
     feature_extractor = FSLtestObj._loadModel( applyFinetunedModel = applyFinetunedModel, useWeightMatrix = False )
     test_acc = FSLtestObj.signTest( test_data, test_labels, 1000, feature_extractor )
     return test_acc
 if __name__ == '__main__':
+    # N = np.linspace(2,20,19)
     '''Feature Extractor pre-Training'''
-    # N_base_classes = 200
-    # [ preTrain_model, feature_extractor, val_acc, config ] = train_lab( N_base_classes )
-    # # extractor_path = f'./models/signFi_featureExtractor_weight_AlexNet_lab_training_acc_{np.max(val_acc):.2f}_on' \
-    # #                   f'_{config.N_base_classes}cls_256_1280_units.h5'
-    # # feature_extractor.save_weights( extractor_path )
-    # extractor_path = 'FE_No_l2_200.h5'
-    # feature_extractor.save(extractor_path)
-    extractor_path = ['FE_No_l2_200.h5','a.h5']
-    domains = ['lab','home']
-    results = {}
-    '''Testing'''
-    for path in extractor_path:
-        for domain in domains:
-            acc = RunTest(
-                    N_train_classes = 200, domain = domain, nshots = 1,
-                    FE_path = path,
-                    # FT_path = 'a_tuned_signFi_user_2.h5',
-                    applyFinetunedModel = False
-                    # FT_path = './models/Publication_related/Fine_tuning/signFi_finetuned_model_1_shots_25_ways_user5.h5'
-                    )
-            results[domain+'_'+path] = acc
+    # for i in N:
+    #     if int(i) == 10:
+    #         continue
+    if 0:
+        N_base_classes = 150
+        [ preTrain_model, feature_extractor, val_acc, config ] = train_lab( N_base_classes )
+        preTrain_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
+        feature_extractor.save(preTrain_model_path)
+    # # fe.h5 one shot (76 samples) --> 75.6% accuracy
+    # acc_all = []
+    # N = np.concatenate((np.linspace(3,20,18,dtype = int),np.asarray([30,40,50,60,70,80,90,100,110,120,150,200,],dtype=int)))
+    # for i in N:
+    #     N_base_classes = int(i)
+    #     print(f'The number of classes in the training set is{N_base_classes}')
+    #     preTrain_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
+    #     FT_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\FT_signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
+    #
+    acc = RunTest( 200, 'home', 1, FE_path = None, FT_path = 'D:\OneShotGestureRecognition\models\Publication_related\FE/a_tuned_signFi.h5', applyFinetunedModel = True )
+    #     acc_all.append( acc )
 
+
+'''[47.8], [49.2],[53.9],[57.9],[39.2],[37.4],[49.2],[41.4],[37.4],[52.4],[36.9],[60.6],[55.7],[55.7],[58.8],[57.3]'''
+'''[62.1, 54.9, 59.1, 59.1, 40.8, 42.2, 50.9, 40.6, 35.2, 49. , 39.3, 35. , 44.9, 55.7, 57.8, 28.7, 49.8, 57.3, 32.1]'''

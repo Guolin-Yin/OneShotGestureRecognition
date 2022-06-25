@@ -5,7 +5,7 @@ import numpy as np
 import re
 import copy
 import math
-import torch
+
 import scipy.io as sio
 from os.path import dirname, join
 from tensorflow.keras.utils import to_categorical
@@ -511,7 +511,7 @@ class WidarDataloader(gestureDataLoader):
                          'Draw-N(Vertical)': []}
         support_label = [ ]
         query_label = [ ]
-        n_samples_perCls = 20
+        n_samples_perCls = 10
         num_val = n_samples_perCls - nshots_per_domain
         Val_set_multi_domain = []
         Val_set_label_multi_domain = [ ]
@@ -658,7 +658,7 @@ class signDataLoader:
             x_phase = stats.zscore( x_phase, axis = 1, ddof = 0 )
         x_all = np.concatenate( (x_amp, x_phase), axis=2 )
         return x_all
-    def getFormatedData(self,source:str='lab',isZscore:bool=True):
+    def getFormatedData(self,source:str='lab',isZscore:bool=False):
         def getSplitData(x_all,y_all,n_samples_per_user:int,shuffle=True):
             n_base_classes = self.config.N_base_classes
             n_test_classes = 276 - n_base_classes
@@ -773,9 +773,23 @@ class signDataLoader:
         return [ train_data, train_labels, test_data, test_labels ]
 if __name__ == '__main__':
     config = getConfig( )
+    config.source = [1,2,3,4,5]
     config.nshots = 1
-    wiar = WiARdataLoader(config,data_path = 'E:\\Sensing_project\\Cross_dataset\\WiAR\\volunteer_2')
-    data = wiar.getSQDataForTest()
+    config.N_novel_classes = 25
+    config.N_base_classes = 150 - config.N_novel_classes
+
+    config.lr = 0.65e-3
+
+    config.train_dir = 'D:\Matlab\SignFi\Dataset'
+    signData = signDataLoader(config = config)
+    _,_,x_test,y_test = signData.getFormatedData( source = config.source)
+
+
+
+    # config = getConfig( )
+    # config.nshots = 1
+    # wiar = WiARdataLoader(config,data_path = 'E:\\Sensing_project\\Cross_dataset\\WiAR\\volunteer_2')
+    # data = wiar.getSQDataForTest()
     # data_dir = [ 'E:/Sensing_project/Cross_dataset/20181109/User1',
     #              'E:/Sensing_project/Cross_dataset/20181109/User2',
     #              'E:/Sensing_project/Cross_dataset/20181109/User3'

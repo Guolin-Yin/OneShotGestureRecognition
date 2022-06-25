@@ -157,8 +157,8 @@ class models:
             ft = Flatten( )( dp )
             FC_1 = Dense( units = 256, name = 'FC_1' )( ft )
             FC_2 = Dense( units = 1280, name = 'FC_2' )( FC_1 )
-            output = Lambda( lambda x: K.l2_normalize( x, axis = -1 ),name = 'lambda_layer' )( FC_2 )
-            feature_extractor = Model( inputs = input, outputs = output )
+            feature_extractor = Lambda( lambda x: K.l2_normalize( x, axis = -1 ),name = 'lambda_layer' )( FC_2 )
+            feature_extractor = Model( inputs = input, outputs = feature_extractor )
         elif mode =='adv':
             conv_1 = Conv2D(
                     filters = 96, kernel_size = (11, 5), strides = 2, input_shape = config.input_shape,
@@ -204,6 +204,15 @@ class models:
                         bias_regularizer = regularizers.l2( 1e-4 ),
                         name = "fine_tune_layer" )(pretrained_feature_extractor.output )
                 output = Softmax( )( fc )
+                fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )
+                # x = Flatten( )( pretrained_feature_extractor.output  )
+                # x = Dense( units = 256, name = 'FC_1' )( x )
+                # x = Dense( units = 1280, name = 'FC_2' )( x )
+                # x = Lambda( lambda x: K.l2_normalize( x, axis = -1 ), name = 'lambda_layer' )( x )
+                # x = Dense( units = config.N_novel_classes,
+                #         bias_regularizer = regularizers.l2( 1e-4 ),
+                #         name = "fine_tune_layer" )(x)
+                # output = Softmax( )( x )
                 fine_Tune_model = Model( inputs = pretrained_feature_extractor.input, outputs = output )
             except AttributeError:
                 print("The feature extractor has not been passed!!!!!!!!!!!!!!")
