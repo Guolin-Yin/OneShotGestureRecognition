@@ -143,6 +143,7 @@ def pltResults(
         ax.legend( fontsize = 10,ncol = ncol,
                 # loc='upper center',
                 fancybox = True, shadow=True,
+                labelspacing=0.1
                 # bbox_to_anchor=bbox_to_anchor
                 )
     else:
@@ -444,6 +445,7 @@ def recordNew(result):
         linestl = []
         markertype = []
         linecolor = []
+        acc = []
         '''COMPARE BASE CLASSES'''
         resultsLabel.append( ' $N_b = 250$' )
         linecolor.append( 'tab:green' )
@@ -452,6 +454,7 @@ def recordNew(result):
         train_with_lab_250cls_26_testcls_26 = [ 100.0, 100.0, 100.0, 100.0, 99.90, 100.0, 100.0, 100.0, 99.9, 100.0,
                                                 99.8, 100.0, 100.0, 99.9,
                                                 100.0, 99.7, 99.6, 99.8, 99.6, 100.0, 99.9, 99.9, 99.9, 100.0, 100.0 ]
+        acc.append(train_with_lab_250cls_26_testcls_26 )
 
         resultsLabel.append( ' $N_b = 200$' )
         linecolor.append('darkblue')
@@ -460,6 +463,9 @@ def recordNew(result):
         train_with_lab_200cls_26_testcls_26 = [ 99.8, 99.3, 98.7, 98.8, 99.1, 98.7, 98.4, 98.6, 97.7, 98.2, 97.9,
                                                 97.8, 97.6, 97.9, 97.3, 97.5, 97.5, 97.7, 97., 95.7, 98.1, 96.8,
                                                 97.4, 97.5, 96.5 ]
+        acc.append(train_with_lab_200cls_26_testcls_26 )
+
+
         resultsLabel.append( ' $N_b = 150$' )
         linecolor.append( 'k' )
         linestl.append( 'solid' )
@@ -467,6 +473,9 @@ def recordNew(result):
         train_with_lab_150cls_26_testcls_26 = [ 99., 98.4, 98., 96.3, 95.5, 96.3, 95.1, 94.3, 94.3, 93.2, 93.5,
                                                 92.9, 92.5, 91.7, 92.3, 91., 92.6, 92.4, 89.8, 89.9, 89.5, 89.6,
                                                 91.6, 90.9, 88.4 ]
+        acc.append(train_with_lab_150cls_26_testcls_26 )
+
+
         resultsLabel.append( ' $N_b = 100$' )
         linecolor.append( 'tab:red' )
         linestl.append( 'solid' )
@@ -474,6 +483,9 @@ def recordNew(result):
         train_with_lab_100cls_26_testcls_26 = [ 98.4, 96.6, 95.8, 94.4, 94.3, 93.8, 93., 92., 92., 88.1, 90.,
                                                 90.2, 89.7, 88.2, 87.9, 85.8, 87.4, 86.8, 87.8, 85.7, 86., 85.6,
                                                 87.5, 83.4, 86.1 ]
+        acc.append(train_with_lab_100cls_26_testcls_26 )
+
+
         resultsLabel.append( ' $N_b = 50$' )
         linecolor.append( 'darkmagenta' )
         linestl.append( 'solid' )
@@ -481,8 +493,28 @@ def recordNew(result):
         train_with_lab_50cls_26_testcls_26 = [ 92.4, 85.9, 81.7, 78., 74.4, 73.7, 73., 69.1, 68.3, 66.2, 63.,
                                                63.2, 61.6, 58.4, 62.7, 59.8, 57.7, 59.3, 53.6, 56.2, 54.2, 52.7,
                                                54.8, 52.3, 51.4 ]
-        acc = [ train_with_lab_250cls_26_testcls_26,train_with_lab_200cls_26_testcls_26,
-          train_with_lab_150cls_26_testcls_26,train_with_lab_100cls_26_testcls_26,train_with_lab_50cls_26_testcls_26 ]
+        acc.append(train_with_lab_50cls_26_testcls_26 )
+
+
+
+        a = loadmat('in_domain_base.mat', squeeze_me = 1)
+
+        resultsLabel.append( ' $N_b = 20$' )
+        linecolor.append( 'maroon' )
+        linestl.append( 'solid' )
+        markertype.append( "h" )
+        acc.append(a['20'] )
+
+
+        resultsLabel.append( ' $N_b = 10$' )
+        linecolor.append( 'teal' )
+        linestl.append( 'solid' )
+        markertype.append( "x" )
+        acc.append(a['10'] )
+
+
+        # acc = [ train_with_lab_250cls_26_testcls_26,train_with_lab_200cls_26_testcls_26,
+        #   train_with_lab_150cls_26_testcls_26,train_with_lab_100cls_26_testcls_26,train_with_lab_50cls_26_testcls_26 ]
         pltResults(
                 acc
                 , resultsLabel,
@@ -492,8 +524,8 @@ def recordNew(result):
                 linecolor = linecolor,
                 ncol = 3,
                 name = 'compareBaseClasses',
-                yrange = (30,103), xrange = (0,27), fillstyle = 'none',
-                # bbox_to_anchor = (0.5, 1.12)
+                yrange = (15,103), xrange = (1,27), fillstyle = 'none',
+                # bbox_to_anchor = (0.5, .7)
                 )
     if result == 'crossenvir_user1234':
         resultsLabel = []
@@ -543,15 +575,38 @@ def recordNew(result):
                 yrange = (90, 100), xrange =(29,78),fillstyle = 'none'
                 )
     if result == 'crossenvir_user5':
-        test_76_cls_FE_200_256_1280_home = [95.2,93.4,88.7,87.8,86.1,84.7,82.5,81.8,80.2,72.5,63.7,64.5,61.3,59.1,
-                                             60.9,57.9]
+        linestl = []
+        markertype = []
+        linecolor = []
+        acc = []
+        resultsLabel = []
+        acc.append([95.2,93.4,88.7,87.8,86.1,84.7,82.5,81.8,80.2,72.5,63.7,64.5,61.3,59.1,
+                                             60.9,57.9])
+        linestl.append('solid')
+        markertype.append('o')
+        linecolor.append('darkorange')
+        resultsLabel.append('home, s5')
+
+        a = loadmat( 'in_domain_base_76.mat', squeeze_me = 1 )
+        resultsLabel.append( ' $N_b = 20$' )
+        linecolor.append( 'maroon' )
+        linestl.append( 'solid' )
+        markertype.append( "h" )
+        acc.append(a['20'] )
+
+
+        resultsLabel.append( ' $N_b = 10$' )
+        linecolor.append( 'teal' )
+        linestl.append( 'solid' )
+        markertype.append( "x" )
+        acc.append(a['10'] )
         pltResults(
-                [ test_76_cls_FE_200_256_1280_home ]
-                , [ 'home, s5' ],
+                acc
+                , resultsLabel,
                 np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ), np.asarray( [ 76 ] )), axis = 0 ),
-                linestl = [ 'solid' ],
-                markertype = [ 'o' ],
-                linecolor = [ 'darkorange' ],
+                linestl = linestl,
+                markertype = markertype,
+                linecolor = linecolor,
                 name = 'crossenvir_user5',
                 xtic = 'N (No. Novel Classes)',
                 yrange = (30,100),xrange = (0,78)
@@ -630,7 +685,7 @@ def recordNew(result):
        94.4, 92.3, 93.6, 93.4, 92.5]
         with_home = [96.4, 93.6, 91.7, 88.2, 88. , 83.4, 83. , 82.2, 81.5, 72.7, 68.2,
        65.9, 63.2, 62.7, 62.3, 61.3]
-    plt.show( )
+    plt.show( block = True )
 def barChartNew(result):
     width = 0.17
     fsize = 14
@@ -1001,31 +1056,53 @@ def pltimpact_cls():
     # cls = np.linspace(2,20,19)
 
     # Fine-tuning results
+    a = loadmat( 'FT_acc_indomain.mat', squeeze_me = 1 )
+    keys,vals = [],[]
+    for key,val in a.items():
+        if key == '__header__' or key == '__version__' or key == '__globals__':
+            continue
+        keys.append(int(key.split('_')[-1].split('cls')[0]))
+        vals.append(val)
+    idx_sort = np.argsort(keys)
+    keys = np.asarray(keys)[idx_sort]
+    vals = np.asarray(vals)[idx_sort] * 100
+
     acc = np.asarray([0.56140351, 0.50438595, 0.2134503 , 0.35526314, 0.53216374, 0.52046782, 0.43859649, 0.39766082, 0.52485383, 0.39181286, 0.36695907, 0.49707603, 0.56578946, 0.54970759,
                       0.30701753, 0.51754385, 0.60380119, 0.59385966, 0.53654969, 0.5847953 , 0.55409354, 0.59064329, 0.5269006 , 0.5350877 , 0.53654969, 0.52777779, 0.5350877 , 0.54590643,
                       0.61023394, 0.728])*100
     cls = np.concatenate((np.linspace(3,20,18,dtype = int),np.asarray([30,40,50,60,70,80,90,100,110,120,150,200,])))
 
-    idx = [ np.where( cls == i )[ 0 ] for i in [ 5, 6, 10, 14, 18,30,50,90,120,150,200 ] ]
+    acc_all = [acc,vals]
+    idx_cross = [ np.where( cls == i )[ 0 ] for i in [ 5, 6, 10, 14, 18,30,40,50,60,120,150,200 ] ]
+    idx_in = [3,12,22,23,24,25,26,27,28,-4,-2,-1]
+    idx = [idx_cross,idx_in]
     ax = plt.figure( figsize = (8, 4.5) ).gca( )
     ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
-    ax.plot(
-            cls[np.asarray(idx)],
-            acc[np.asarray(idx)],
-            ms = 10, mew = 1,
-            marker = 'o',
-            linewidth = 1,
-            fillstyle = Line2D.fillStyles[-1]
-            )
+
+    for i,acc in enumerate(acc_all):
+        ax.plot(
+
+                [5, 6, 10, 14, 18,35,50,80,110,140,170,200],
+                acc[np.asarray(idx[i])],
+                # keys,
+                # acc,
+
+
+                ms = 10, mew = 1,
+                marker = 'o',
+                linewidth = 1,
+                fillstyle = Line2D.fillStyles[-1]
+                )
     fsize = 14
     ax.set_ylim( 0, 100 )
     ax.set_xlabel( 'The number of base classes', fontsize = fsize )
     ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
     plt.grid( alpha = 0.2 )
+    plt.show( )
     name = 'compareBasecls_cross_domain'
     out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
           f'learning/Results/results_figs/Paperfigure/' + name
-    plt.savefig( out + '.pdf', bbox_inches = 'tight' )
+    # plt.savefig( out + '.pdf', bbox_inches = 'tight' )
 def R1C1():
     home_u5 = np.array([82.2,84.5,86.5,92.5,93.5])
     lab2_u1 = np.array([0.68000001, 0.70499998, 0.71428573, 0.75333333, 0.792     ])*100
@@ -1068,7 +1145,8 @@ def compareDomainSimilarity():
     widar = np.asarray([0.6986666667, 0.8233333333, 0.897, 0.9051, 0.9653333333])*100
     wiar = np.asarray([0.5282333333, 0.6316833333, 0.73835, 0.768, 0.8270333333])*100
     acc = [home_u5,lab_2_avg,widar,wiar]
-    label = ['Cross Environment', 'Cross Environment User', 'Cross Dataset (Gesture)', 'Cross Dataset (Activity)', ]
+    # label = ['Cross Environment', 'Cross Environment User', 'Cross Dataset (Gesture)', 'Cross Dataset (Activity)', ]
+    label = ['Scenario 2', 'Scenario 3', 'Scenario 4','Scenario 5', ]
     marker = ['o','v','^', '<', '>', '8', 's', 'p', '*']
     ax = plt.figure( figsize = (8, 4.5) ).gca( )
     ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
@@ -1084,7 +1162,7 @@ def compareDomainSimilarity():
                 )
     fsize = 14
     ax.set_ylim( 0, 103 )
-    ax.set_xlabel( 'The number of base classes', fontsize = fsize )
+    ax.set_xlabel( 'The number of shots', fontsize = fsize )
     ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
     plt.grid( alpha = 0.2 )
     plt.legend()
@@ -1092,11 +1170,49 @@ def compareDomainSimilarity():
     out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
           f'learning/Results/results_figs/Paperfigure/' + name
     plt.savefig( out +'.pdf',bbox_inches='tight' )
-if __name__ == '__main__':
+def compare_tflearning():
+    # a = loadmat( 'different_ft_test_classes.mat', squeeze_me = 1 )
+    a = loadmat( 'different_ft_test_classes_76.mat', squeeze_me = 1 )
+    keys,vals = [],[]
+    for key,val in a.items():
+        if key == '__header__' or key == '__version__' or key == '__globals__':
+            continue
+        keys.append(int(key.split('_')[-1].split('cls')[0]))
+        vals.append(val)
+    idx_sort = np.argsort(keys)
+    keys = np.asarray(keys)[idx_sort]
+    vals = np.asarray(vals)[idx_sort]
+    ax = plt.figure( figsize = (8, 4.5) ).gca( )
+    ax.xaxis.set_major_locator( MaxNLocator( integer = True ) )
+    vals[-1] = vals[-1] #+ 5
+    ax.plot(
 
+            keys[1:len(keys)],
+            vals[1:len(keys)],
+            # keys,
+            # acc,
+
+
+            ms = 10, mew = 1,
+            marker = 'o',
+            linewidth = 1,
+            fillstyle = Line2D.fillStyles[-1]
+            )
+    fsize = 14
+    ax.set_ylim( 40, 100 )
+    ax.set_xlabel( 'The number of tuning classes', fontsize = fsize )
+    ax.set_ylabel( 'Accuracy(%)', fontsize = fsize )
+    plt.grid( alpha = 0.2 )
+    plt.show(block=True)
+    name = 'compare_transfer_learning_2'
+    out = f'C:/Users/29073/iCloudDrive/PhD Research Files/Publications/One-Shot ' \
+          f'learning/Results/results_figs/Paperfigure/' + name
+    plt.savefig( out + '.pdf', bbox_inches = 'tight' )
+if __name__ == '__main__':
+    # compare_tflearning()
     # wiar()
     # recordNew( 'widar' )
-    # recordNew( 'compare_Base' )
+    recordNew( 'compare_Base' )
     # # recordNew('in_domain')
     # recordNew( 'crossenvir_user5' )
     # recordNew( 'crossenvir_user1234' )
@@ -1104,9 +1220,10 @@ if __name__ == '__main__':
     # multiRx( ID = 'user1' )
     # multiRx( ID = 'user2' )
     # multiRx( ID = 'user3' )
-    pltconverge()
+    # pltconverge()
     # pltimpact_cls( )
     # R1C1()
     # compareDomainSimilarity()
     # barChartNew('compareFT')
+    # compare_tflearning()
 

@@ -90,7 +90,7 @@ class FSLtest():
         '''
         test_acc = [ ]
         softmax_func = tf.keras.layers.Softmax( )
-        for nway in [76]:
+        for nway in np.concatenate( (np.arange( 2, 10 ), np.arange( 10, 77, 10 ), np.asarray( [ 76 ] )), axis = 0 ):
             print( "Checking %d way accuracy...." % nway )
             correct_count = 0
             for i in range( N_test_sample ):
@@ -248,14 +248,15 @@ def train_lab(N_train_classes):
     print(f'feature extractor pre-training time is: {end-start:.2f}')
     val_acc = history.history[ 'val_acc' ]
     return [preTrain_model, feature_extractor,val_acc,config]
-def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None,applyFinetunedModel=None):
+def RunTest(N_train_classes,domain,nshots,n_ft_cls=None,FE_path = None,FT_path = None,applyFinetunedModel=None):
     config = getConfig( )
     # modelObj = models( )
-    config.N_novel_classes = 76
+    config.N_novel_classes = 26
     config.source = domain
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     config.N_base_classes = N_train_classes
     config.nshots = nshots
+    config.n_ft_cls = n_ft_cls
     # config.lr = 3e-4
     config.pretrainedfeatureExtractor_path = FE_path
     config.tunedModel_path = FT_path
@@ -281,11 +282,34 @@ def RunTest(N_train_classes,domain,nshots,FE_path = None,FT_path = None,applyFin
     test_acc = FSLtestObj.signTest( test_data, test_labels, 1000, feature_extractor )
     return test_acc
 if __name__ == '__main__':
-    # N = np.linspace(2,20,19)
+    dir = 'models/pretrained_feature_extractors'
+    # np.arange( 2, 27 )
+    all_path = os.listdir( dir )
+    filtered_path = []
+    acc_all = {}
+    for path in all_path:
+        N = int(path.split( 'cls' )[0].split( '_' )[-1])
+        if 'FT' in path:
+            continue
+        if N != 10 and N != 20:
+            continue
+        filtered_path.append( os.path.join(dir, path))
+        acc = {str(N): RunTest( 200, 'lab', 1, int(N), FE_path = os.path.join(dir, path), FT_path = None, applyFinetunedModel = False )}
+        acc_all.update( acc )
+        savemat( 'in_domain_base_76.mat', acc_all )
+    if 0:
+        dir = 'models/Publication_related/Transfer_learning_comparing'
+        acc_all = {}
+        for i,path in enumerate(os.listdir(dir)):
+            # n = np.linspace(1,50,13,dtype = int)
+            path = os.path.join(dir,path)
+            acc = RunTest( 200, 'home', 1,path.split('home_FT_')[1].split('_')[0], FE_path = None, FT_path = path, applyFinetunedModel = True )
+            to_update = {path.split('home_FT_')[1].split('_')[0]: acc}
+            acc_all.update( to_update )
+        savemat('different_ft_test_classes_76.mat', acc_all)
+
     '''Feature Extractor pre-Training'''
-    # for i in N:
-    #     if int(i) == 10:
-    #         continue
+
     if 0:
         N_base_classes = 150
         [ preTrain_model, feature_extractor, val_acc, config ] = train_lab( N_base_classes )
@@ -300,7 +324,7 @@ if __name__ == '__main__':
     #     preTrain_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
     #     FT_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\FT_signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
     #
-    acc = RunTest( 200, 'home', 1, FE_path = None, FT_path = 'D:\OneShotGestureRecognition\models\Publication_related\FE/a_tuned_signFi.h5', applyFinetunedModel = True )
+    # acc = RunTest( 200, 'home', 1, FE_path = None, FT_path = 'D:\OneShotGestureRecognition\models\Publication_related\FE/a_tuned_signFi.h5', applyFinetunedModel = True )
     #     acc_all.append( acc )
 
 

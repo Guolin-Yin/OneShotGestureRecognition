@@ -173,16 +173,16 @@ class fineTuningSignFi:
             x = x_test[ 1250:1500 ]
             y = y_test[ 1250:1500 ]
             num = nshots * 25
-            # Support_data = x[ 0:num, :, :, : ]
-            # Support_label = y[0:num,:]
-            # Query_data = x[num:len(x)+1,:,:,:]
-            # Query_label = y[num:len(x)+1,:]
+            Support_data = x[ 0:num, :, :, : ]
+            Support_label = y[0:num,:]
+            Query_data = x[num:len(x)+1,:,:,:]
+            Query_label = y[num:len(x)+1,:]
 
-            n = 5
-            Support_data = x[ 25*n:25*(n+1), :, :, : ]
-            Support_label = y[25*n:25*(n+1),:]
-            Query_data = np.delete(x,np.arange(25*n,25*(n+1)),0)
-            Query_label = np.delete(y,np.arange(25*n,25*(n+1)),0)
+            # n = 5
+            # Support_data = x[ 25*n:25*(n+1), :, :, : ]
+            # Support_label = y[25*n:25*(n+1),:]
+            # Query_data = np.delete(x,np.arange(25*n,25*(n+1)),0)
+            # Query_label = np.delete(y,np.arange(25*n,25*(n+1)),0)
         elif 'home' in self.config.source or 'lab' in self.config.source:
             if fixed_query_set:
                 _, _, x_test, y_test = testSign.getFormatedData( source = self.config.source, isZscore = self.isZscore )
@@ -217,7 +217,7 @@ class fineTuningSignFi:
         val_data = Query_data
         val_label = to_categorical(
                 Query_label - np.min( Query_label ), num_classes =
-                self.config.N_novel_classes
+                self.config.n_ft_cls
                 )
         return [val_data,val_label]
     def _getDataToTesting(self,query_set,nway,mode:str = 'fix'):
@@ -299,14 +299,29 @@ class fineTuningSignFi:
         classifier = Model(inputs = [cls_intput_Support,cls_intput_Query],outputs = cls_output)
         # feature_extractor, classifier = self._configModel(model = self.fine_Tune_model)
         return [feature_extractor, classifier]
+    def n_tuning_classes(self,n,data):
+        y = np.unique(data['Support_label'])
+        FT_label = y[0:n]
+        test_label = y[n:len(y)]
+        support_classes_idx = np.where( data['Support_label'] == FT_label )[0]
+        Query_classes_idx = np.where( data['Query_label'] == FT_label )[0]
+
+        data['Support_data'] = data['Support_data'][support_classes_idx]
+        data['Support_label'] = data['Support_label'][support_classes_idx]
+        data['Query_data'] = data['Query_data'][Query_classes_idx]
+        data['Query_label'] = data['Query_label'][Query_classes_idx]
+        return data
+
+
+
     def tuning( self ,init_weights = True,init_bias = False):
         self.pretrained_featureExtractor = self._getPreTrainedFeatureExtractor( )
 
         # self.pretrained_featureExtractor = Model( inputs = self.pretrained_featureExtractor.input, outputs = self.pretrained_featureExtractor.get_layer( 'Maxpool_3' ).output )
         self.pretrained_featureExtractor.trainable = True
         self.data = self._getSQData( nshots = self.nshots )
-
-        if 1:
+        self.data = self.n_tuning_classes(self.config.n_ft_cls,self.data)
+        if 0:
             sup_label_id = np.unique( self.data["Support_label"] )
             # sup_selected_label_id = np.random.choice(sup_label_id,6,replace = False )
             sup_selected_label_id = sup_label_id[0:6]
@@ -335,7 +350,7 @@ class fineTuningSignFi:
                 p = fine_Tune_model.predict(self.data['Query_data'])
                 bias = np.tile(np.mean(-np.sum( p * np.log(p ),axis = 1 ) ),self.config.N_novel_classes )
             else:
-                bias = np.zeros(self.config.N_novel_classes )
+                bias = np.zeros(self.config.n_ft_cls )
             fine_Tune_model.get_layer( 'fine_tune_layer' ).set_weights( [ weights, bias ] )
 
         val_data, val_label = self._getValData(self.data['Query_data'],self.data['Query_label'] )
@@ -352,10 +367,10 @@ class fineTuningSignFi:
         start = time.time( )
         self.config.history = fine_Tune_model.fit(
                 self.data[ 'Support_data' ][ idx ], to_categorical( self.data[ 'Support_label' ][ idx ] - np.min(
-                                self.data[ 'Support_label' ]),num_classes = self.config.N_novel_classes ),
+                                self.data[ 'Support_label' ]),num_classes = self.config.n_ft_cls ),
                 epochs = 1000,
                 # shuffle = True,
-                verbose = True,
+                verbose = 0,
                 validation_data = (val_data, val_label),
                 callbacks = [ self.earlyStop, self.lrScheduler ]
                 )
@@ -1096,20 +1111,22 @@ def compareDomain():
     pred_233 = feature_extractor.predict( data233['Val_data'] )
     label_233 = data233[ 'Val_label' ]
     class_t_sne( pred_223, label_223,perplexity = 40, n_iter = 3000 )
-def tuningSignFi(preTrain_model_path,nshots,source = 'home',):
+def tuningSignFi(preTrain_model_path,nshots,source = 'home',n_ft_cls=None):
     config = getConfig( )
     config.source = source
     config.nshots = nshots
+    config.n_ft_cls = n_ft_cls
     # config.N_novel_classes = 25
     # config.N_base_classes = 276 - config.N_novel_classes
 
-    config.N_novel_classes = 6
-    config.N_base_classes = 150 - config.N_novel_classes
+    config.N_novel_classes = 76
+    config.N_base_classes = 276 - config.N_novel_classes
     # config.lr = 4e-4
     # config.lr = 1e-3
     # user 1 - 0.7e-3, 2,3 - 0.65e-3, 4 -
     # config.lr = 1e-3
     config.lr = 6.5e-4
+    # config.lr = 3e-4
     config.train_dir = 'D:\Matlab\SignFi\Dataset'
     # config.tunedModel_path = f'./models/Publication_related/signFi_finetuned_model_{config.nshots}_shots_' \
     #                          f'{config.N_novel_classes}_ways_256_1280.h5'
@@ -1189,28 +1206,61 @@ def tuningWiar(nshots,idx_user):
             #     break
     return val_acc
 if __name__ == '__main__':
-    if 1:
-        acc_all = {
-                'user_5':[],
-                'user_4':[],
-                'user_3':[],
-                'user_2':[],
-                'user_1':[],
-                'user_e':[],
-                }
-        N_base_classes = 170
-        # for N_base_classes in np.linspace(3,20,18,dtype = int):
-        # for N_base_classes in [30,40,50,60,70,80,90,100,110,120,150,200,]:
-        # preTrain_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
-        # FT_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\FT_a_lab_training_{N_base_classes}cls.h5'
-        # for i in ['home',[1,2,3,4,5]]
+    preTrain_model_path = f'a.h5'
+    acc_all = { }
+
+    # for n_ft_cls in np.linspace(1,50,13,dtype = int):
+    for n_ft_cls in np.linspace(50,76,5,dtype = int):
+        fine_Tune_model, config = tuningSignFi( preTrain_model_path, 1, 'home', n_ft_cls)
+        acc = np.max( config.history.history[ 'val_acc' ] )
+        model_name = f'signFi_home_FT_{config.n_ft_cls}_classes_{ acc}.h5'
+        save_dir = os.path.join( 'models/Publication_related/Transfer_learning_comparing', model_name )
+        fine_Tune_model.save( save_dir )
+
+        acc = { str(n_ft_cls) : np.max( config.history.history[ 'val_acc' ] ) }
+
+        acc_all.update( acc )
+
+        print(acc_all)
+
+    if 0:
+        # acc_all = {
+        #         'user_5':[],
+        #         'user_4':[],
+        #         'user_3':[],
+        #         'user_2':[],
+        #         'user_1':[],
+        #         'user_e':[],
+        #         }
+        # # N_base_classes = 170
+        acc_all = { }
         preTrain_model_path = f'a.h5'
-        user_N = [[4,3,1,2,5],[4,1,2,5,3],[4,3,1,5,2],[3,1,2,5,4,]]
-        # user_N = ['home',]
-        for _,i in enumerate([1,2,3,4,5]):
-            for n in user_N:
-                fine_Tune_model,config = tuningSignFi(preTrain_model_path,i,n)
-                acc_all[f'user_{n[-1]}'].append(np.max(config.history.history['val_acc']))
+        path_all = []
+        for path in os.listdir('D:\OneShotGestureRecognition\models\pretrained_feature_extractors'):
+            if 'signFi_featureExtractor_weight_AlexNet_lab_training' in path and 'acc' not in path and 'FT' not in path:
+                path_all.append(path)
+        for path in path_all:
+            FT_model_path = path.split('.')[0]+'_targetDomain_lab'+'.'+path.split('.')[1]
+            path = os.path.join('D:\OneShotGestureRecognition\models\pretrained_feature_extractors', path)
+            FT_model_path = os.path.join('D:\OneShotGestureRecognition\models', FT_model_path)
+            fine_Tune_model,config = tuningSignFi(path,1,'lab')
+            fine_Tune_model.save(FT_model_path)
+            acc= {path.split('\\')[-1].split('.')[0]:np.max(config.history.history['val_acc'])}
+            acc_all.update(acc)
+            print(acc_all)
+            # acc_all.append(np.max(config.history.history['val_acc']))
+
+    # for N_base_classes in np.linspace(3,20,18,dtype = int):
+        # for N_base_classes in [30,40,50,60,70,80,90,100,110,120,150,200,]:
+        #     preTrain_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\signFi_featureExtractor_weight_AlexNet_lab_training_{N_base_classes}cls.h5'
+        #     FT_model_path = f'D:\OneShotGestureRecognition\models\pretrained_feature_extractors\FT_a_lab_training_{N_base_classes}cls.h5'
+        # for i in ['home',[1,2,3,4,5]]
+        # user_N = [[4,3,1,2,5],[4,1,2,5,3],[4,3,1,5,2],[3,1,2,5,4,]]
+        #     user_N = ['lab',]
+        # for _,i in enumerate([1,2,3,4,5]):
+        #     for n in user_N:
+        #     fine_Tune_model,config = tuningSignFi(preTrain_model_path,1,'lab')
+        #     acc_all[f'user_{n[-1]}'].append(np.max(config.history.history['val_acc']))
         # fe = Model( inputs = fine_Tune_model.input, outputs = fine_Tune_model.get_layer( 'lambda_layer' ).output)
         # fine_Tune_model.save_weights(FT_model_path)
         # acc_all = np.asarray( acc_all )
